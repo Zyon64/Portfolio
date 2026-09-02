@@ -504,8 +504,8 @@ One or two lines about what it is and what you did on it.
     /* LAST + INVERT + PLAY: el salto de posicion se vuelve deslizamiento */
     columnas.forEach(function(c, i){
       var dx = antes[i].x - c.el.getBoundingClientRect().left;
-      var deSel = antes[i].sel  ? 1.05 : 1;
-      var aSel  = c.el.classList.contains('sel') ? 1.05 : 1;
+      var deSel = antes[i].sel ? 1.07 : 1;
+      var aSel  = c.el.classList.contains('sel') ? 1.07 : 1;
       if (!dx && deSel === aSel) return;
 
       c.el.animate(
