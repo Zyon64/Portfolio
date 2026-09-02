@@ -101,7 +101,7 @@
     font-family:var(--mono);font-size:.7rem;color:var(--dim);
     background:rgba(10,14,12,.6);backdrop-filter:blur(6px);
     border:1px solid var(--border);border-radius:5px;
-    padding:6px 11px;cursor:pointer;opacity:.22;
+    padding:6px 11px;cursor:pointer;opacity:.34;
     transition:color .2s,border-color .2s,opacity .2s;
   }
   .replay::before{content:"\21BB"}
@@ -167,12 +167,28 @@
   }
   .cat:hover{color:var(--accent);border-color:var(--border-hi);background:var(--surface-hi)}
 
-  /* La elegida: al centro por `order`, mas grande y en negrita */
+  /* La elegida: se queda en su lugar, solo cambia de peso y color */
   .cat.sel{
-    transform:scale(1.07);z-index:2;font-weight:700;
+    font-weight:700;
     color:var(--accent);border-color:var(--accent-dim);background:var(--surface-hi);
-    box-shadow:0 14px 40px -16px var(--glow);
+    box-shadow:0 10px 30px -18px var(--glow);
   }
+
+  /* Titulo de la categoria: aterriza acá el texto del boton */
+  .cat-title{
+    font-family:var(--mono);font-size:1.55rem;font-weight:700;
+    color:var(--accent);text-align:center;letter-spacing:-.01em;
+    margin:0 0 30px;
+  }
+
+  /* Indicador de carga de video */
+  .thumb.cargando{position:relative}
+  .spinner{
+    width:26px;height:26px;border-radius:50%;
+    border:2px solid var(--border-hi);border-top-color:var(--accent);
+    animation:girar .8s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
   .cat-n{
     font-size:.7rem;color:var(--dim);
     border:1px solid var(--border-hi);border-radius:20px;padding:1px 9px;font-weight:400;
@@ -194,8 +210,8 @@
   }
   @media (max-width:600px){
     .cats{grid-template-columns:1fr;gap:12px}
-    .cat.sel{transform:none}
     .grid{grid-template-columns:1fr}
+    .cat-title{font-size:1.3rem}
   }
   .card{
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
@@ -305,6 +321,7 @@ One or two lines about what it is and what you did on it.
   <div class="wrap">
     <h2>Projects</h2>
     <div class="cats" id="cats"></div>
+    <h3 class="cat-title" id="cat-title"></h3>
     <div class="grid" id="panel"></div>
   </div>
 </section>
@@ -345,7 +362,8 @@ One or two lines about what it is and what you did on it.
   /* Guardar el texto original antes de tocar nada */
   steps.forEach(function(s){ s.text = s.el.textContent; });
 
-  var running = false;
+  var running   = false;
+  var cancelado = false;
 
   function typeOne(step){
     return new Promise(function(done){
@@ -354,6 +372,9 @@ One or two lines about what it is and what you did on it.
 
       var i = 0;
       (function tick(){
+        /* si se cancelo, se completa de golpe y sigue */
+        if (cancelado){ step.el.textContent = step.text; done(); return; }
+
         step.el.textContent = step.text.slice(0, ++i);
         if (i < step.text.length) setTimeout(tick, step.speed);
         else setTimeout(done, step.pause);
@@ -361,9 +382,16 @@ One or two lines about what it is and what you did on it.
     });
   }
 
+  /* En una pestaña de fondo los timers se estrangulan a 1 por segundo:
+     la intro tardaria minutos y la pagina quedaria a medio mostrar. */
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden && running) cancelado = true;
+  });
+
   function play(){
     if (running) return;
-    running = true;
+    running   = true;
+    cancelado = document.hidden;      // arranca ya terminada si no se ve
     document.body.classList.add('intro');
 
     /* vaciar todo antes de arrancar, para que no se vea el texto final */
@@ -409,9 +437,9 @@ One or two lines about what it is and what you did on it.
 
   /* Las tres categorias, en este orden */
   var CATS = [
-    { id:'pixelart', label:'Pixel Art' },
+    { id:'dev',      label:'Dev' },
     { id:'3d',       label:'3D Modeling' },
-    { id:'dev',      label:'Dev' }
+    { id:'pixelart', label:'Pixel Art' }
   ];
 
   /* --- Parseo --- */
@@ -457,61 +485,65 @@ One or two lines about what it is and what you did on it.
     n.textContent = propios.length;
     boton.appendChild(n);
 
-    columnas.push({ id:c.id, el:boton, propios:propios });
+    columnas.push({ id:c.id, el:boton, nm:nm, label:c.label, propios:propios });
     boton.addEventListener('click', function(){ seleccionar(c.id); });
 
     cats.appendChild(boton);
   });
 
-  /* --- Seleccion: la elegida va al medio, crece y se abre --- */
-  function seleccionar(id, sinAnimar){
-    /* FIRST: donde esta cada columna antes de reordenar */
-    var antes = columnas.map(function(c){
-      return { x:c.el.getBoundingClientRect().left, sel:c.el.classList.contains('sel') };
-    });
+  /* --- Seleccion: los botones no se mueven; el texto baja y se
+         convierte en el titulo de la seccion, y las tarjetas
+         entran una por una como una ola. --- */
+  var titulo = document.getElementById('cat-title');
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    var otras = 0, elegidos = [];
+  function seleccionar(id, sinAnimar){
+    var elegidos = [], etiqueta = null, label = '';
+
     columnas.forEach(function(c){
       var elegida = c.id === id;
       c.el.classList.toggle('sel', elegida);
       c.el.setAttribute('aria-selected', elegida ? 'true' : 'false');
-      if (elegida) elegidos = c.propios;
-
-      /* la elegida al centro; las otras a los costados, en su orden */
-      c.el.style.order = elegida ? 2 : (++otras === 1 ? 1 : 3);
+      if (elegida){ elegidos = c.propios; etiqueta = c.nm; label = c.label; }
     });
 
-    /* --- La cuadricula de abajo se rehace con los de esa categoria --- */
+    /* --- El titulo: sale del boton clickeado y aterriza centrado --- */
+    var desde = (etiqueta && !sinAnimar && !quieto) ? etiqueta.getBoundingClientRect() : null;
+    titulo.textContent = label;
+
+    if (desde && titulo.animate){
+      var hasta = titulo.getBoundingClientRect();
+      var dx = (desde.left + desde.width  / 2) - (hasta.left + hasta.width  / 2);
+      var dy = (desde.top  + desde.height / 2) - (hasta.top  + hasta.height / 2);
+      var escala = desde.height / (hasta.height || 1);
+
+      titulo.animate(
+        [{ transform:'translate(' + dx + 'px,' + dy + 'px) scale(' + escala + ')', opacity:.35 },
+         { transform:'none', opacity:1 }],
+        { duration:520, easing:'cubic-bezier(.2,.7,.2,1)' }
+      );
+    }
+
+    /* --- La cuadricula se rehace y cae en cascada --- */
     panel.innerHTML = '';
+
     if (!elegidos.length){
       var vacio = document.createElement('p');
       vacio.className = 'cat-empty';
       vacio.textContent = 'nothing here yet';
       panel.appendChild(vacio);
-    } else {
-      elegidos.forEach(function(p){ panel.appendChild(tarjeta(p)); });
+      return;
     }
 
-    if (!sinAnimar && panel.animate){
-      panel.animate(
-        [{ opacity:0, transform:'translateY(10px)' }, { opacity:1, transform:'none' }],
-        { duration:320, easing:'ease-out' }
-      );
-    }
+    elegidos.forEach(function(p, i){
+      var card = tarjeta(p);
+      panel.appendChild(card);
 
-    if (sinAnimar || !cats.animate) return;
-
-    /* LAST + INVERT + PLAY: el salto de posicion se vuelve deslizamiento */
-    columnas.forEach(function(c, i){
-      var dx = antes[i].x - c.el.getBoundingClientRect().left;
-      var deSel = antes[i].sel ? 1.07 : 1;
-      var aSel  = c.el.classList.contains('sel') ? 1.07 : 1;
-      if (!dx && deSel === aSel) return;
-
-      c.el.animate(
-        [{ transform:'translateX(' + dx + 'px) scale(' + deSel + ')' },
-         { transform:'scale(' + aSel + ')' }],
-        { duration:420, easing:'cubic-bezier(.4,0,.2,1)' }
+      if (quieto || !card.animate) return;
+      card.animate(
+        [{ opacity:0, transform:'translateY(26px)' },
+         { opacity:1, transform:'none' }],
+        { duration:460, delay:i * 80, easing:'cubic-bezier(.2,.7,.2,1)', fill:'backwards' }
       );
     });
   }
@@ -533,6 +565,27 @@ One or two lines about what it is and what you did on it.
         media = document.createElement('video');
         media.src = p.image;
         media.autoplay = media.muted = media.loop = media.playsInline = true;
+        media.preload = 'metadata';
+
+        /* Un video tarda en arrancar: mostramos que esta cargando
+           para que no parezca una imagen rota. */
+        var spin = document.createElement('span');
+        spin.className = 'spinner';
+        thumb.appendChild(spin);
+        thumb.classList.add('cargando');
+
+        var listo = function(){
+          thumb.classList.remove('cargando');
+          if (spin.parentNode) spin.parentNode.removeChild(spin);
+        };
+        media.addEventListener('loadeddata', listo);
+        media.addEventListener('canplay',    listo);
+        media.addEventListener('error', function(){
+          listo();
+          thumb.classList.add('fallo');
+          media.remove();
+          thumb.textContent = 'video unavailable';
+        });
       } else {
         media = document.createElement('img');
         media.src = p.image;
