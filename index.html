@@ -159,7 +159,16 @@
   .cat{
     border:1px solid var(--border);border-radius:10px;
     background:var(--surface);overflow:hidden;
+    transition:border-color .3s,box-shadow .3s;
   }
+  /* La categoria elegida: al centro (order), mas grande y en negrita */
+  .cat.sel{
+    transform:scale(1.05);z-index:2;
+    border-color:var(--accent-dim);
+    box-shadow:0 14px 40px -16px var(--glow);
+  }
+  .cat.sel .cat-head{font-weight:700;color:var(--accent)}
+  .cat.sel .cat-n{color:var(--accent-dim);border-color:var(--accent-dim)}
   .cat-head{
     width:100%;display:flex;align-items:center;gap:10px;
     background:none;border:0;color:var(--text);cursor:pointer;text-align:left;
@@ -424,6 +433,8 @@ One or two lines about what it is and what you did on it.
   });
 
   /* --- Una columna por categoria, desplegable --- */
+  var columnas = [];
+
   CATS.forEach(function(c){
     var propios = items.filter(function(p){
       var cat = (p.cat || 'dev').toLowerCase();
@@ -465,14 +476,50 @@ One or two lines about what it is and what you did on it.
     }
     propios.forEach(function(p){ inner.appendChild(tarjeta(p)); });
 
-    head.addEventListener('click', function(){
-      var abierto = col.classList.toggle('open');
-      head.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-      body.style.maxHeight = abierto ? (inner.scrollHeight + 40) + 'px' : '0px';
-    });
+    columnas.push({ id:c.id, el:col, head:head, body:body, inner:inner });
+    head.addEventListener('click', function(){ seleccionar(c.id); });
 
     cats.appendChild(col);
   });
+
+  /* --- Seleccion: la elegida va al medio, crece y se abre --- */
+  function seleccionar(id, sinAnimar){
+    /* FIRST: donde esta cada columna antes de reordenar */
+    var antes = columnas.map(function(c){
+      return { x:c.el.getBoundingClientRect().left, sel:c.el.classList.contains('sel') };
+    });
+
+    var otras = 0;
+    columnas.forEach(function(c){
+      var elegida = c.id === id;
+      c.el.classList.toggle('sel',  elegida);
+      c.el.classList.toggle('open', elegida);
+      c.head.setAttribute('aria-expanded', elegida ? 'true' : 'false');
+      c.body.style.maxHeight = elegida ? (c.inner.scrollHeight + 40) + 'px' : '0px';
+
+      /* la elegida al centro; las otras a los costados, en su orden */
+      c.el.style.order = elegida ? 2 : (++otras === 1 ? 1 : 3);
+    });
+
+    if (sinAnimar || !cats.animate) return;
+
+    /* LAST + INVERT + PLAY: el salto de posicion se vuelve deslizamiento */
+    columnas.forEach(function(c, i){
+      var dx = antes[i].x - c.el.getBoundingClientRect().left;
+      var deSel = antes[i].sel  ? 1.05 : 1;
+      var aSel  = c.el.classList.contains('sel') ? 1.05 : 1;
+      if (!dx && deSel === aSel) return;
+
+      c.el.animate(
+        [{ transform:'translateX(' + dx + 'px) scale(' + deSel + ')' },
+         { transform:'scale(' + aSel + ')' }],
+        { duration:420, easing:'cubic-bezier(.4,0,.2,1)' }
+      );
+    });
+  }
+
+  /* Arranca con Dev al centro y abierta */
+  seleccionar('dev', true);
 
   /* --- Armado de una tarjeta --- */
   function tarjeta(p){
