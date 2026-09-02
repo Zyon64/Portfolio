@@ -26,6 +26,11 @@
   }
   .bar h1{font-size:.95rem;margin:0 auto 0 0;font-family:var(--mono);letter-spacing:.04em}
   .bar h1 span{color:var(--accent)}
+  /* Sello de version: sirve para saber si el navegador sirvio una copia vieja */
+  .bar h1 em{
+    font-style:normal;font-size:.7rem;color:var(--dim);
+    border:1px solid var(--border);border-radius:4px;padding:1px 7px;margin-left:8px;
+  }
   #status{font-family:var(--mono);font-size:.76rem;color:var(--dim);margin-right:6px}
 
   button{
@@ -168,7 +173,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v2 · galería</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
