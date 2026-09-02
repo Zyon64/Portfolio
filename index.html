@@ -34,7 +34,12 @@
     font:16px/1.65 "Segoe UI",system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
     overflow-x:hidden;
+    /* nada de seleccionar texto al clickear y arrastrar */
+    user-select:none;
+    -webkit-user-select:none;
   }
+  /* las imagenes tampoco se arrastran fuera */
+  img{-webkit-user-drag:none;user-drag:none}
 
   /* Trama sutil de fondo, tipo grilla de editor */
   body::before{
