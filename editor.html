@@ -223,7 +223,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v10 · categorias</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v11 · limpia cola</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
@@ -1226,6 +1226,38 @@
           m.destino = null;
         }
       }
+
+      /* Limpieza: si sacaste un medio del proyecto, su archivo puede
+         haber quedado esperando en subir/ y traba la cola para siempre.
+         Se borra lo que ya no usa ningun proyecto. */
+      try{
+        var usados = {};
+        projects.forEach(function(p){
+          p.medios.forEach(function(m){
+            if (m.src) usados[m.src.split('/').pop()] = true;
+          });
+        });
+
+        var bandeja  = await dirHandle.getDirectoryHandle('subir', { create:true });
+        var enCurso  = '';
+        try{
+          var est = await (await (await bandeja.getFileHandle('_estado.txt')).getFile()).text();
+          var mm  = est.match(/^archivo=(.*)$/m);
+          if (mm) enCurso = mm[1].trim();
+        } catch(e){}
+
+        var sobran = [];
+        for await (var ent of bandeja.values()){
+          if (ent.kind !== 'file') continue;
+          if (ent.name.charAt(0) === '_') continue;
+          if (ent.name === enCurso) continue;      // lo esta subiendo ahora
+          if (!usados[ent.name]) sobran.push(ent.name);
+        }
+        for (var k = 0; k < sobran.length; k++){
+          await bandeja.removeEntry(sobran[k]);
+        }
+        if (sobran.length) console.log('huerfanos quitados de la cola:', sobran);
+      } catch(e){ /* si falla, no es grave */ }
 
       /* 2) reescribir el bloque dentro de index.html
             OJO: se vuelve a leer del disco. Si se usara la copia que
