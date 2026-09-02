@@ -1,0 +1,22 @@
+# Grabaciones en crudo: NUNCA van al repositorio.
+# GitHub rechaza archivos de mas de 100 MB, y todo lo que se sube
+# queda para siempre en el historial aunque despues se borre.
+#
+# Para videos: arrastralos sobre SUBIR-VIDEO.bat y pega la URL
+# que te deja en el portapapeles. Van a Releases, sin limite practico.
+#
+# REGLA: los videos NO viven en el repositorio.
+#   - Video pesado  -> SUBIR-VIDEO.bat  (Releases, hasta 2 GB c/u)
+#   - Clip liviano  -> comprimilo en el editor, que exporta .webm
+#                      y ese si entra (por eso .webm no esta acá)
+#
+img/*.mp4
+img/*.mov
+img/*.avi
+img/*.mkv
+img/*.wmv
+img/*.flv
+
+# Archivos sueltos de Windows
+Thumbs.db
+desktop.ini

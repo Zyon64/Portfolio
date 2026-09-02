@@ -721,7 +721,13 @@
         p.file = null;
       }
 
-      /* 2) reescribir el bloque dentro de index.html */
+      /* 2) reescribir el bloque dentro de index.html
+            OJO: se vuelve a leer del disco. Si se usara la copia que
+            se cargo al abrir el editor, cualquier cambio hecho en el
+            archivo mientras tanto quedaria pisado. */
+      var ihLee = await dirHandle.getFileHandle('index.html');
+      htmlText   = await (await ihLee.getFile()).text();
+
       var nuevo = htmlText.replace(
         /(<script type="text\/plain" id="projects-data">)[\s\S]*?(<\/script>)/,
         function(_, a, b){ return a + generate() + b; }
