@@ -78,7 +78,21 @@
     letter-spacing:-.03em;font-weight:700;
   }
   h1 .dot{color:var(--accent);text-shadow:0 0 24px var(--glow)}
-  .tagline{font-size:1.13rem;color:var(--muted);max-width:54ch;margin:0 0 34px}
+
+  .role{
+    font-family:var(--mono);font-size:1rem;color:var(--accent);
+    margin:-8px 0 20px;letter-spacing:.04em;
+  }
+  .tagline{font-size:1.13rem;color:var(--muted);max-width:54ch;margin:0 0 26px}
+
+  /* Disciplinas: una fila de etiquetas separadas por barra */
+  .disciplines{
+    list-style:none;margin:0 0 34px;padding:0;
+    display:flex;flex-wrap:wrap;align-items:center;gap:0 14px;
+    font-family:var(--mono);font-size:.83rem;color:var(--muted);
+  }
+  .disciplines li{display:flex;align-items:center;gap:14px}
+  .disciplines li:not(:last-child)::after{content:"/";color:var(--border-hi)}
 
   .links a{
     font-family:var(--mono);font-size:.88rem;
@@ -148,12 +162,19 @@
 
 <header>
   <div class="wrap">
-    <p class="prompt">game developer<span class="caret"></span></p>
+    <p class="prompt">whoami<span class="caret"></span></p>
     <h1>Zyon64<span class="dot">.</span></h1>
+    <p class="role">Game Developer</p>
     <p class="tagline">
-      I build games in Unity end to end — code, art, sound, and whatever tools
-      the job needs along the way.
+      I make games, prototypes and Android apps — from the first prototype to
+      the shipped build.
     </p>
+    <ul class="disciplines">
+      <li>3D Modeling</li>
+      <li>Animation</li>
+      <li>Pixel Art</li>
+      <li>Gameplay Programming</li>
+    </ul>
     <div class="links">
       <a href="mailto:roirebels26@gmail.com">Email</a>
       <a href="https://github.com/Zyon64">GitHub</a>
