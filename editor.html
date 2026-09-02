@@ -101,6 +101,47 @@
   .imgrow{display:flex;align-items:center;gap:10px;margin-top:8px}
   .imgrow code{font-family:var(--mono);font-size:.76rem;color:var(--muted);flex:1;word-break:break-all}
 
+  /* Galeria de medios del proyecto */
+  .galeria{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:10px}
+  .galeria:empty{display:none}
+  .medio{
+    position:relative;width:104px;border-radius:7px;overflow:hidden;
+    border:1px solid var(--border);background:#0d1411;cursor:pointer;
+    transition:border-color .15s;
+  }
+  .medio:hover{border-color:var(--border-hi)}
+  .medio.sel{border-color:var(--accent)}
+  .medio .vis{
+    width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#0d1411;
+  }
+  .medio .pie{
+    display:flex;align-items:center;gap:2px;padding:3px;background:var(--surface);
+  }
+  .medio .pie button{
+    flex:1;padding:2px 0;font-size:.62rem;line-height:1.4;
+    background:none;border:1px solid transparent;border-radius:3px;color:var(--dim);
+  }
+  .medio .pie button:hover:not(:disabled){color:var(--accent);border-color:var(--border-hi)}
+  .medio .pie .quitar:hover{color:var(--danger);border-color:var(--danger)}
+  .portada{
+    position:absolute;top:4px;left:4px;
+    font-family:var(--mono);font-size:.55rem;letter-spacing:.08em;
+    background:var(--accent);color:#06120c;border-radius:3px;padding:1px 5px;font-weight:700;
+  }
+  .rel{
+    position:absolute;top:4px;right:4px;
+    font-family:var(--mono);font-size:.55rem;
+    background:rgba(10,14,12,.8);color:var(--muted);
+    border:1px solid var(--border-hi);border-radius:3px;padding:1px 5px;
+  }
+
+  .visor-sel{
+    border:1px solid var(--border);border-radius:8px;background:#0d1411;
+    padding:10px;margin-bottom:8px;text-align:center;
+  }
+  .visor-sel img,.visor-sel video{max-width:100%;max-height:200px;border-radius:5px;display:block;margin:0 auto}
+  #medio-panel.hidden{display:none}
+
   /* Compresor de video */
   .compress{margin-top:10px;padding:12px;background:#0d1411;border:1px solid var(--border);border-radius:8px}
   .compress.hidden{display:none}
@@ -164,19 +205,27 @@
     </div>
 
     <div class="field">
-      <label>Imagen o video</label>
+      <label>Imágenes y videos</label>
+
+      <!-- Miniaturas de todos los medios del proyecto -->
+      <div class="galeria" id="galeria"></div>
+
       <div class="drop" id="drop">
-        <div class="ph" id="drop-ph">Arrastrá una imagen acá, o hacé click para elegirla</div>
+        <div class="ph" id="drop-ph">Arrastrá acá una imagen o video, o hacé click para elegirlo</div>
       </div>
-      <div class="imgrow">
-        <select id="imgpick" title="Archivos que ya estan en la carpeta img">
-          <option value="">— usar uno que ya está en img/ —</option>
-        </select>
-        <button class="ghost danger" id="imgclear" type="button">Quitar</button>
-      </div>
-      <div class="imgrow">
-        <input type="text" id="imgpath" placeholder="img/archivo.jpg  o  https://...">
-      </div>
+
+      <!-- Vista y ajustes del medio seleccionado -->
+      <div id="medio-panel" class="hidden">
+        <div class="visor-sel" id="visor-sel"></div>
+        <div class="imgrow">
+          <select id="imgpick" title="Archivos que ya estan en la carpeta img">
+            <option value="">— usar uno que ya está en img/ —</option>
+          </select>
+          <button class="ghost danger" id="imgclear" type="button">Quitar</button>
+        </div>
+        <div class="imgrow">
+          <input type="text" id="imgpath" placeholder="img/archivo.jpg  o  https://...">
+        </div>
       <div class="compress hidden" id="compress">
         <div class="crow">
           <select id="c-preset">
@@ -189,11 +238,13 @@
         <div class="cbar"><div id="c-fill"></div></div>
         <div class="cinfo" id="c-info"></div>
       </div>
+      </div><!-- /medio-panel -->
 
       <p class="hint">
-        Si el archivo <b>ya está</b> en la carpeta <b>img</b>, elegilo de la lista: no se copia nada.
-        Si lo arrastrás desde otro lado, se copia a <b>img</b> (hace falta: la página solo puede
-        mostrar archivos que estén dentro del portafolio).
+        El <b>primero</b> de la lista es la portada que se ve en la cuadrícula; los demás
+        aparecen al abrir el proyecto. Usá las flechas para reordenarlos.
+        Los <b>videos</b> van solos a Releases (sin límite de peso) y las <b>imágenes</b> a la
+        carpeta <b>img</b>.
       </p>
     </div>
 
@@ -286,13 +337,20 @@
       var line = rawLine.trim();
       if (!line || line.charAt(0) === '#') return;
       if (line.slice(0,2) === '=='){
-        cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', cat:'dev', desc:'', file:null };
+        /* medios: [{src, file, destino}] — el primero es la portada */
+        cur = { title:line.slice(2).trim(), tags:'', link:'', cat:'dev', desc:'', medios:[] };
         out.push(cur);
         return;
       }
       if (!cur) return;
-      var m = line.match(/^(image|tags|link|cat)\s*:\s*(.*)$/i);
-      if (m){ cur[m[1].toLowerCase()] = m[2].trim(); return; }
+      var m = line.match(/^(image|tags|link|cat|media)\s*:\s*(.*)$/i);
+      if (m){
+        var clave = m[1].toLowerCase(), valor = m[2].trim();
+        if (clave === 'image'){ if (valor) cur.medios.unshift({ src:valor }); }
+        else if (clave === 'media'){ if (valor) cur.medios.push({ src:valor }); }
+        else cur[clave] = valor;
+        return;
+      }
       cur.desc += (cur.desc ? ' ' : '') + line;
     });
     return out;
@@ -302,7 +360,11 @@
     var s = HEADER;
     projects.forEach(function(p){
       s += '== ' + clean(p.title) + '\n';
-      s += 'image: ' + clean(p.image) + '\n';
+      /* el primero es la portada; el resto van como `media` */
+      s += 'image: ' + clean(p.medios[0] ? p.medios[0].src : '') + '\n';
+      p.medios.slice(1).forEach(function(m){
+        s += 'media: ' + clean(m.src) + '\n';
+      });
       s += 'tags: '  + clean(p.tags)  + '\n';
       s += 'link: '  + clean(p.link)  + '\n';
       s += 'cat: '   + clean(p.cat || 'dev') + '\n';
@@ -355,9 +417,10 @@
       var row = document.createElement('div');
       row.className = 'item' + (i === sel ? ' sel' : '');
 
-      var mini = document.createElement(isVideo(p.image) ? 'video' : 'img');
+      var portada = p.medios[0];
+      var mini = document.createElement(portada && isVideo(portada.src) ? 'video' : 'img');
       mini.className = 'mini';
-      var src = previewSrc(p);
+      var src = portada ? previewSrc(portada) : '';
       if (src) mini.src = src;
       row.appendChild(mini);
 
@@ -392,16 +455,25 @@
     return b;
   }
 
-  function isVideo(name){ return /\.(mp4|webm)$/i.test(name || ''); }
+  function isVideo(name){ return /\.(mp4|webm|mov|avi|mkv)$/i.test(name || ''); }
 
-  function previewSrc(p){
-    if (p.file) return URL.createObjectURL(p.file);
-    if (p.image) return p.image;      // relativo a esta carpeta, igual que en la pagina
-    return '';
+  function previewSrc(m){
+    if (!m) return '';
+    if (m.file) return URL.createObjectURL(m.file);
+    return m.src || '';
+  }
+
+  /* Medio seleccionado dentro del proyecto actual */
+  var medioSel = 0;
+
+  function medioActual(){
+    var p = projects[sel];
+    return (p && p.medios[medioSel]) ? p.medios[medioSel] : null;
   }
 
   function select(i){
     sel = i;
+    medioSel = 0;
     var p = projects[i];
     $('form').classList.toggle('hidden', !p);
     if (!p){ renderList(); return; }
@@ -411,29 +483,102 @@
     $('f-tags').value  = p.tags;
     $('f-link').value  = p.link;
     $('f-cat').value   = p.cat || 'dev';
-    renderDrop(p);
+    renderGaleria();
     renderList();
   }
 
-  function renderDrop(p){
-    var d = $('drop');
-    d.innerHTML = '';
-    var src = previewSrc(p);
-    if (src){
-      var m = document.createElement(isVideo(p.image) || (p.file && p.file.type.indexOf('video') === 0) ? 'video' : 'img');
-      m.src = src;
-      if (m.tagName === 'VIDEO'){ m.muted = true; m.loop = true; m.autoplay = true; }
-      d.appendChild(m);
-      /* si el archivo esta en el disco, mostrar ese y no el publicado */
-      if (!p.file && /^img\//.test(p.image)) localPreview(p.image, m);
-    } else {
-      var ph = document.createElement('div');
-      ph.className = 'ph';
-      ph.textContent = 'Arrastrá una imagen acá, o hacé click para elegirla';
-      d.appendChild(ph);
-    }
-    $('imgpath').value = p.image || '';
-    $('imgpick').value = existentes.indexOf(p.image) >= 0 ? p.image : '';
+  /* --- Galeria: todas las miniaturas del proyecto --- */
+  function renderGaleria(){
+    var g = $('galeria');
+    g.innerHTML = '';
+    var p = projects[sel];
+    if (!p) return;
+
+    if (medioSel >= p.medios.length) medioSel = p.medios.length - 1;
+    if (medioSel < 0) medioSel = 0;
+
+    p.medios.forEach(function(m, i){
+      var caja = document.createElement('div');
+      caja.className = 'medio' + (i === medioSel ? ' sel' : '');
+
+      var vis = document.createElement(isVideo(m.src) || (m.file && /^video\//.test(m.file.type)) ? 'video' : 'img');
+      vis.className = 'vis';
+      var src = previewSrc(m);
+      if (src) vis.src = src;
+      if (vis.tagName === 'VIDEO'){ vis.muted = true; vis.loop = true; vis.autoplay = true; }
+      if (!m.file && /^img\//.test(m.src)) localPreview(m.src, vis);
+      caja.appendChild(vis);
+
+      if (i === 0){
+        var pd = document.createElement('span');
+        pd.className = 'portada';
+        pd.textContent = 'PORTADA';
+        caja.appendChild(pd);
+      }
+      if (/^https?:/i.test(m.src)){
+        var rel = document.createElement('span');
+        rel.className = 'rel';
+        rel.textContent = 'web';
+        caja.appendChild(rel);
+      }
+
+      var pie = document.createElement('div');
+      pie.className = 'pie';
+      pie.appendChild(botonMedio('◀', i, -1));
+      pie.appendChild(botonMedio('▶', i,  1));
+
+      var x = document.createElement('button');
+      x.type = 'button'; x.className = 'quitar'; x.textContent = '✕';
+      x.title = 'Quitar';
+      x.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        p.medios.splice(i, 1);
+        markDirty(); renderGaleria(); renderList();
+      });
+      pie.appendChild(x);
+      caja.appendChild(pie);
+
+      caja.addEventListener('click', function(){ medioSel = i; renderGaleria(); });
+      g.appendChild(caja);
+    });
+
+    renderMedioSel();
+  }
+
+  function botonMedio(etiqueta, i, dir){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = etiqueta;
+    var p = projects[sel];
+    b.disabled = (i + dir < 0 || i + dir >= p.medios.length);
+    b.title = dir < 0 ? 'Mover antes' : 'Mover después';
+    b.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      var j = i + dir;
+      if (j < 0 || j >= p.medios.length) return;
+      var t = p.medios[i]; p.medios[i] = p.medios[j]; p.medios[j] = t;
+      medioSel = j;
+      markDirty(); renderGaleria(); renderList();
+    });
+    return b;
+  }
+
+  /* --- Vista y campos del medio seleccionado --- */
+  function renderMedioSel(){
+    var m = medioActual();
+    $('medio-panel').classList.toggle('hidden', !m);
+    if (!m){ refrescarCompresor(); return; }
+
+    var v = $('visor-sel');
+    v.innerHTML = '';
+    var el = document.createElement(isVideo(m.src) || (m.file && /^video\//.test(m.file.type)) ? 'video' : 'img');
+    el.src = previewSrc(m);
+    if (el.tagName === 'VIDEO'){ el.muted = true; el.loop = true; el.autoplay = true; el.controls = true; }
+    if (!m.file && /^img\//.test(m.src)) localPreview(m.src, el);
+    v.appendChild(el);
+
+    $('imgpath').value = m.src || '';
+    $('imgpick').value = existentes.indexOf(m.src) >= 0 ? m.src : '';
     refrescarCompresor();
   }
 
@@ -472,16 +617,20 @@
   }
 
   $('imgpick').addEventListener('change', function(){
-    if (sel < 0 || !this.value) return;
-    projects[sel].file  = null;           // ya esta en la carpeta: no se copia
-    projects[sel].image = this.value;
-    renderDrop(projects[sel]); renderList(); markDirty();
+    var m = medioActual();
+    if (!m || !this.value) return;
+    m.file = null;                        // ya esta en la carpeta: no se copia
+    m.destino = null;
+    m.src = this.value;
+    renderGaleria(); renderList(); markDirty();
   });
 
   $('imgpath').addEventListener('input', function(){
-    if (sel < 0) return;
-    projects[sel].file  = null;
-    projects[sel].image = this.value.trim();
+    var m = medioActual();
+    if (!m) return;
+    m.file = null;
+    m.destino = null;
+    m.src = this.value.trim();
     renderList(); markDirty();
   });
 
@@ -494,21 +643,21 @@
 
   /* Devuelve el File del medio actual, este adjunto o ya en img/ */
   async function archivoActual(){
-    if (sel < 0) return null;
-    var p = projects[sel];
-    if (p.file) return p.file;
-    if (!dirHandle || !/^img\//.test(p.image)) return null;
+    var m = medioActual();
+    if (!m) return null;
+    if (m.file) return m.file;
+    if (!dirHandle || !/^img\//.test(m.src)) return null;
     try{
       var imgDir = await dirHandle.getDirectoryHandle('img', { create:false });
-      var fh     = await imgDir.getFileHandle(p.image.replace(/^img\//, ''));
+      var fh     = await imgDir.getFileHandle(m.src.replace(/^img\//, ''));
       return await fh.getFile();
     } catch(err){ return null; }
   }
 
   async function refrescarCompresor(){
     var box = $('compress');
-    var p   = sel >= 0 ? projects[sel] : null;
-    var esVideo = p && (isVideo(p.image) || (p.file && p.file.type.indexOf('video') === 0));
+    var m   = medioActual();
+    var esVideo = m && (isVideo(m.src) || (m.file && m.file.type.indexOf('video') === 0));
     box.classList.toggle('hidden', !esVideo || typeof MediaRecorder === 'undefined');
     if (!esVideo) return;
 
@@ -603,11 +752,13 @@
         $('c-fill').style.width = Math.round(p * 100) + '%';
       });
 
-      var base = (projects[sel].image || f.name).split('/').pop().replace(/\.[^.]+$/, '');
+      var m = medioActual();
+      var base = (m.src || f.name).split('/').pop().replace(/\.[^.]+$/, '');
       var nombre = base.replace(/-min$/, '') + '-min.webm';
 
-      projects[sel].file  = new File([blob], nombre, { type:'video/webm' });
-      projects[sel].image = 'img/' + nombre;
+      m.file    = new File([blob], nombre, { type:'video/webm' });
+      m.src     = 'img/' + nombre;        /* ya comprimido: entra al repo */
+      m.destino = 'img';
 
       $('c-fill').style.width = '100%';
       $('c-info').innerHTML =
@@ -615,7 +766,7 @@
         '(' + Math.round(100 - blob.size / original * 100) + '% menos). ' +
         'Se guarda como <b>' + nombre + '</b>.';
 
-      renderDrop(projects[sel]); renderList(); markDirty();
+      renderGaleria(); renderList(); markDirty();
     } catch(err){
       $('c-info').textContent = 'No se pudo comprimir: ' + err.message;
     }
@@ -661,24 +812,27 @@
     return file.size > 40 * 1024 * 1024;
   }
 
+  /* Cada archivo suelto se AGREGA a la galeria, no reemplaza al anterior */
   function attachFile(file){
     if (sel < 0 || !file) return;
 
     var safe = file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, '-');
-    var p = projects[sel];
-    p.file = file;
+    var medio = { file:file };
 
     if (vaARelease(file, safe)){
-      p.destino = 'release';
-      p.image   = urlRelease(safe);
+      medio.destino = 'release';
+      medio.src     = urlRelease(safe);
       note('<b>' + safe + '</b> se va a subir a Releases al guardar. ' +
            'Dejá abierta la ventana de PUBLICACION-AUTOMATICA.bat.');
     } else {
-      p.destino = 'img';
-      p.image   = 'img/' + safe;
+      medio.destino = 'img';
+      medio.src     = 'img/' + safe;
     }
 
-    renderDrop(p);
+    projects[sel].medios.push(medio);
+    medioSel = projects[sel].medios.length - 1;
+
+    renderGaleria();
     renderList();
     markDirty();
   }
@@ -697,16 +851,16 @@
   });
 
   $('imgclear').addEventListener('click', function(){
-    if (sel < 0) return;
-    projects[sel].file = null;
-    projects[sel].image = '';
-    renderDrop(projects[sel]); renderList(); markDirty();
+    var p = projects[sel];
+    if (!p || !p.medios[medioSel]) return;
+    p.medios.splice(medioSel, 1);
+    renderGaleria(); renderList(); markDirty();
   });
 
   /* ---------- Alta y baja ---------- */
   $('add').addEventListener('click', function(){
     if (!dirHandle && hasFS){ note('Primero abrí la carpeta del portafolio.'); return; }
-    projects.push({ title:'Nuevo proyecto', image:'', tags:'', link:'', cat:'dev', desc:'', file:null });
+    projects.push({ title:'Nuevo proyecto', tags:'', link:'', cat:'dev', desc:'', medios:[] });
     markDirty();
     select(projects.length - 1);
   });
@@ -789,21 +943,24 @@
             imagenes -> img/        videos -> subir/ (de ahi los
             manda a Releases la publicacion automatica) */
       for (var i = 0; i < projects.length; i++){
-        var p = projects[i];
-        if (!p.file) continue;
+        var medios = projects[i].medios;
+        for (var j = 0; j < medios.length; j++){
+          var m = medios[j];
+          if (!m.file) continue;
 
-        var name    = p.image.split('/').pop();
-        var carpeta = await dirHandle.getDirectoryHandle(
-          p.destino === 'release' ? 'subir' : 'img', { create:true }
-        );
+          var name    = m.src.split('/').pop();
+          var carpeta = await dirHandle.getDirectoryHandle(
+            m.destino === 'release' ? 'subir' : 'img', { create:true }
+          );
 
-        var fh = await carpeta.getFileHandle(name, { create:true });
-        var w  = await fh.createWritable();
-        await w.write(p.file);
-        await w.close();
+          var fh = await carpeta.getFileHandle(name, { create:true });
+          var w  = await fh.createWritable();
+          await w.write(m.file);
+          await w.close();
 
-        p.file = null;
-        p.destino = null;
+          m.file = null;
+          m.destino = null;
+        }
       }
 
       /* 2) reescribir el bloque dentro de index.html

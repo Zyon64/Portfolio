@@ -280,9 +280,9 @@
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
     overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s,background .25s;
   }
-  a.card{text-decoration:none;color:inherit;display:block}
   .card{position:relative}
   canvas.dissolve{position:absolute;inset:0;z-index:3;pointer-events:none}
+  canvas.dissolve.fija{position:fixed;z-index:10}
   .card:hover{
     transform:translateY(-5px);border-color:var(--accent-dim);background:var(--surface-hi);
     box-shadow:0 12px 32px -12px var(--glow);
@@ -301,6 +301,64 @@
     border:1px solid var(--border-hi);background:#0d1411;
     padding:3px 10px;border-radius:4px;margin:0 6px 6px 0;display:inline-block;
   }
+
+  /* ---------- Panel de detalle ----------
+     z-index 95: por debajo de la barra (100), que sigue visible. */
+  .detalle{
+    position:fixed;inset:0;z-index:95;
+    background:var(--bg);
+    overflow-y:auto;overscroll-behavior:contain;
+    padding:96px 0 80px;
+  }
+  .detalle[hidden]{display:none}
+
+  .volver{
+    font-family:var(--mono);font-size:.8rem;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    padding:9px 18px 9px 14px;cursor:pointer;margin-bottom:26px;
+  }
+  .volver::before{content:"\2190  ";color:var(--accent-dim)}
+  .volver:hover{color:var(--accent);border-color:var(--accent-dim)}
+
+  .detalle-titulo{
+    font-size:clamp(1.8rem,4vw,2.7rem);line-height:1.05;
+    letter-spacing:-.02em;margin:0 0 14px;
+  }
+  .detalle-tags{margin-bottom:18px}
+  .detalle-desc{
+    color:var(--muted);max-width:66ch;font-size:1.02rem;margin:0 0 22px;
+  }
+  .detalle-link{
+    font-family:var(--mono);font-size:.8rem;color:var(--accent);
+    text-decoration:none;border:1px solid var(--accent-dim);border-radius:6px;
+    padding:9px 18px;display:inline-block;margin-bottom:34px;
+    transition:background .2s,box-shadow .2s;
+  }
+  .detalle-link::after{content:"  \2197"}
+  .detalle-link:hover{background:var(--surface-hi);box-shadow:0 0 20px -6px var(--glow)}
+  .detalle-link[hidden]{display:none}
+
+  /* Galeria: cada medio a lo ancho, uno debajo del otro */
+  .detalle-media{display:flex;flex-direction:column;gap:26px}
+  .visor{
+    position:relative;background:#0d1411;border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;min-height:120px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--dim);font-family:var(--mono);font-size:.8rem;
+  }
+  .visor video,.visor img{width:100%;height:auto;display:block}
+
+  /* Contador de medios en la portada de la tarjeta */
+  .cuenta{
+    position:absolute;left:8px;bottom:8px;z-index:2;
+    font-family:var(--mono);font-size:.68rem;color:var(--muted);
+    background:rgba(10,14,12,.7);border:1px solid var(--border-hi);
+    border-radius:5px;padding:2px 8px;
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  }
+  .cuenta::after{content:" media"}
+
+  .card{cursor:pointer}
 
   /* ---------- About ---------- */
   .about p{max-width:64ch;color:var(--muted);margin:0 0 16px}
@@ -442,6 +500,19 @@ One or two lines about what it is and what you did on it.
     </ul>
   </div>
 </section>
+
+<!-- Panel de detalle de un proyecto. Vive dentro de la misma pagina,
+     asi la barra de redes de arriba nunca se recarga. -->
+<div class="detalle" id="detalle" hidden>
+  <div class="detalle-caja wrap">
+    <button class="volver" id="volver" type="button">Back</button>
+    <h2 class="detalle-titulo" id="detalle-titulo"></h2>
+    <div class="tags detalle-tags" id="detalle-tags"></div>
+    <p class="detalle-desc" id="detalle-desc"></p>
+    <a class="detalle-link" id="detalle-link" target="_blank" rel="noopener" hidden>Open project</a>
+    <div class="detalle-media" id="detalle-media"></div>
+  </div>
+</div>
 
 <footer>
   <div class="wrap">© 2026 Zyon64</div>
@@ -625,14 +696,20 @@ One or two lines about what it is and what you did on it.
     if (!line || line.charAt(0) === '#') return;          // vacia o nota
 
     if (line.slice(0, 2) === '=='){                        // arranca un proyecto
-      cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', cat:'', desc:[] };
+      cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', cat:'', media:[], desc:[] };
       items.push(cur);
       return;
     }
     if (!cur) return;
 
-    var m = line.match(/^(image|tags|link|cat)\s*:\s*(.*)$/i);
-    if (m){ cur[m[1].toLowerCase()] = m[2].trim(); return; }
+    var m = line.match(/^(image|tags|link|cat|media)\s*:\s*(.*)$/i);
+    if (m){
+      var clave = m[1].toLowerCase(), valor = m[2].trim();
+      /* `media` se puede repetir: son los videos e imagenes extra */
+      if (clave === 'media'){ if (valor) cur.media.push(valor); }
+      else cur[clave] = valor;
+      return;
+    }
 
     cur.desc.push(line);                                   // el resto es descripcion
   });
@@ -751,7 +828,9 @@ One or two lines about what it is and what you did on it.
   var COLOR_FONDO = (getComputedStyle(document.documentElement)
                       .getPropertyValue('--bg') || '#0a0e0c').trim();
 
-  function disolver(card, demora){
+  /* `fijo` = cubre toda la pantalla (para el panel de detalle) en vez
+     de solo la caja del elemento. */
+  function disolver(card, demora, fijo){
     if (quieto || document.hidden) return;
 
     var CELL  = 5,
@@ -759,7 +838,7 @@ One or two lines about what it is and what you did on it.
         BORDE = 0.14,    // franja difusa del frente de avance
         RUIDO = 0.45;    // 0 = barrido recto de arriba a abajo, 1 = puro ruido
     var cv  = document.createElement('canvas');
-    cv.className = 'dissolve';
+    cv.className = 'dissolve' + (fijo ? ' fija' : '');
     card.appendChild(cv);
     var ctx = cv.getContext('2d');
 
@@ -774,8 +853,8 @@ One or two lines about what it is and what you did on it.
     /* Se tapa YA, antes de que empiece su turno en la ola: si no,
        la tarjeta asomaria un instante y despues se cubriria. */
     var r = card.getBoundingClientRect();
-    var w = Math.max(1, Math.round(r.width));
-    var h = Math.max(1, Math.round(r.height));
+    var w = fijo ? window.innerWidth  : Math.max(1, Math.round(r.width));
+    var h = fijo ? window.innerHeight : Math.max(1, Math.round(r.height));
     cv.width = w; cv.height = h;
 
     var cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
@@ -818,74 +897,145 @@ One or two lines about what it is and what you did on it.
     }, demora);
   }
 
+  /* ==========================================================
+     Panel de detalle: se abre sobre la pagina, sin navegar.
+     ========================================================== */
+  var panelDet = document.getElementById('detalle');
+  var cerrarBt = document.getElementById('volver');
+  var abierto  = false;
+
+  function abrirDetalle(p){
+    document.getElementById('detalle-titulo').textContent = p.title || 'Untitled';
+    document.getElementById('detalle-desc').textContent   = p.desc.join(' ');
+
+    var tags = document.getElementById('detalle-tags');
+    tags.innerHTML = '';
+    (p.tags || '').split(',').forEach(function(t){
+      t = t.trim();
+      if (!t) return;
+      var s = document.createElement('span');
+      s.textContent = t;
+      tags.appendChild(s);
+    });
+
+    var link = document.getElementById('detalle-link');
+    if (p.link){ link.href = p.link; link.hidden = false; }
+    else link.hidden = true;
+
+    /* Galeria */
+    var cont = document.getElementById('detalle-media');
+    cont.innerHTML = '';
+    mediosDe(p).forEach(function(src){
+      var visor = document.createElement('div');
+      visor.className = 'visor';
+      montarMedia(visor, src, p.title, false);
+      cont.appendChild(visor);
+    });
+
+    panelDet.hidden = false;
+    panelDet.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    abierto = true;
+
+    disolver(panelDet, 0, true);              // aparece con el ruido de pixeles
+
+    try { history.pushState({ detalle:true }, ''); } catch(e){}
+  }
+
+  function cerrarDetalle(porHistoria){
+    if (!abierto) return;
+    abierto = false;
+    panelDet.hidden = true;
+    document.getElementById('detalle-media').innerHTML = '';   // corta los videos
+    document.body.style.overflow = '';
+    if (!porHistoria){ try { history.back(); } catch(e){} }
+  }
+
+  cerrarBt.addEventListener('click', function(){ cerrarDetalle(false); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') cerrarDetalle(false);
+  });
+
+  /* El boton "atras" del navegador tambien cierra */
+  window.addEventListener('popstate', function(){ cerrarDetalle(true); });
+
   /* Arranca con Dev al centro y abierta */
   seleccionar('dev', true);
 
-  /* --- Armado de una tarjeta --- */
-  function tarjeta(p){
-    var card = document.createElement(p.link ? 'a' : 'article');
-    card.className = 'card';
-    if (p.link){ card.href = p.link; card.target = '_blank'; card.rel = 'noopener'; }
+  /* --- Medios: sirve igual para la portada y para la galeria --- */
+  function esVideo(src){ return /\.(mp4|webm)$/i.test(src || ''); }
 
-    var thumb = document.createElement('div');
-    thumb.className = 'thumb';
-    if (p.image){
-      var media;
-      var esVideo = /\.(mp4|webm)$/i.test(p.image);
-      if (esVideo){                                        // acepta video igual que imagen
-        media = document.createElement('video');
-        media.src = p.image;
-        media.autoplay = media.muted = media.loop = media.playsInline = true;
-        media.preload = 'metadata';
+  /* Todo lo que se muestra en el detalle: portada + extras, sin repetir */
+  function mediosDe(p){
+    var todo = [];
+    if (p.image) todo.push(p.image);
+    (p.media || []).forEach(function(m){
+      if (m && todo.indexOf(m) < 0) todo.push(m);
+    });
+    return todo;
+  }
 
-        /* Un video tarda en arrancar: mostramos que esta cargando
-           para que no parezca una imagen rota. */
-        var spin = document.createElement('span');
-        spin.className = 'spinner';
-        thumb.appendChild(spin);
-        thumb.classList.add('cargando');
+  function montarMedia(cont, src, alt, conSello){
+    var video = esVideo(src), media;
 
-        var listo = function(){
-          if (!spin.parentNode) return;
-          clearTimeout(rendicion);
-          thumb.classList.remove('cargando');
-          spin.parentNode.removeChild(spin);
-        };
+    if (video){
+      media = document.createElement('video');
+      media.src = src;
+      media.autoplay = media.muted = media.loop = media.playsInline = true;
+      media.preload = 'metadata';
+      media.controls = !conSello;                 // controles solo en el detalle
 
-        /* Se saca recien cuando hay un frame PINTADO en pantalla.
-           'loadeddata' y 'canplay' avisan demasiado pronto: el video
-           todavia se ve negro un par de segundos. */
-        if (media.requestVideoFrameCallback){
-          media.requestVideoFrameCallback(listo);
-        } else {
-          media.addEventListener('playing', listo);
-          media.addEventListener('timeupdate', function(){
-            if (media.currentTime > 0) listo();
-          });
-        }
+      /* Un video tarda en arrancar: mostramos que esta cargando
+         para que no parezca una imagen rota. */
+      var spin = document.createElement('span');
+      spin.className = 'spinner';
+      cont.appendChild(spin);
+      cont.classList.add('cargando');
 
-        /* Red de seguridad: si el navegador bloquea la reproduccion
-           automatica, que no gire para siempre. */
-        var rendicion = setTimeout(listo, 12000);
-        media.addEventListener('error', function(){
-          listo();
-          thumb.classList.add('fallo');
-          media.remove();
-          thumb.textContent = 'video unavailable';
-        });
+      var rendicion;
+      var listo = function(){
+        if (!spin.parentNode) return;
+        clearTimeout(rendicion);
+        cont.classList.remove('cargando');
+        spin.parentNode.removeChild(spin);
+      };
+
+      /* Se saca recien cuando hay un frame PINTADO en pantalla.
+         'loadeddata' y 'canplay' avisan demasiado pronto: el video
+         todavia se ve negro un par de segundos. */
+      if (media.requestVideoFrameCallback){
+        media.requestVideoFrameCallback(listo);
       } else {
-        media = document.createElement('img');
-        media.src = p.image;
-        media.alt = p.title;
-        media.loading = 'lazy';
+        media.addEventListener('playing', listo);
+        media.addEventListener('timeupdate', function(){
+          if (media.currentTime > 0) listo();
+        });
       }
-      thumb.appendChild(media);
 
-      /* Sello en la esquina: dice de un vistazo si es video o imagen */
+      /* Red de seguridad: si el navegador bloquea la reproduccion
+         automatica, que no gire para siempre. */
+      rendicion = setTimeout(listo, 12000);
+      media.addEventListener('error', function(){
+        listo();
+        cont.classList.add('fallo');
+        media.remove();
+        cont.textContent = 'video unavailable';
+      });
+    } else {
+      media = document.createElement('img');
+      media.src = src;
+      media.alt = alt || '';
+      media.loading = 'lazy';
+    }
+    cont.appendChild(media);
+
+    /* Sello en la esquina: dice de un vistazo si es video o imagen */
+    if (conSello){
       var sello = document.createElement('span');
       sello.className = 'sello';
-      sello.title = esVideo ? 'Video' : 'Image';
-      sello.innerHTML = esVideo
+      sello.title = video ? 'Video' : 'Image';
+      sello.innerHTML = video
         ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.4v7.2l6-3.6z"/></svg>'
         : '<svg viewBox="0 0 16 16" aria-hidden="true">' +
             '<rect x="2" y="3.4" width="12" height="9.2" rx="1.6" fill="none" ' +
@@ -893,11 +1043,40 @@ One or two lines about what it is and what you did on it.
             '<circle cx="5.7" cy="6.7" r="1.1"/>' +
             '<path d="M3.4 11.8l2.9-3 2.1 2.1 2-2 2.2 2.9z"/>' +
           '</svg>';
-      thumb.appendChild(sello);
+      cont.appendChild(sello);
+    }
+    return media;
+  }
+
+  /* --- Armado de una tarjeta --- */
+  function tarjeta(p){
+    var card = document.createElement('article');
+    card.className = 'card';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+
+    var medios = mediosDe(p);
+    var thumb  = document.createElement('div');
+    thumb.className = 'thumb';
+
+    if (medios.length){
+      montarMedia(thumb, medios[0], p.title, true);
+      /* si hay mas de uno, se avisa en la portada */
+      if (medios.length > 1){
+        var cuenta = document.createElement('span');
+        cuenta.className = 'cuenta';
+        cuenta.textContent = medios.length;
+        thumb.appendChild(cuenta);
+      }
     } else {
       thumb.textContent = '16:9 image';
     }
     card.appendChild(thumb);
+
+    card.addEventListener('click', function(){ abrirDetalle(p); });
+    card.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); abrirDetalle(p); }
+    });
 
     var body = document.createElement('div');
     body.className = 'card-body';
