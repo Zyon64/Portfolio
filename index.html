@@ -219,14 +219,14 @@
      asi que se posiciona absoluto y no como hijo del flex. */
   .thumb{position:relative}
   .spinner{
-    position:absolute;top:50%;left:50%;
-    transform:translate(-50%,-50%);
+    /* Centrado con inset+margin y NO con transform: asi el giro
+       queda libre y rota sobre su propio centro. */
+    position:absolute;inset:0;margin:auto;
     width:28px;height:28px;border-radius:50%;
     border:2px solid var(--border-hi);border-top-color:var(--accent);
     animation:girar .8s linear infinite;
   }
-  /* gira con `rotate`, que es independiente del `transform` que lo centra */
-  @keyframes girar{to{rotate:360deg}}
+  @keyframes girar{to{transform:rotate(360deg)}}
 
   /* Sello de tipo de medio, abajo a la derecha de la vista previa */
   .sello{
