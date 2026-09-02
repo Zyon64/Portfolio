@@ -195,7 +195,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v4 · guardar publica</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v5 · optimiza + %</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
@@ -1000,17 +1000,38 @@
     if (!dirHandle) return null;
     try{
       var dir = await dirHandle.getDirectoryHandle('subir', { create:false });
-      var faltan = [], actual = '';
+      var faltan = [], actual = '', fase = '', dur = 0, seg = 0;
+
       for await (var e of dir.values()){
         if (e.kind !== 'file') continue;
+
         if (e.name === '_subiendo.txt'){
-          try { actual = (await (await e.getFile()).text()).trim(); } catch(err){}
+          try{
+            /* formato: nombre|fase|duracionEnSegundos */
+            var partes = (await (await e.getFile()).text()).trim().split('|');
+            actual = partes[0] || '';
+            fase   = partes[1] || '';
+            dur    = parseFloat(partes[2]) || 0;
+          } catch(err){}
           continue;
         }
-        if (e.name.charAt(0) === '_') continue;   // banderas internas
+
+        if (e.name === '_progreso.txt'){
+          try{
+            /* ffmpeg escribe out_time_ms=NNN en cada bloque */
+            var txt = await (await e.getFile()).text();
+            var hits = txt.match(/out_time_ms=(\d+)/g) || [];
+            if (hits.length) seg = parseInt(hits[hits.length-1].split('=')[1], 10) / 1000000;
+          } catch(err){}
+          continue;
+        }
+
+        if (e.name.charAt(0) === '_') continue;      // otras banderas internas
+        if (/\.opt\.mp4$/i.test(e.name)) continue;   // el optimizado, no cuenta aparte
         faltan.push(e.name);
       }
-      return { faltan:faltan, actual:actual };
+
+      return { faltan:faltan, actual:actual, fase:fase, dur:dur, seg:seg };
     } catch(err){ return { faltan:[], actual:'' }; }   // la carpeta no existe: nada pendiente
   }
 
@@ -1029,10 +1050,28 @@
     if (est.faltan.length > totalTanda) totalTanda = est.faltan.length;
 
     var hechos = totalTanda - est.faltan.length;
-    $('estado-fill').style.width = Math.round((hechos / totalTanda) * 100) + '%';
+
+    /* Porcentaje del archivo en curso: durante la optimizacion se
+       conoce de verdad (ffmpeg informa por donde va). */
+    var pctArchivo = 0;
+    if (est.fase === 'optimizando' && est.dur > 0){
+      pctArchivo = Math.min(1, est.seg / est.dur);
+    }
+
+    var avance = (hechos + pctArchivo) / totalTanda;
+    $('estado-fill').style.width = Math.round(avance * 100) + '%';
+
+    var etiqueta;
+    if (!est.actual){
+      etiqueta = 'Esperando al publicador';
+    } else if (est.fase === 'optimizando'){
+      etiqueta = 'Optimizando ' + est.actual +
+                 (est.dur ? ' — ' + Math.round(pctArchivo * 100) + '%' : '');
+    } else {
+      etiqueta = 'Subiendo ' + est.actual;
+    }
     $('estado-txt').textContent =
-      (est.actual ? 'Subiendo ' + est.actual + ' — ' : 'Esperando a PUBLICAR.bat — ') +
-      'quedan ' + est.faltan.length + ' de ' + totalTanda;
+      etiqueta + ' · ' + (hechos + 1) + ' de ' + totalTanda;
 
     var ul = $('estado-lista');
     ul.innerHTML = '';
@@ -1043,7 +1082,10 @@
       a.className = 'arch'; a.textContent = n;
       li.appendChild(a);
       var q = document.createElement('span');
-      q.textContent = (n === est.actual) ? 'subiendo...' : 'en cola';
+      q.textContent = (n !== est.actual) ? 'en cola'
+                    : (est.fase === 'optimizando'
+                        ? 'optimizando ' + Math.round(pctArchivo * 100) + '%'
+                        : 'subiendo...');
       li.appendChild(q);
       ul.appendChild(li);
     });
