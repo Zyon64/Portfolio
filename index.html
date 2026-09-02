@@ -127,17 +127,48 @@
   }
   /* --brand lo define cada boton: es el color de su red */
   .topbar a,.topbar .copiar{
+    position:relative;overflow:hidden;
     font-family:var(--mono);font-size:.84rem;
     color:var(--brand,var(--muted));text-decoration:none;
     border:1px solid var(--border);background:var(--surface);
     padding:9px 20px;border-radius:6px;display:inline-block;
     cursor:pointer;line-height:1.5;
-    transition:border-color .2s,color .2s,box-shadow .2s,background .2s;
+    transition:border-color .2s,color .2s,box-shadow .2s,background .2s,
+               scale .28s cubic-bezier(.2,.8,.3,1);
   }
   .topbar .copiar.ok{color:var(--accent);border-color:var(--accent)}
+
   .topbar a:hover,.topbar .copiar:hover{
     border-color:currentColor;background:var(--surface-hi);
     box-shadow:0 0 18px -4px currentColor;   /* el brillo toma el color de la red */
+    scale:1.07;                              /* crece suave (transicion de arriba) */
+    animation:temblor .3s steps(1) infinite; /* y tiembla en seco */
+  }
+  /* `translate` va aparte de `scale`, asi el temblor no pisa el crecimiento */
+  @keyframes temblor{
+    0%  {translate:0 0}
+    25% {translate:.7px -.5px}
+    50% {translate:-.6px .5px}
+    75% {translate:.5px .6px}
+    100%{translate:0 0}
+  }
+
+  /* Textura de ruido en pixeles, mezclada sobre el contenido */
+  .topbar a::after,.topbar .copiar::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='16' height='16' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:48px 48px;image-rendering:pixelated;
+    mix-blend-mode:overlay;opacity:0;transition:opacity .25s;
+  }
+  .topbar a:hover::after,.topbar .copiar:hover::after{
+    opacity:.6;
+    animation:ruidoMueve .45s steps(1) infinite;
+  }
+  @keyframes ruidoMueve{
+    0%  {background-position:0 0}
+    33% {background-position:11px 7px}
+    66% {background-position:-9px 5px}
+    100%{background-position:0 0}
   }
   @media (max-width:520px){
     .topbar{gap:8px;padding:11px 10px;flex-wrap:wrap}
@@ -355,6 +386,40 @@ One or two lines about what it is and what you did on it.
    Botones que copian un dato al portapapeles (Discord, que no
    tiene link de perfil publico).
    --------------------------------------------------------- */
+/* Al hacer click: pega un estiron y despues "cae" hacia el fondo
+   (se achica hasta su tamaño normal). Al tocar, suelta una onda
+   corta de pixeles con el color de su red. */
+(function(){
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (quieto) return;
+
+  Array.prototype.forEach.call(
+    document.querySelectorAll('.topbar a, .topbar .copiar'),
+    function(b){
+      b.addEventListener('mousedown', function(){
+        if (!b.animate) return;
+
+        var caida = b.animate([
+          { scale:1.07, offset:0    },
+          { scale:1.20, offset:0.22 },   // el estiron
+          { scale:1.00, offset:1    }    // y la caida vista desde arriba
+        ], { duration:430, easing:'cubic-bezier(.35,0,.25,1)' });
+
+        caida.finished.then(function(){
+          var r = b.getBoundingClientRect();
+          window.dispatchEvent(new CustomEvent('pixelwave', { detail:{
+            x: r.left + r.width  / 2,
+            y: r.top  + r.height / 2,
+            color: getComputedStyle(b).color
+          }}));
+        }).catch(function(){});
+      });
+    }
+  );
+})();
+</script>
+
+<script>
 (function(){
   Array.prototype.forEach.call(document.querySelectorAll('.copiar'), function(b){
     var etiqueta = b.textContent;
@@ -829,14 +894,43 @@ One or two lines about what it is and what you did on it.
         size:sizes[(Math.random() * sizes.length) | 0],
         color:COLORS[(Math.random() * COLORS.length) | 0],
         life:1,
+        g:0.13,
         decay:1 / ((0.55 + Math.random() * 0.45) * maxLife / 16.7)
       });
     }
     if (particles.length > 700) particles.splice(0, particles.length - 700);
   }
 
+  /* Onda expansiva: un anillo corto y chico, casi sin gravedad.
+     La disparan los botones de la barra al "aterrizar". */
+  function onda(x, y, color){
+    var N = 22;
+    for (var i = 0; i < N; i++){
+      var ang = (i / N) * Math.PI * 2 + Math.random() * 0.18;
+      var spd = 2.4 + Math.random() * 1.1;
+      particles.push({
+        x:x, y:y,
+        vx:Math.cos(ang) * spd,
+        vy:Math.sin(ang) * spd * 0.55,     /* achatada: se ve desde arriba */
+        size:(Math.random() < 0.5 ? 2 : 3),
+        color:color || COLORS[1],
+        life:1,
+        g:0.012,                            /* casi no cae */
+        decay:1 / (26)                      /* ~430 ms */
+      });
+    }
+  }
+
+  /* Puente para que otras partes de la pagina la disparen */
+  window.addEventListener('pixelwave', function(e){
+    if (e.detail) onda(e.detail.x, e.detail.y, e.detail.color);
+  });
+
   /* Chico en cualquier lado; grande sobre algo clickeable */
   window.addEventListener('mousedown', function(e){
+    /* la barra de redes tiene su propio efecto (estiron + onda al caer) */
+    if (e.target.closest && e.target.closest('.topbar')) return;
+
     var big = !!(e.target.closest && e.target.closest('a, button, .card'));
     burst(e.clientX, e.clientY, big);
   }, { passive:true });
@@ -961,7 +1055,7 @@ One or two lines about what it is and what you did on it.
 
       q.x  += q.vx;
       q.y  += q.vy;
-      q.vy += 0.13;      // gravedad
+      q.vy += (q.g === undefined ? 0.13 : q.g);   // gravedad propia de cada particula
       q.vx *= 0.985;     // roce
       q.vy *= 0.985;
       q.life -= q.decay;
