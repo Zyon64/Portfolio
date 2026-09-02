@@ -61,7 +61,8 @@
   .wrap{max-width:1040px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
 
   /* ---------- Hero ---------- */
-  header{padding:130px 0 90px;border-bottom:1px solid var(--border)}
+  /* el padding de arriba deja libre la barra fija */
+  header{padding:170px 0 90px;border-bottom:1px solid var(--border)}
   .prompt{
     font-family:var(--mono);font-size:.85rem;color:var(--accent);
     margin:0 0 18px;letter-spacing:.02em;
@@ -88,22 +89,37 @@
   /* Disciplinas: una fila de etiquetas separadas por barra */
   .disciplines{
     list-style:none;margin:0 0 34px;padding:0;
-    display:flex;flex-wrap:wrap;align-items:center;gap:0 14px;
+    display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;
     font-family:var(--mono);font-size:.83rem;color:var(--muted);
   }
   .disciplines li{display:flex;align-items:center;gap:14px}
   .disciplines li:not(:last-child)::after{content:"/";color:var(--border-hi)}
 
-  .links a{
-    font-family:var(--mono);font-size:.88rem;
+  /* ---------- Barra fija de redes ----------
+     Vive fuera del flujo, asi que sigue arriba y centrada
+     aunque se scrollee o se abra un proyecto adentro.        */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    display:flex;justify-content:center;align-items:center;gap:10px;
+    padding:14px 16px;
+    background:rgba(10,14,12,.72);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar a{
+    font-family:var(--mono);font-size:.84rem;
     color:var(--muted);text-decoration:none;
     border:1px solid var(--border);background:var(--surface);
-    padding:10px 20px;border-radius:6px;margin:0 8px 8px 0;display:inline-block;
+    padding:9px 20px;border-radius:6px;display:inline-block;
     transition:border-color .2s,color .2s,box-shadow .2s,background .2s;
   }
-  .links a:hover{
+  .topbar a:hover{
     border-color:var(--accent);color:var(--accent);background:var(--surface-hi);
     box-shadow:0 0 18px -4px var(--glow);
+  }
+  @media (max-width:520px){
+    .topbar{gap:8px;padding:11px 10px;flex-wrap:wrap}
+    .topbar a{padding:8px 14px;font-size:.78rem}
   }
 
   /* ---------- Secciones ---------- */
@@ -160,14 +176,20 @@
 
 <canvas id="trail"></canvas>
 
+<!-- Redes: siempre arriba y centradas. Agregá acá ArtStation, itch.io, LinkedIn -->
+<nav class="topbar">
+  <a href="mailto:roirebels26@gmail.com">Email</a>
+  <a href="https://github.com/Zyon64" target="_blank" rel="noopener">GitHub</a>
+</nav>
+
 <header>
   <div class="wrap">
     <p class="prompt">whoami<span class="caret"></span></p>
     <h1>Zyon64<span class="dot">.</span></h1>
     <p class="role">Game Developer</p>
     <p class="tagline">
-      I make games, prototypes and Android apps — from the first prototype to
-      the shipped build.
+      I make games, prototypes and Android apps — handling the code, the art
+      and the sound myself.
     </p>
     <ul class="disciplines">
       <li>3D Modeling</li>
@@ -175,11 +197,6 @@
       <li>Pixel Art</li>
       <li>Gameplay Programming</li>
     </ul>
-    <div class="links">
-      <a href="mailto:roirebels26@gmail.com">Email</a>
-      <a href="https://github.com/Zyon64">GitHub</a>
-      <!-- Agregá acá ArtStation, itch.io, LinkedIn, lo que uses -->
-    </div>
   </div>
 </header>
 
