@@ -32,7 +32,12 @@ function LimpiarEstado(){ if (Test-Path $ESTADO) { Remove-Item $ESTADO -Force -E
 #  Optimizar: 720p, tope de 2 Mbps y el indice al principio del archivo
 # ---------------------------------------------------------------------
 function Optimizar($ruta, $nombre, $i, $total){
-    $salida = "$ruta.opt.mp4"
+    # OJO: el archivo optimizado tiene que llamarse IGUAL que el original,
+    # porque `gh release upload` nombra el asset segun el archivo del disco.
+    # Por eso va a una subcarpeta y no a "<nombre>.opt.mp4".
+    $tmpDir = Join-Path $BANDEJA '_opt'
+    New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
+    $salida = Join-Path $tmpDir $nombre
     $prog   = Join-Path $BANDEJA '_ff.txt'
 
     $dur = 0.0
