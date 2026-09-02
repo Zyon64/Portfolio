@@ -554,6 +554,26 @@ cat: 3d
 some demo models with pbr maded, game-ready to import
 
 
+== BoomerShooter Doom-like prototype
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-11-213749.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-23-103447.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-20-162432.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-20-121400.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-20-121132.mp4
+tags: Unity, blender, aseprite, doom
+link: 
+cat: dev
+prototype maded with doom-like style
+
+
+== Personal project
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-08-25-170924.mp4
+tags: unity, c#, blender, aseprite, audacity, clipstudiopaint, dev
+link: 
+cat: dev
+my personal project
+
+
 </script>
 
 <canvas id="trail"></canvas>
@@ -804,12 +824,21 @@ some demo models with pbr maded, game-ready to import
   var panel = document.getElementById('panel');
   if (!raw || !cats || !panel) return;
 
-  /* Las tres categorias, en este orden */
-  var CATS = [
-    { id:'dev',      label:'Dev' },
-    { id:'3d',       label:'3D Modeling' },
-    { id:'pixelart', label:'Pixel Art' }
-  ];
+  /* Las categorias salen de los datos: se pueden crear nuevas sin
+     tocar el codigo. Estas tres tienen nombre propio por historia;
+     cualquier otra se muestra tal cual la escribas. */
+  var ETIQUETAS = { 'dev':'Dev', '3d':'3D Modeling', 'pixelart':'Pixel Art' };
+
+  /* El orden lo fija una linea "@cats a, b, c" arriba del bloque de
+     datos. Si no esta, manda el orden en que van apareciendo. */
+  var orden = [];
+  var lineaCats = raw.match(/^\s*@cats\s+(.+)$/m);
+  if (lineaCats){
+    lineaCats[1].split(',').forEach(function(c){
+      c = c.trim();
+      if (c && orden.indexOf(c) < 0) orden.push(c);
+    });
+  }
 
   /* --- Parseo --- */
   var items = [], cur = null;
