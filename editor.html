@@ -235,6 +235,39 @@
   var $ = function(id){ return document.getElementById(id); };
 
   /* =========================================================
+     Memoria de la carpeta: se guarda el permiso en IndexedDB
+     para no tener que buscarla de nuevo en cada sesion.
+     ========================================================= */
+  function baseDatos(){
+    return new Promise(function(res, rej){
+      var r = indexedDB.open('portfolio-editor', 1);
+      r.onupgradeneeded = function(){ r.result.createObjectStore('handles'); };
+      r.onsuccess = function(){ res(r.result); };
+      r.onerror   = function(){ rej(r.error); };
+    });
+  }
+
+  async function recordarCarpeta(h){
+    try{
+      var db = await baseDatos();
+      var t  = db.transaction('handles', 'readwrite');
+      t.objectStore('handles').put(h, 'dir');
+    } catch(e){ /* sin memoria: se pide la carpeta como siempre */ }
+  }
+
+  async function carpetaRecordada(){
+    try{
+      var db = await baseDatos();
+      return await new Promise(function(res){
+        var t = db.transaction('handles', 'readonly');
+        var q = t.objectStore('handles').get('dir');
+        q.onsuccess = function(){ res(q.result || null); };
+        q.onerror   = function(){ res(null); };
+      });
+    } catch(e){ return null; }
+  }
+
+  /* =========================================================
      Parseo y generacion del bloque de texto
      ========================================================= */
   var HEADER = [
@@ -668,9 +701,25 @@
   });
 
   async function openFolder(){
-    try{
-      dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
-    } catch(err){ return; }               // el usuario cancelo
+    /* Si ya se uso antes, se reutiliza: como mucho pide confirmar
+       el permiso, sin volver a buscar la carpeta a mano. */
+    var guardada = await carpetaRecordada();
+    if (guardada){
+      try{
+        var permiso = await guardada.queryPermission({ mode:'readwrite' });
+        if (permiso !== 'granted'){
+          permiso = await guardada.requestPermission({ mode:'readwrite' });
+        }
+        if (permiso === 'granted') dirHandle = guardada;
+      } catch(e){ dirHandle = null; }
+    }
+
+    if (!dirHandle){
+      try{
+        dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+      } catch(err){ return; }             // el usuario cancelo
+    }
+    recordarCarpeta(dirHandle);
 
     try{
       var fh = await dirHandle.getFileHandle('index.html');
@@ -742,8 +791,8 @@
       dirty = false;
       $('save').textContent = 'Guardar';
       setStatus('guardado — ' + projects.length + ' proyectos', true);
-      note('Guardado en tu PC. Ahora, para que se vea en el link, hacé doble click en ' +
-           '<b>PUBLICAR.bat</b> (está en la carpeta Portfolio). Tarda 1 o 2 minutos en verse.');
+      note('Guardado. Si tenés abierta la ventana de <b>PUBLICACION-AUTOMATICA.bat</b>, ' +
+           'se sube solo en menos de un minuto. Si no, hacé doble click en <b>PUBLICAR.bat</b>.');
       await cargarExistentes();
       renderList();
     } catch(err){
