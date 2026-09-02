@@ -475,6 +475,9 @@
     $('save').textContent = 'Guardar *';
   }
 
+  /* Grupos plegados: se recuerda cuales estan cerrados */
+  var plegadas = {};
+
   function renderList(){
     var box = $('items');
     box.innerHTML = '';
@@ -487,32 +490,91 @@
       return;
     }
 
-    projects.forEach(function(p, i){
-      var row = document.createElement('div');
-      row.className = 'item' + (i === sel ? ' sel' : '');
+    categorias.forEach(function(catId){
+      /* indices reales de los proyectos de esta categoria */
+      var idx = [];
+      projects.forEach(function(p, i){ if ((p.cat || 'dev') === catId) idx.push(i); });
 
-      var portada = p.medios[0];
-      var mini = document.createElement(portada && isVideo(portada.src) ? 'video' : 'img');
-      mini.className = 'mini';
-      var src = portada ? previewSrc(portada) : '';
-      if (src) mini.src = src;
-      row.appendChild(mini);
+      var grupo = document.createElement('div');
+      grupo.className = 'grupo' + (plegadas[catId] ? ' plegado' : '');
 
-      var nm = document.createElement('div');
-      nm.className = 'nm';
-      nm.textContent = p.title || '(sin titulo)';
-      row.appendChild(nm);
+      var cab = document.createElement('button');
+      cab.className = 'grupo-cab';
+      cab.type = 'button';
+      var nm = document.createElement('span');
+      nm.className = 'g-nombre';
+      nm.textContent = nombreCat(catId);
+      cab.appendChild(nm);
+      var cn = document.createElement('span');
+      cn.className = 'g-n';
+      cn.textContent = idx.length;
+      cab.appendChild(cn);
+      cab.addEventListener('click', function(){
+        plegadas[catId] = !plegadas[catId];
+        renderList();
+      });
+      grupo.appendChild(cab);
 
-      var ord = document.createElement('div');
-      ord.className = 'ord';
-      ord.appendChild(orderBtn('\u25B2', i, -1));
-      ord.appendChild(orderBtn('\u25BC', i,  1));
-      row.appendChild(ord);
+      var cuerpo = document.createElement('div');
+      cuerpo.className = 'grupo-cuerpo';
 
-      row.addEventListener('click', function(){ select(i); });
-      box.appendChild(row);
+      if (!idx.length){
+        var vac = document.createElement('div');
+        vac.className = 'g-vacio';
+        vac.textContent = 'sin proyectos';
+        cuerpo.appendChild(vac);
+      }
+
+      idx.forEach(function(i, pos){
+        var p = projects[i];
+        var row = document.createElement('div');
+        row.className = 'item' + (i === sel ? ' sel' : '');
+
+        var portada = p.medios[0];
+        var mini = document.createElement(portada && isVideo(portada.src) ? 'video' : 'img');
+        mini.className = 'mini';
+        var src = portada ? previewSrc(portada) : '';
+        if (src) mini.src = src;
+        row.appendChild(mini);
+
+        var t = document.createElement('div');
+        t.className = 'nm';
+        t.textContent = p.title || '(sin titulo)';
+        row.appendChild(t);
+
+        /* las flechas mueven dentro de la categoria, no en toda la lista */
+        var ord = document.createElement('div');
+        ord.className = 'ord';
+        ord.appendChild(mover('▲', idx, pos, -1));
+        ord.appendChild(mover('▼', idx, pos,  1));
+        row.appendChild(ord);
+
+        row.addEventListener('click', function(){ select(i); });
+        cuerpo.appendChild(row);
+      });
+
+      grupo.appendChild(cuerpo);
+      box.appendChild(grupo);
     });
   }
+
+  /* Intercambia dos proyectos de la misma categoria */
+  function mover(etiqueta, idx, pos, dir){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = etiqueta;
+    b.disabled = (pos + dir < 0 || pos + dir >= idx.length);
+    b.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      var a = idx[pos], c = idx[pos + dir];
+      if (a === undefined || c === undefined) return;
+      var tmp = projects[a]; projects[a] = projects[c]; projects[c] = tmp;
+      if (sel === a) sel = c; else if (sel === c) sel = a;
+      markDirty(); renderList();
+    });
+    return b;
+  }
+
 
   function orderBtn(label, i, dir){
     var b = document.createElement('button');
