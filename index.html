@@ -162,11 +162,12 @@
   h2::before{content:"//";color:var(--accent-dim)}
   h2::after{content:"";flex:1;height:1px;background:var(--border)}
 
-  /* ---------- Categorias: tres columnas iguales ---------- */
-  /* Los tres selectores, arriba y en fila */
+  /* ---------- Categorias ----------
+     auto-fit: funciona igual con 3 categorias que con 8, y baja de
+     fila sola cuando no entran. */
   .cats{
-    display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
-    align-items:center;margin-bottom:34px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:14px;align-items:stretch;margin-bottom:34px;
   }
   .cat{
     display:flex;align-items:center;justify-content:center;gap:10px;
