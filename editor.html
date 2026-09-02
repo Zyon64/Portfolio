@@ -198,7 +198,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v7 · progreso</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v8 · sin sondeo</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
@@ -211,7 +211,6 @@
   <div class="estado-cab">
     <strong id="estado-txt">—</strong>
     <button class="ghost" id="estado-ver" type="button">Ver detalle</button>
-    <button class="ghost" id="estado-refresh" type="button">Actualizar</button>
   </div>
   <div class="estado-bar"><div id="estado-fill"></div></div>
   <ul class="estado-lista hidden" id="estado-lista"></ul>
@@ -906,190 +905,6 @@
     renderGaleria(); renderList(); markDirty();
   });
 
-  /* =========================================================
-     Estado de los videos que viven en Releases.
-     No hay API que consultar sin credenciales: se comprueba
-     intentando cargar cada uno. Si carga, ya esta publicado.
-     ========================================================= */
-  var revisando = false;
-
-  function mediosRemotos(){
-    var out = [];
-    projects.forEach(function(p){
-      p.medios.forEach(function(m){
-        if (/releases\/download/.test(m.src || '')){
-          out.push({ medio:m, proyecto:p.title || '(sin titulo)' });
-        }
-      });
-    });
-    return out;
-  }
-
-  function estaPublicado(src){
-    return new Promise(function(res){
-      var v = document.createElement('video');
-      v.preload = 'metadata';
-      v.muted = true;
-      var cerrar = function(ok){
-        v.removeAttribute('src');
-        v.load();
-        res(ok);
-      };
-      v.addEventListener('loadedmetadata', function(){ cerrar(true); });
-      v.addEventListener('error',          function(){ cerrar(false); });
-      setTimeout(function(){ cerrar(false); }, 15000);
-      v.src = src;
-    });
-  }
-
-  async function revisarEstado(){
-    if (revisando) return;
-    var lista = mediosRemotos();
-    var caja  = $('estado');
-
-    if (!lista.length){ caja.classList.add('hidden'); return; }
-    caja.classList.remove('hidden');
-
-    revisando = true;
-    $('estado-txt').textContent = 'Comprobando ' + lista.length + ' video(s)...';
-    $('estado-fill').style.width = '0%';
-
-    var ul = $('estado-lista');
-    ul.innerHTML = '';
-
-    var listos = 0;
-    for (var i = 0; i < lista.length; i++){
-      var it     = lista[i];
-      var nombre = it.medio.src.split('/').pop();
-      var estado;
-
-      if (it.medio.file)              estado = 'nog';   // ni siquiera se guardo
-      else if (await estaPublicado(it.medio.src)) { estado = 'ok'; listos++; }
-      else                            estado = 'pend';
-
-      var li = document.createElement('li');
-      li.className = estado;
-      var a = document.createElement('span');
-      a.className = 'arch';
-      a.textContent = nombre;
-      li.appendChild(a);
-      var q = document.createElement('span');
-      q.textContent = estado === 'ok'   ? 'publicado'
-                    : estado === 'pend' ? 'esperando subida'
-                    :                     'sin guardar';
-      li.appendChild(q);
-      ul.appendChild(li);
-
-      $('estado-fill').style.width = Math.round(((i + 1) / lista.length) * 100) + '%';
-    }
-
-    $('estado-fill').style.width = Math.round((listos / lista.length) * 100) + '%';
-    $('estado-txt').textContent =
-      listos === lista.length
-        ? 'Los ' + lista.length + ' videos están publicados.'
-        : listos + ' de ' + lista.length + ' publicados — el publicador esta trabajando';
-
-    revisando = false;
-  }
-
-  /* ---------------------------------------------------------
-     Progreso EN VIVO. La subida ocurre fuera del navegador, pero
-     el editor tiene la carpeta: cuenta lo que queda en `subir/`.
-     Cada archivo que desaparece es uno que ya se publico.
-     --------------------------------------------------------- */
-  var vigia = null, totalTanda = 0;
-
-  async function pendientes(){
-    if (!dirHandle) return null;
-    try{
-      var dir = await dirHandle.getDirectoryHandle('subir', { create:false });
-      var faltan = [], actual = '', fase = '', pct = 0;
-
-      for await (var e of dir.values()){
-        if (e.kind !== 'file') continue;
-
-        if (e.name === '_estado.txt'){
-          try{
-            /* el publicador escribe: archivo= fase= pct= indice= total= */
-            var txt = await (await e.getFile()).text();
-            var leer = function(k){
-              var m = txt.match(new RegExp('^' + k + '=(.*)$', 'm'));
-              return m ? m[1].trim() : '';
-            };
-            actual = leer('archivo');
-            fase   = leer('fase');
-            pct    = parseFloat(leer('pct')) || 0;
-          } catch(err){}
-          continue;
-        }
-
-        if (e.name.charAt(0) === '_') continue;      // otras banderas internas
-        if (/\.opt\.mp4$/i.test(e.name)) continue;   // el optimizado, no cuenta aparte
-        faltan.push(e.name);
-      }
-
-      return { faltan:faltan, actual:actual, fase:fase, pct:pct };
-    } catch(err){ return { faltan:[], actual:'' }; }   // la carpeta no existe: nada pendiente
-  }
-
-  async function vigilarSubidas(){
-    var est = await pendientes();
-    if (!est) return;
-
-    if (!est.faltan.length){
-      if (vigia){ clearInterval(vigia); vigia = null; }
-      totalTanda = 0;
-      revisarEstado();                 // confirmar contra la web
-      return;
-    }
-
-    $('estado').classList.remove('hidden');
-    if (est.faltan.length > totalTanda) totalTanda = est.faltan.length;
-
-    var hechos = totalTanda - est.faltan.length;
-
-    /* Porcentaje del archivo en curso: durante la optimizacion se
-       conoce de verdad (ffmpeg informa por donde va). */
-    var medible = est.pct >= 0;
-    var pctArchivo = medible ? est.pct / 100 : 0.5;
-
-    var avance = (hechos + pctArchivo) / totalTanda;
-    $('estado-fill').style.width = Math.round(avance * 100) + '%';
-    $('estado-fill').classList.toggle('indeterminado', !medible);
-
-    var etiqueta;
-    if (!est.actual){
-      etiqueta = 'Esperando al publicador';
-    } else if (est.fase === 'optimizando'){
-      etiqueta = 'Optimizando ' + est.actual + (medible ? ' — ' + Math.round(est.pct) + '%' : '');
-    } else {
-      etiqueta = 'Subiendo ' + est.actual + (medible ? ' — ' + Math.round(est.pct) + '%' : '');
-    }
-    $('estado-txt').textContent =
-      etiqueta + ' · ' + (hechos + 1) + ' de ' + totalTanda;
-
-    var ul = $('estado-lista');
-    ul.innerHTML = '';
-    est.faltan.forEach(function(n){
-      var li = document.createElement('li');
-      li.className = (n === est.actual) ? 'pend' : 'nog';
-      var a = document.createElement('span');
-      a.className = 'arch'; a.textContent = n;
-      li.appendChild(a);
-      var q = document.createElement('span');
-      q.textContent = (n !== est.actual) ? 'en cola'
-                    : est.fase + (medible ? ' ' + Math.round(est.pct) + '%' : '...');
-      li.appendChild(q);
-      ul.appendChild(li);
-    });
-
-    if (!vigia) vigia = setInterval(vigilarSubidas, 2000);
-  }
-
-  $('estado-refresh').addEventListener('click', function(){
-    vigilarSubidas();
-    revisarEstado();
-  });
   $('estado-ver').addEventListener('click', function(){
     $('estado-lista').classList.toggle('hidden');
     this.textContent = $('estado-lista').classList.contains('hidden') ? 'Ver detalle' : 'Ocultar';
@@ -1159,7 +974,6 @@
 
     projects = parse(block[1]);
     await cargarExistentes();
-    revisarEstado();
     note('');
     setStatus(dirHandle.name + ' — ' + projects.length + ' proyectos', true);
     $('save').disabled = true;
@@ -1235,8 +1049,7 @@
       note('Guardado. Publicando...');
       vigilarSubidas();
       await cargarExistentes();
-      revisarEstado();
-      renderList();
+        renderList();
     } catch(err){
       note('No se pudo guardar: ' + err.message);
       $('save').disabled = false;

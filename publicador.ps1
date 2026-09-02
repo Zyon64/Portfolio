@@ -8,6 +8,26 @@
 $ErrorActionPreference = 'Continue'
 Set-Location $PSScriptRoot
 
+# ---------------------------------------------------------------------
+#  UN SOLO PUBLICADOR A LA VEZ.
+#  Si corren dos, se pisan: uno sube un archivo mientras el otro lo
+#  borra, y el video termina desapareciendo. Paso de verdad.
+# ---------------------------------------------------------------------
+$CERROJO = Join-Path $PSScriptRoot '.publicador.lock'
+if (Test-Path $CERROJO){
+    $otro = Get-Content $CERROJO -EA SilentlyContinue | Select-Object -First 1
+    if ($otro -and (Get-Process -Id $otro -EA SilentlyContinue)){
+        Write-Host "Ya hay un publicador corriendo (pid $otro)."
+        Write-Host "Cierro este para que no se pisen."
+        Start-Sleep -Seconds 4
+        exit
+    }
+}
+$PID | Set-Content $CERROJO
+Register-EngineEvent PowerShell.Exiting -Action {
+    Remove-Item $CERROJO -Force -EA SilentlyContinue
+} | Out-Null
+
 $REPO    = 'Zyon64/Portfolio'
 $TAG     = 'media'
 $BANDEJA = Join-Path $PSScriptRoot 'subir'
@@ -169,7 +189,27 @@ while ($true){
     if (-not $pedido -and $archivos.Count -eq 0 -and -not $sueltos){ continue }
     if ($pedido){ Remove-Item $flag -Force -EA SilentlyContinue }
 
-    # --- 1) medios ---
+    # --- 1) LA PAGINA PRIMERO ---
+    # Los textos y el orden se ven enseguida; los videos van llegando.
+    & git add . | Out-Null
+    $grandes0 = (& git diff --cached --name-only) |
+                Where-Object { Test-Path -LiteralPath $_ } |
+                Where-Object { (Get-Item -LiteralPath $_).Length -gt ($TOPE_MB * 1MB) }
+    if ($grandes0){
+        Log "Freno: archivos de mas de $TOPE_MB MB, no se sube nada."
+        $grandes0 | ForEach-Object { Write-Host "   $_" }
+        & git reset -q
+    } else {
+        & git diff --cached --quiet
+        if ($LASTEXITCODE -ne 0){
+            Log 'Publicando la pagina...'
+            & git commit -q -m 'Actualizacion del portafolio'
+            & git push -q
+            if ($LASTEXITCODE -eq 0){ Log 'Pagina publicada. Ahora van los videos.' }
+        }
+    }
+
+    # --- 2) medios ---
     $total = $archivos.Count
     for ($i = 0; $i -lt $total; $i++){
         $f = $archivos[$i]
@@ -184,24 +224,6 @@ while ($true){
     }
     LimpiarEstado
 
-    # --- 2) la pagina ---
-    & git add . | Out-Null
-    $grandes = (& git diff --cached --name-only) |
-               Where-Object { Test-Path -LiteralPath $_ } |
-               Where-Object { (Get-Item -LiteralPath $_).Length -gt ($TOPE_MB * 1MB) }
-    if ($grandes){
-        Log "Freno: hay archivos de mas de $TOPE_MB MB:"
-        $grandes | ForEach-Object { Write-Host "   $_" }
-        & git reset -q
-        continue
-    }
-
-    & git diff --cached --quiet
-    if ($LASTEXITCODE -eq 0){ continue }
-
-    Log 'Publicando pagina...'
-    & git commit -q -m 'Actualizacion del portafolio'
-    & git push -q
-    if ($LASTEXITCODE -eq 0){ Log 'LISTO. En 1 o 2 minutos se ve en la pagina.' }
-    else { Log 'Fallo el envio, se reintenta.' }
+    LimpiarEstado
+    Log "Todo al dia."
 }
