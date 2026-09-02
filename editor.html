@@ -108,6 +108,29 @@
   .imgrow{display:flex;align-items:center;gap:10px;margin-top:8px}
   .imgrow code{font-family:var(--mono);font-size:.76rem;color:var(--muted);flex:1;word-break:break-all}
 
+
+  /* Grupos por categoria en la lista de proyectos */
+  .grupo{margin-bottom:10px}
+  .grupo-cab{
+    width:100%;display:flex;align-items:center;gap:8px;
+    background:none;border:0;border-bottom:1px solid var(--border);
+    color:var(--muted);font-family:var(--mono);font-size:.73rem;
+    letter-spacing:.1em;text-transform:uppercase;
+    padding:7px 4px;cursor:pointer;text-align:left;
+  }
+  .grupo-cab:hover{color:var(--accent);border-color:var(--border-hi)}
+  .grupo-cab::before{content:"BE";font-size:.6rem;color:var(--accent-dim);
+    display:inline-block;transition:transform .2s}
+  .grupo.plegado .grupo-cab::before{transform:rotate(-90deg)}
+  .g-nombre{flex:1}
+  .g-n{
+    font-size:.66rem;color:var(--dim);border:1px solid var(--border-hi);
+    border-radius:20px;padding:0 7px;
+  }
+  .grupo-cuerpo{padding-top:8px}
+  .grupo.plegado .grupo-cuerpo{display:none}
+  .g-vacio{color:var(--dim);font-family:var(--mono);font-size:.7rem;padding:6px 4px}
+
   /* Galeria de medios del proyecto */
   .galeria{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:10px}
   .galeria:empty{display:none}
@@ -200,7 +223,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v9 · arreglado</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v10 · categorias</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
