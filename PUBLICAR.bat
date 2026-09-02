@@ -18,9 +18,13 @@ if exist "subir\*.*" (
         gh release view media >nul 2>&1
         if errorlevel 1 gh release create media --title "Media" --notes "Videos del portafolio." >nul 2>&1
         for %%F in ("subir\*.*") do (
-            echo Subiendo %%~nxF a Releases...
-            gh release upload media "%%F" --clobber && del "%%F"
+            if /i not "%%~nxF"=="_subiendo.txt" (
+                echo Subiendo %%~nxF a Releases...
+                >"subir\_subiendo.txt" echo %%~nxF
+                gh release upload media "%%F" --clobber && del "%%F"
+            )
         )
+        if exist "subir\_subiendo.txt" del "subir\_subiendo.txt"
         echo.
     )
 )

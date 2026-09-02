@@ -195,7 +195,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v3 · multi + estado</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v4 · guardar publica</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
@@ -989,7 +989,72 @@
     revisando = false;
   }
 
-  $('estado-refresh').addEventListener('click', revisarEstado);
+  /* ---------------------------------------------------------
+     Progreso EN VIVO. La subida ocurre fuera del navegador, pero
+     el editor tiene la carpeta: cuenta lo que queda en `subir/`.
+     Cada archivo que desaparece es uno que ya se publico.
+     --------------------------------------------------------- */
+  var vigia = null, totalTanda = 0;
+
+  async function pendientes(){
+    if (!dirHandle) return null;
+    try{
+      var dir = await dirHandle.getDirectoryHandle('subir', { create:false });
+      var faltan = [], actual = '';
+      for await (var e of dir.values()){
+        if (e.kind !== 'file') continue;
+        if (e.name === '_subiendo.txt'){
+          try { actual = (await (await e.getFile()).text()).trim(); } catch(err){}
+          continue;
+        }
+        if (e.name.charAt(0) === '_') continue;   // banderas internas
+        faltan.push(e.name);
+      }
+      return { faltan:faltan, actual:actual };
+    } catch(err){ return { faltan:[], actual:'' }; }   // la carpeta no existe: nada pendiente
+  }
+
+  async function vigilarSubidas(){
+    var est = await pendientes();
+    if (!est) return;
+
+    if (!est.faltan.length){
+      if (vigia){ clearInterval(vigia); vigia = null; }
+      totalTanda = 0;
+      revisarEstado();                 // confirmar contra la web
+      return;
+    }
+
+    $('estado').classList.remove('hidden');
+    if (est.faltan.length > totalTanda) totalTanda = est.faltan.length;
+
+    var hechos = totalTanda - est.faltan.length;
+    $('estado-fill').style.width = Math.round((hechos / totalTanda) * 100) + '%';
+    $('estado-txt').textContent =
+      (est.actual ? 'Subiendo ' + est.actual + ' — ' : 'Esperando a PUBLICAR.bat — ') +
+      'quedan ' + est.faltan.length + ' de ' + totalTanda;
+
+    var ul = $('estado-lista');
+    ul.innerHTML = '';
+    est.faltan.forEach(function(n){
+      var li = document.createElement('li');
+      li.className = (n === est.actual) ? 'pend' : 'nog';
+      var a = document.createElement('span');
+      a.className = 'arch'; a.textContent = n;
+      li.appendChild(a);
+      var q = document.createElement('span');
+      q.textContent = (n === est.actual) ? 'subiendo...' : 'en cola';
+      li.appendChild(q);
+      ul.appendChild(li);
+    });
+
+    if (!vigia) vigia = setInterval(vigilarSubidas, 2000);
+  }
+
+  $('estado-refresh').addEventListener('click', function(){
+    vigilarSubidas();
+    revisarEstado();
+  });
   $('estado-ver').addEventListener('click', function(){
     $('estado-lista').classList.toggle('hidden');
     this.textContent = $('estado-lista').classList.contains('hidden') ? 'Ver detalle' : 'Ocultar';
@@ -1123,8 +1188,17 @@
       dirty = false;
       $('save').textContent = 'Guardar';
       setStatus('guardado — ' + projects.length + ' proyectos', true);
-      note('Guardado. Si tenés abierta la ventana de <b>PUBLICACION-AUTOMATICA.bat</b>, ' +
-           'se sube solo en menos de un minuto. Si no, hacé doble click en <b>PUBLICAR.bat</b>.');
+      /* Señal para el publicador: "hay algo nuevo, subilo ya" */
+      try{
+        var bandeja = await dirHandle.getDirectoryHandle('subir', { create:true });
+        var flag    = await bandeja.getFileHandle('_publicar.flag', { create:true });
+        var fw      = await flag.createWritable();
+        await fw.write(new Date().toISOString());
+        await fw.close();
+      } catch(e){ /* si falla, el publicador lo detecta igual por los cambios */ }
+
+      note('Guardado. Publicando...');
+      vigilarSubidas();
       await cargarExistentes();
       revisarEstado();
       renderList();
