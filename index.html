@@ -62,7 +62,7 @@
 
   /* ---------- Hero ---------- */
   /* el padding de arriba deja libre la barra fija */
-  header{padding:170px 0 90px;border-bottom:1px solid var(--border)}
+  header{padding:118px 0 60px;border-bottom:1px solid var(--border)}
   .prompt{
     font-family:var(--mono);font-size:.85rem;color:var(--accent);
     margin:0 0 18px;letter-spacing:.02em;
@@ -94,6 +94,23 @@
   }
   .disciplines li{display:flex;align-items:center;gap:14px}
   .disciplines li:not(:last-child)::after{content:"/";color:var(--border-hi)}
+
+  /* Boton para repetir la intro */
+  .replay{
+    font-family:var(--mono);font-size:.75rem;color:var(--dim);
+    background:none;border:1px solid var(--border);border-radius:5px;
+    padding:6px 13px;cursor:pointer;
+    transition:color .2s,border-color .2s;
+  }
+  .replay::before{content:"\21BB  "}
+  .replay:hover{color:var(--accent);border-color:var(--accent-dim)}
+
+  /* Mientras corre la intro, lo que todavia no se escribio no se ve */
+  body.intro .dot,
+  body.intro .disciplines,
+  body.intro .replay,
+  body.intro .topbar{opacity:0}
+  .dot,.disciplines,.replay,.topbar{transition:opacity .5s}
 
   /* ---------- Barra fija de redes ----------
      Vive fuera del flujo, asi que sigue arriba y centrada
@@ -233,19 +250,17 @@ One or two lines about what it is and what you did on it.
 
 <header>
   <div class="wrap">
-    <p class="prompt">whoami<span class="caret"></span></p>
-    <h1>Zyon64<span class="dot">.</span></h1>
-    <p class="role">Game Developer</p>
-    <p class="tagline">
-      I make games, prototypes and Android apps — handling the code, the art
-      and the sound myself.
-    </p>
+    <p class="prompt"><span class="t">whoami</span><span class="caret"></span></p>
+    <h1><span class="t">Zyon64</span><span class="dot">.</span></h1>
+    <p class="role"><span class="t">Game Developer</span></p>
+    <p class="tagline"><span class="t">I make games, prototypes and Android apps — handling the code, the art and the sound myself.</span></p>
     <ul class="disciplines">
       <li>3D Modeling</li>
       <li>Animation</li>
       <li>Pixel Art</li>
       <li>Gameplay Programming</li>
     </ul>
+    <button class="replay" id="replay" type="button">replay intro</button>
   </div>
 </header>
 
@@ -269,6 +284,78 @@ One or two lines about what it is and what you did on it.
 <footer>
   <div class="wrap">© 2026 Zyon64</div>
 </footer>
+
+<script>
+/* ---------------------------------------------------------
+   Intro: escribe el encabezado letra por letra, como en una
+   consola. Corre sola la primera visita; despues, a pedido
+   con el boton "replay intro".
+   --------------------------------------------------------- */
+(function(){
+  var caret  = document.querySelector('.caret');
+  var replay = document.getElementById('replay');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Que se escribe, en orden, y a que velocidad (ms por letra) */
+  var steps = [
+    { el:document.querySelector('.prompt  .t'), speed:60, pause:320 },
+    { el:document.querySelector('h1       .t'), speed:85, pause:260 },
+    { el:document.querySelector('.role    .t'), speed:42, pause:220 },
+    { el:document.querySelector('.tagline .t'), speed:13, pause:120 }
+  ].filter(function(s){ return s.el; });
+
+  /* Guardar el texto original antes de tocar nada */
+  steps.forEach(function(s){ s.text = s.el.textContent; });
+
+  var running = false;
+
+  function typeOne(step){
+    return new Promise(function(done){
+      step.el.textContent = '';
+      if (caret) step.el.parentNode.insertBefore(caret, step.el.nextSibling);
+
+      var i = 0;
+      (function tick(){
+        step.el.textContent = step.text.slice(0, ++i);
+        if (i < step.text.length) setTimeout(tick, step.speed);
+        else setTimeout(done, step.pause);
+      })();
+    });
+  }
+
+  function play(){
+    if (running) return;
+    running = true;
+    document.body.classList.add('intro');
+
+    /* vaciar todo antes de arrancar, para que no se vea el texto final */
+    steps.forEach(function(s){ s.el.textContent = ''; });
+
+    var chain = Promise.resolve();
+    steps.forEach(function(s){
+      chain = chain.then(function(){ return typeOne(s); });
+    });
+
+    chain.then(function(){
+      document.body.classList.remove('intro');
+      /* el cursor vuelve a su lugar, al lado del prompt */
+      var p = document.querySelector('.prompt');
+      if (caret && p) p.appendChild(caret);
+      running = false;
+    });
+  }
+
+  if (replay) replay.addEventListener('click', play);
+
+  /* Primera visita: se reproduce sola. Despues no molesta mas. */
+  var visto = false;
+  try { visto = localStorage.getItem('introSeen') === '1'; } catch(e){}
+  if (!visto && !reduce){
+    play();
+    try { localStorage.setItem('introSeen', '1'); } catch(e){}
+  }
+})();
+</script>
 
 <script>
 /* ---------------------------------------------------------
