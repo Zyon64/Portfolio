@@ -865,13 +865,25 @@ my personal project
     cur.desc.push(line);                                   // el resto es descripcion
   });
 
+  /* Completar el orden con las categorias que aparezcan y no esten
+     listadas, para que nunca se pierda un proyecto por olvido. */
+  items.forEach(function(p){
+    var c = (p.cat || 'dev').trim() || 'dev';
+    p.cat = c;
+    if (orden.indexOf(c) < 0) orden.push(c);
+  });
+  if (!orden.length) orden = ['dev'];
+
+  var CATS = orden.map(function(id){
+    return { id:id, label:ETIQUETAS[id] || id };
+  });
+
   /* --- Una columna por categoria, desplegable --- */
   var columnas = [];
 
   CATS.forEach(function(c){
     var propios = items.filter(function(p){
-      var cat = (p.cat || 'dev').toLowerCase();
-      return cat === c.id;
+      return p.cat === c.id;
     });
 
     var boton = document.createElement('button');
@@ -1198,7 +1210,7 @@ my personal project
   window.addEventListener('popstate', function(){ cerrarDetalle(true); });
 
   /* Arranca con Dev al centro y abierta */
-  seleccionar('dev', true);
+  seleccionar(CATS[0].id, true);
 
   /* --- Medios: sirve igual para la portada y para la galeria --- */
   function esVideo(src){ return /\.(mp4|webm)$/i.test(src || ''); }
