@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zyon64 — Game Developer</title>
+
+<!-- Icono de la pestaña. El SVG se ve nitido en cualquier tamaño; el
+     PNG queda de respaldo para navegadores que no soportan SVG. -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0a0e0c">
+
+<style>
+  :root{
+    /* --- Fondos --- */
+    --bg:#0a0e0c;           /* negro con tinte verde */
+    --surface:#111815;      /* tarjetas */
+    --surface-hi:#16201c;   /* tarjeta en hover */
+    --border:#1f2b26;       /* verde gris oscuro */
+    --border-hi:#2e4038;
+
+    /* --- Texto --- */
+    --text:#dbe7e0;
+    --muted:#7d968a;        /* verde gris */
+    --dim:#4a5c53;
+
+    /* --- Acento --- */
+    --accent:#3ddc84;       /* verde code */
+    --accent-dim:#2a9e5f;
+    --glow:rgba(61,220,132,.35);
+
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font:16px/1.65 "Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    /* sin rebote del navegador ni pull-to-refresh: el borde lo marcamos nosotros */
+    overscroll-behavior-y:contain;
+    /* nada de seleccionar texto al clickear y arrastrar */
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  /* las imagenes tampoco se arrastran fuera */
+  img{-webkit-user-drag:none;user-drag:none}
+
+  /* Trama sutil de fondo, tipo grilla de editor */
+  body::before{
+    content:"";
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--border) 1px,transparent 1px),
+      linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size:64px 64px;
+    opacity:.25;
+    mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);
+  }
+
+  /* Canvas del trail del cursor */
+  #trail{position:fixed;inset:0;z-index:9999;pointer-events:none}
+
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+  /* ---------- Hero ---------- */
+  /* el padding de arriba deja libre la barra fija */
+  header{padding:88px 0 38px;border-bottom:1px solid var(--border)}
+  .prompt{
+    font-family:var(--mono);font-size:.82rem;color:var(--accent);
+    margin:0 0 10px;letter-spacing:.02em;
+  }
+  .prompt::before{content:"> ";color:var(--accent-dim)}
+  .caret{
+    display:inline-block;width:8px;height:1em;background:var(--accent);
+    vertical-align:-2px;margin-left:2px;animation:blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+  h1{
+    font-size:clamp(2.2rem,5.4vw,3.4rem);line-height:1.02;margin:0 0 12px;
+    letter-spacing:-.03em;font-weight:700;
+  }
+  h1 .dot{color:var(--accent);text-shadow:0 0 24px var(--glow)}
+
+  .role{
+    font-family:var(--mono);font-size:.94rem;color:var(--accent);
+    margin:-4px 0 12px;letter-spacing:.04em;
+  }
+  .tagline{font-size:1.04rem;color:var(--muted);max-width:56ch;margin:0 0 16px}
+
+  /* Disciplinas: una fila de etiquetas separadas por barra */
+  .disciplines{
+    list-style:none;margin:0;padding:0;
+    display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;
+    font-family:var(--mono);font-size:.83rem;color:var(--muted);
+  }
+  .disciplines li{display:flex;align-items:center;gap:14px}
+  .disciplines li:not(:last-child)::after{content:"/";color:var(--border-hi)}
+
+  /* Boton para repetir la intro: escondido en la esquina */
+  .replay{
+    position:fixed;right:14px;bottom:14px;z-index:90;
+    font-family:var(--mono);font-size:.7rem;color:var(--dim);
+    background:rgba(10,14,12,.6);backdrop-filter:blur(6px);
+    border:1px solid var(--border);border-radius:5px;
+    padding:6px 11px;cursor:pointer;opacity:.34;
+    transition:color .2s,border-color .2s,opacity .2s;
+  }
+  .replay::before{content:"\21BB"}
+  .replay:hover{opacity:1;color:var(--accent);border-color:var(--accent-dim)}
+
+  /* Mientras corre la intro, lo que todavia no se escribio no se ve */
+  body.intro .dot,
+  body.intro .disciplines,
+  body.intro .replay,
+  body.intro .topbar{opacity:0}
+  .dot,.disciplines,.replay,.topbar{transition:opacity .5s}
+
+  /* ---------- Barra fija de redes ----------
+     Vive fuera del flujo, asi que sigue arriba y centrada
+     aunque se scrollee o se abra un proyecto adentro.        */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    display:flex;justify-content:center;align-items:center;gap:10px;
+    padding:14px 16px;
+    background:rgba(10,14,12,.72);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);
+  }
+  /* --brand lo define cada boton: es el color de su red */
+  .topbar a,.topbar .copiar{
+    font-family:var(--mono);font-size:.84rem;
+    color:var(--brand,var(--muted));text-decoration:none;
+    border:1px solid var(--border);background:var(--surface);
+    padding:9px 20px;border-radius:6px;display:inline-block;
+    cursor:pointer;line-height:1.5;
+  }
+  .topbar .copiar.ok{color:var(--accent);border-color:var(--accent)}
+
+  .topbar a:hover,.topbar .copiar:hover{
+    border-color:currentColor;background:var(--surface-hi);
+    box-shadow:0 0 18px -4px currentColor;   /* el brillo toma el color de la red */
+  }
+  @media (max-width:520px){
+    .topbar{gap:8px;padding:11px 10px;flex-wrap:wrap}
+    .topbar a,.topbar .copiar{padding:8px 14px;font-size:.78rem}
+  }
+
+  /* ---------- Secciones ---------- */
+  section{padding:52px 0 72px}
+  h2{
+    font-family:var(--mono);font-size:.78rem;text-transform:uppercase;
+    letter-spacing:.22em;color:var(--dim);margin:0 0 28px;font-weight:600;
+    display:flex;align-items:center;gap:16px;
+  }
+  h2::before{content:"//";color:var(--accent-dim)}
+  h2::after{content:"";flex:1;height:1px;background:var(--border)}
+
+  /* ---------- Categorias: tres columnas iguales ---------- */
+  /* Los tres selectores, arriba y en fila */
+  .cats{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
+    align-items:center;margin-bottom:34px;
+  }
+  .cat{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    border:1px solid var(--border);border-radius:10px;background:var(--surface);
+    color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:.85rem;letter-spacing:.03em;
+    padding:15px 18px;
+    transition:color .25s,border-color .25s,background .25s,box-shadow .25s;
+  }
+  .cat:hover{color:var(--accent);border-color:var(--border-hi);background:var(--surface-hi)}
+
+  /* La elegida: se queda en su lugar, solo cambia de peso y color */
+  .cat.sel{
+    font-weight:700;
+    color:var(--accent);border-color:var(--accent-dim);background:var(--surface-hi);
+    box-shadow:0 10px 30px -18px var(--glow);
+  }
+
+  /* Titulo de la categoria: aterriza acá el texto del boton */
+  .cat-title{
+    font-family:var(--mono);font-size:2rem;font-weight:700;
+    color:var(--accent);text-align:center;letter-spacing:-.02em;
+    margin:0 0 34px;text-shadow:0 0 28px var(--glow);
+  }
+
+  /* Indicador de carga de video: va encima del video, no al lado,
+     asi que se posiciona absoluto y no como hijo del flex. */
+  .thumb{position:relative}
+  .spinner{
+    /* Centrado con inset+margin y NO con transform: asi el giro
+       queda libre y rota sobre su propio centro. */
+    position:absolute;inset:0;margin:auto;
+    width:28px;height:28px;border-radius:50%;
+    border:2px solid var(--border-hi);border-top-color:var(--accent);
+    animation:girar .8s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  /* Sello de tipo de medio, abajo a la derecha de la vista previa */
+  .sello{
+    position:absolute;right:8px;bottom:8px;z-index:2;
+    display:flex;align-items:center;justify-content:center;
+    width:23px;height:23px;border-radius:5px;
+    background:rgba(10,14,12,.7);border:1px solid var(--border-hi);
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    color:var(--muted);transition:color .25s,border-color .25s;
+  }
+  .sello svg{width:13px;height:13px;fill:currentColor;display:block}
+  .card:hover .sello{color:var(--accent);border-color:var(--accent-dim)}
+  .cat-n{
+    font-size:.7rem;color:var(--dim);
+    border:1px solid var(--border-hi);border-radius:20px;padding:1px 9px;font-weight:400;
+  }
+  .cat.sel .cat-n{color:var(--accent-dim);border-color:var(--accent-dim)}
+
+  /* ==========================================================
+     Efecto comun a TODOS los botones de la pagina:
+       hover  -> crece suave + tiembla en seco + ruido overlay
+       click  -> estiron y caida (lo maneja el JS)
+     Va despues de los estilos propios de cada boton para que
+     su `transition` sea la que mande.
+     ========================================================== */
+  .topbar a,.topbar .copiar,.cat,.replay{
+    position:relative;overflow:hidden;
+    transition:color .2s,border-color .2s,background .2s,box-shadow .2s,
+               opacity .2s,scale .28s cubic-bezier(.2,.8,.3,1);
+  }
+  .topbar a:hover,.topbar .copiar:hover,.cat:hover,.replay:hover{
+    scale:1.07;
+    animation:temblor .3s steps(1) infinite;
+  }
+  /* `translate` va aparte de `scale`, asi el temblor no pisa el crecimiento */
+  @keyframes temblor{
+    0%  {translate:0 0}
+    25% {translate:.7px -.5px}
+    50% {translate:-.6px .5px}
+    75% {translate:.5px .6px}
+    100%{translate:0 0}
+  }
+
+  /* Textura de ruido en pixeles, mezclada sobre el contenido */
+  .topbar a::after,.topbar .copiar::after,.cat::after,.replay::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='16' height='16' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:48px 48px;image-rendering:pixelated;
+    mix-blend-mode:overlay;opacity:0;transition:opacity .25s;
+  }
+  .topbar a:hover::after,.topbar .copiar:hover::after,
+  .cat:hover::after,.replay:hover::after{
+    opacity:.6;
+    animation:ruidoMueve .45s steps(1) infinite;
+  }
+  @keyframes ruidoMueve{
+    0%  {background-position:0 0}
+    33% {background-position:11px 7px}
+    66% {background-position:-9px 5px}
+    100%{background-position:0 0}
+  }
+
+  .cat-empty{
+    grid-column:1/-1;
+    font-family:var(--mono);font-size:.78rem;color:var(--dim);
+    text-align:center;padding:44px 0;margin:0;
+    border:1px dashed var(--border);border-radius:10px;
+  }
+
+  /* Cuadricula: 3 de ancho, las filas que hagan falta */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+
+  @media (max-width:900px){
+    .grid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:600px){
+    .cats{grid-template-columns:1fr;gap:12px}
+    .grid{grid-template-columns:1fr}
+    .cat-title{font-size:1.5rem}
+  }
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s,background .25s;
+  }
+  .card{position:relative}
+  canvas.dissolve{position:absolute;inset:0;z-index:3;pointer-events:none}
+  canvas.dissolve.fija{position:fixed;z-index:10}
+  .card:hover{
+    transform:translateY(-5px);border-color:var(--accent-dim);background:var(--surface-hi);
+    box-shadow:0 12px 32px -12px var(--glow);
+  }
+  .thumb{
+    aspect-ratio:16/9;background:#0d1411;display:flex;align-items:center;
+    justify-content:center;color:var(--dim);font-family:var(--mono);font-size:.8rem;
+    border-bottom:1px solid var(--border);
+  }
+  .thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+  .card-body{padding:22px}
+  .card h3{margin:0 0 9px;font-size:1.12rem;letter-spacing:-.01em}
+  .card p{margin:0 0 16px;color:var(--muted);font-size:.93rem}
+  .tags span{
+    font-family:var(--mono);font-size:.71rem;color:var(--accent-dim);
+    border:1px solid var(--border-hi);background:#0d1411;
+    padding:3px 10px;border-radius:4px;margin:0 6px 6px 0;display:inline-block;
+  }
+
+  /* ---------- Panel de detalle ----------
+     z-index 95: por debajo de la barra (100), que sigue visible. */
+  .detalle{
+    position:fixed;inset:0;z-index:95;
+    background:var(--bg);
+    overflow-y:auto;overscroll-behavior:contain;
+    padding:96px 0 80px;
+  }
+  .detalle[hidden]{display:none}
+
+  .volver{
+    font-family:var(--mono);font-size:.8rem;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    padding:9px 18px 9px 14px;cursor:pointer;margin-bottom:26px;
+  }
+  .volver::before{content:"\2190  ";color:var(--accent-dim)}
+  .volver:hover{color:var(--accent);border-color:var(--accent-dim)}
+
+  .detalle-titulo{
+    font-size:clamp(1.8rem,4vw,2.7rem);line-height:1.05;
+    letter-spacing:-.02em;margin:0 0 14px;
+  }
+  .detalle-tags{margin-bottom:18px}
+  .detalle-desc{
+    color:var(--muted);max-width:66ch;font-size:1.02rem;margin:0 0 22px;
+  }
+  .detalle-link{
+    font-family:var(--mono);font-size:.8rem;color:var(--accent);
+    text-decoration:none;border:1px solid var(--accent-dim);border-radius:6px;
+    padding:9px 18px;display:inline-block;margin-bottom:34px;
+    transition:background .2s,box-shadow .2s;
+  }
+  .detalle-link::after{content:"  \2197"}
+  .detalle-link:hover{background:var(--surface-hi);box-shadow:0 0 20px -6px var(--glow)}
+  .detalle-link[hidden]{display:none}
+
+  /* Galeria: cada medio a lo ancho, uno debajo del otro */
+  .galeria-detalle{display:flex;flex-direction:column;gap:26px}
+  .detalle-media{display:flex;flex-direction:column;gap:26px}
+  .visor{
+    position:relative;background:#0d1411;border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;min-height:120px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--dim);font-family:var(--mono);font-size:.8rem;
+  }
+  .visor video,.visor img{width:100%;height:auto;display:block}
+  /* mientras espera su turno o su subida, reserva el hueco */
+  .visor.esperando{aspect-ratio:16/9}
+  .visor .aviso{
+    font-family:var(--mono);font-size:.82rem;color:var(--muted);
+    text-align:center;line-height:1.9;
+  }
+  .visor .aviso small{color:var(--dim);font-size:.72rem}
+  .visor.fallo{color:var(--dim);min-height:150px}
+  /* puntos suspensivos animados */
+  .puntos::after{content:"";animation:puntitos 1.2s steps(4) infinite}
+  @keyframes puntitos{
+    0%{content:""} 25%{content:"."} 50%{content:".."} 75%{content:"..."}
+  }
+
+  /* Contador de medios en la portada de la tarjeta */
+  .cuenta{
+    position:absolute;left:8px;bottom:8px;z-index:2;
+    font-family:var(--mono);font-size:.68rem;color:var(--muted);
+    background:rgba(10,14,12,.7);border:1px solid var(--border-hi);
+    border-radius:5px;padding:2px 8px;
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  }
+  .cuenta::after{content:" media"}
+
+  .card{cursor:pointer}
+
+  /* ---------- About ---------- */
+  .about p{max-width:64ch;color:var(--muted);margin:0 0 16px}
+  .about strong{color:var(--text);font-weight:600}
+
+  .about-sub{
+    font-family:var(--mono);font-size:.72rem;text-transform:uppercase;
+    letter-spacing:.18em;color:var(--dim);font-weight:600;
+    margin:30px 0 14px;
+  }
+  .tools{
+    list-style:none;margin:0;padding:0;
+    display:flex;flex-wrap:wrap;gap:8px;
+  }
+  .tools li{
+    font-family:var(--mono);font-size:.75rem;color:var(--muted);
+    border:1px solid var(--border-hi);background:#0d1411;
+    padding:5px 12px;border-radius:5px;
+    transition:color .2s,border-color .2s;
+  }
+  .tools li:hover{color:var(--accent);border-color:var(--accent-dim)}
+
+  footer{
+    padding:52px 0;border-top:1px solid var(--border);
+    color:var(--dim);font-size:.85rem;font-family:var(--mono);
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<!-- ##########################################################################
+     ###                                                                    ###
+     ###   ACA VAN TUS PROYECTOS.  Escribí normal, sin codigo.              ###
+     ###                                                                    ###
+     ###   Para agregar uno, copiá un bloque entero y cambiale los datos.   ###
+     ###   El orden en que los escribas es el orden en que se muestran.     ###
+     ###                                                                    ###
+     ########################################################################## -->
+<script type="text/plain" id="projects-data">
+# --------------------------------------------------------------------------
+#  Este bloque lo escribe el editor (editor.html). Se puede tocar a mano,
+#  pero no hace falta.
+# --------------------------------------------------------------------------
+
+== Ice cube prototype
+image: img/2023-06-27-16-12-07-min.webm
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-08-27-142521.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-08-27-142046.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-08-26-233744.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-08-20-012710.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-08-16-141440.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/playtest1.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-04-21-140703.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-04-21-104642.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-11-26-214752.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-09-22-105111.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-09-17-122745.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-09-17-003013.mp4
+tags: Unity, C#, Dev, unity3d, prototype, icecube
+link: 
+cat: dev
+Prototype of a 3d platform game with a icecube character speed mechanics, animations, sounds, vfxs, everything on video and mechanics maded by me
+
+
+== Another Prototype with icecube character
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-07-153958.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-06-152835.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-06-132845.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-06-130940.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-04-135253.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-04-112109.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-06-25-163650.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-06-24-110210.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-06-23-171533.mp4
+tags: Blender, unity3d, clipstudiopaint, dev, urp
+link: 
+cat: dev
+testing shader, gameplay, controller, environment, functions, mechanics, graphics, particles, and more, this was a cool prototype that i work with
+
+
+== Modeling1
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-124410.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-121047.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-20-210847.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-11-06-151651.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-140028.mp4
+tags: Blender, clipstudiopaint
+link: 
+cat: 3d
+Models maded for a prototype of a chef game
+
+
+== Pixelart -Sprites for Calrya
+image: img/female-holding.gif
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-07-09-183627.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-06-04-105717.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-07-11-162336.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-07-09-183713.mp4
+media: img/newchar-big.png
+media: img/mainchars-big.gif
+media: img/chain-link-fence-big.png
+media: img/tools-big.png
+media: img/shird-flying.gif
+media: img/shird-idle-and-walk.gif
+media: img/male-char.gif
+media: img/mainchars-big.gif
+media: img/pickingup.gif
+media: img/male-holding.gif
+tags: aseprite, clipstudiopaint
+link: 
+cat: pixelart
+Sprites maded for me to Calrya game
+
+
+== Models for small project
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-08-08-213016.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-08-08-213221.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-08-03-194549.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-04-23-135940.mp4
+tags: blender, clipstudiopaint
+link: 
+cat: 3d
+models for a small prototype
+
+
+== Small Thirdperson prototype
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-22-165811.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-07-22-215213.mp4
+tags: unity, c#, dev, gamedev
+link: 
+cat: dev
+another prototype for a client, making a basic moveset
+
+
+== Shaders01
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-14-224100.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-19-165315.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-14-225840.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-14-224605.mp4
+tags: Unity, Shaders, vfx
+link: 
+cat: dev
+Some shaders maded by me
+
+
+== Game-ready 3d assets
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-11-28-231104.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-201919.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-201803.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-201657.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-201332.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-201227.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-201133.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-200604.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-200200.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-195846.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-195358.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-195208.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-195057.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-195028.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-192638.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2025-12-01-192253.mp4
+tags: blender, modeling, clipstudiopaint
+link: 
+cat: 3d
+some demo models with pbr maded, game-ready to import
+
+
+== BoomerShooter Doom-like prototype
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-11-213749.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-23-103447.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-20-162432.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-20-121400.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2026-01-20-121132.mp4
+tags: Unity, blender, aseprite, doom
+link: 
+cat: dev
+prototype maded with doom-like style
+
+
+</script>
+
+<canvas id="trail"></canvas>
+
+<!-- Redes: siempre arriba y centradas. Agregá acá ArtStation, itch.io, LinkedIn -->
+<nav class="topbar">
+  <a style="--brand:#13AFF0" href="https://www.artstation.com/mxd64" target="_blank" rel="noopener">ArtStation</a>
+  <a style="--brand:#E6EDF3" href="https://github.com/Zyon64" target="_blank" rel="noopener">GitHub</a>
+  <!-- Discord no tiene link de perfil publico: se copia el usuario -->
+  <button style="--brand:#5865F2" class="copiar" data-copiar="mxd64" type="button">Discord</button>
+  <a style="--brand:#2AABEE" href="https://t.me/Zyon64" target="_blank" rel="noopener">Telegram</a>
+  <a style="--brand:#FF4500" href="https://www.reddit.com/user/PsychologicalAide531/" target="_blank" rel="noopener">Reddit</a>
+  <a style="--brand:#28A8EA" href="mailto:mxd64@outlook.com">Email</a>
+</nav>
+
+<header>
+  <div class="wrap">
+    <p class="prompt"><span class="t">whoami</span><span class="caret"></span></p>
+    <h1><span class="t">Zyon64</span><span class="dot">.</span></h1>
+    <p class="role"><span class="t">Game Developer</span></p>
+    <p class="tagline"><span class="t">I make games, prototypes and Android apps — handling the code, the art and the sound myself.</span></p>
+    <ul class="disciplines">
+      <li>3D Modeling</li>
+      <li>Animation</li>
+      <li>Pixel Art</li>
+      <li>Gameplay Programming</li>
+    </ul>
+    <button class="replay" id="replay" type="button" title="Replay intro" aria-label="Replay intro"></button>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Projects</h2>
+    <div class="cats" id="cats"></div>
+    <h3 class="cat-title" id="cat-title"></h3>
+    <div class="grid" id="panel"></div>
+  </div>
+</section>
+
+<section class="about">
+  <div class="wrap">
+    <h2>About</h2>
+    <p>
+      Ten years making games, and doing most of what a game needs along the
+      way: <strong>pixel art</strong>, 2D and 3D <strong>animation</strong>,
+      modeling, rigging, UVs, texturing and <strong>shader work</strong> —
+      plus the gameplay code that ties it all together.
+    </p>
+    <p>
+      On a team I try to be the person others actually enjoy working with:
+      friendly, easy to talk to, and straight with people. I take ownership
+      of what I build, and I deliver on time.
+    </p>
+
+    <h3 class="about-sub">Tools</h3>
+    <ul class="tools">
+      <li>Unity</li>
+      <li>Godot</li>
+      <li>Blender</li>
+      <li>Visual Studio</li>
+      <li>Aseprite</li>
+      <li>Animate CC</li>
+      <li>Krita</li>
+      <li>Clip Studio Paint</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Panel de detalle de un proyecto. Vive dentro de la misma pagina,
+     asi la barra de redes de arriba nunca se recarga. -->
+<div class="detalle" id="detalle" hidden>
+  <div class="detalle-caja wrap">
+    <button class="volver" id="volver" type="button">Back</button>
+    <h2 class="detalle-titulo" id="detalle-titulo"></h2>
+    <div class="tags detalle-tags" id="detalle-tags"></div>
+    <p class="detalle-desc" id="detalle-desc"></p>
+    <a class="detalle-link" id="detalle-link" target="_blank" rel="noopener" hidden>Open project</a>
+    <div class="detalle-media" id="detalle-media"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">© 2026 Zyon64</div>
+</footer>
+
+<script>
+/* ---------------------------------------------------------
+   Botones que copian un dato al portapapeles (Discord, que no
+   tiene link de perfil publico).
+   --------------------------------------------------------- */
+/* Al hacer click: pega un estiron y despues "cae" hacia el fondo
+   (se achica hasta su tamaño normal). Al tocar, suelta una onda
+   corta de pixeles con el color de su red. */
+(function(){
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (quieto) return;
+
+  /* Todos los botones de la pagina. Los de categoria los crea el JS
+     mas tarde, asi que se escucha por delegacion en vez de engancharse
+     uno por uno al cargar. */
+  window.BOTONES = '.topbar a, .topbar .copiar, .cat, .replay';
+
+  document.addEventListener('mousedown', function(e){
+    var b = e.target.closest && e.target.closest(window.BOTONES);
+    if (!b || !b.animate) return;
+
+    var caida = b.animate([
+      { scale:1.07, offset:0    },
+      { scale:1.20, offset:0.22 },   // el estiron
+      { scale:1.00, offset:1    }    // y la caida vista desde arriba
+    ], { duration:430, easing:'cubic-bezier(.35,0,.25,1)' });
+
+    caida.finished.then(function(){
+      var r = b.getBoundingClientRect();
+      window.dispatchEvent(new CustomEvent('pixelwave', { detail:{
+        x: r.left + r.width  / 2,
+        y: r.top  + r.height / 2,
+        color: getComputedStyle(b).color
+      }}));
+    }).catch(function(){});
+  });
+})();
+</script>
+
+<script>
+(function(){
+  Array.prototype.forEach.call(document.querySelectorAll('.copiar'), function(b){
+    var etiqueta = b.textContent;
+
+    b.addEventListener('click', function(){
+      var texto = b.getAttribute('data-copiar');
+
+      var avisar = function(ok){
+        b.textContent = ok ? ('copiado: ' + texto) : texto;
+        b.classList.add('ok');
+        setTimeout(function(){
+          b.textContent = etiqueta;
+          b.classList.remove('ok');
+        }, 1800);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(texto).then(
+          function(){ avisar(true); },
+          function(){ avisar(false); }         // sin permiso: al menos lo muestra
+        );
+      } else {
+        avisar(false);
+      }
+    });
+  });
+})();
+</script>
+
+<script>
+/* ---------------------------------------------------------
+   Intro: escribe el encabezado letra por letra, como en una
+   consola. Corre sola la primera visita; despues, a pedido
+   con el boton "replay intro".
+   --------------------------------------------------------- */
+(function(){
+  var caret  = document.querySelector('.caret');
+  var replay = document.getElementById('replay');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Que se escribe, en orden, y a que velocidad (ms por letra) */
+  var steps = [
+    { el:document.querySelector('.prompt  .t'), speed:60, pause:320 },
+    { el:document.querySelector('h1       .t'), speed:85, pause:260 },
+    { el:document.querySelector('.role    .t'), speed:42, pause:220 },
+    { el:document.querySelector('.tagline .t'), speed:13, pause:120 }
+  ].filter(function(s){ return s.el; });
+
+  /* Guardar el texto original antes de tocar nada */
+  steps.forEach(function(s){ s.text = s.el.textContent; });
+
+  var running   = false;
+  var cancelado = false;
+
+  function typeOne(step){
+    return new Promise(function(done){
+      step.el.textContent = '';
+      if (caret) step.el.parentNode.insertBefore(caret, step.el.nextSibling);
+
+      var i = 0;
+      (function tick(){
+        /* si se cancelo, se completa de golpe y sigue */
+        if (cancelado){ step.el.textContent = step.text; done(); return; }
+
+        step.el.textContent = step.text.slice(0, ++i);
+        if (i < step.text.length) setTimeout(tick, step.speed);
+        else setTimeout(done, step.pause);
+      })();
+    });
+  }
+
+  /* En una pestaña de fondo los timers se estrangulan a 1 por segundo:
+     la intro tardaria minutos y la pagina quedaria a medio mostrar. */
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden && running) cancelado = true;
+  });
+
+  function play(){
+    if (running) return;
+    running   = true;
+    cancelado = document.hidden;      // arranca ya terminada si no se ve
+    document.body.classList.add('intro');
+
+    /* vaciar todo antes de arrancar, para que no se vea el texto final */
+    steps.forEach(function(s){ s.el.textContent = ''; });
+
+    var chain = Promise.resolve();
+    steps.forEach(function(s){
+      chain = chain.then(function(){ return typeOne(s); });
+    });
+
+    chain.then(function(){
+      document.body.classList.remove('intro');
+      /* el cursor vuelve a su lugar, al lado del prompt */
+      var p = document.querySelector('.prompt');
+      if (caret && p) p.appendChild(caret);
+      running = false;
+    });
+  }
+
+  if (replay) replay.addEventListener('click', play);
+
+  /* Primera visita: se reproduce sola. Despues no molesta mas. */
+  var visto = false;
+  try { visto = localStorage.getItem('introSeen') === '1'; } catch(e){}
+  if (!visto && !reduce){
+    play();
+    try { localStorage.setItem('introSeen', '1'); } catch(e){}
+  }
+})();
+</script>
+
+<script>
+/* ---------------------------------------------------------
+   Lee el bloque de texto de arriba y arma las tarjetas.
+   El texto se trata siempre como texto: no se interpreta
+   como HTML, asi que se puede escribir cualquier cosa.
+   --------------------------------------------------------- */
+(function(){
+  var raw   = document.getElementById('projects-data').textContent;
+  var cats  = document.getElementById('cats');
+  var panel = document.getElementById('panel');
+  if (!raw || !cats || !panel) return;
+
+  /* Las tres categorias, en este orden */
+  var CATS = [
+    { id:'dev',      label:'Dev' },
+    { id:'3d',       label:'3D Modeling' },
+    { id:'pixelart', label:'Pixel Art' }
+  ];
+
+  /* --- Parseo --- */
+  var items = [], cur = null;
+  raw.split(/\r?\n/).forEach(function(rawLine){
+    var line = rawLine.trim();
+    if (!line || line.charAt(0) === '#') return;          // vacia o nota
+
+    if (line.slice(0, 2) === '=='){                        // arranca un proyecto
+      cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', cat:'', media:[], desc:[] };
+      items.push(cur);
+      return;
+    }
+    if (!cur) return;
+
+    var m = line.match(/^(image|tags|link|cat|media)\s*:\s*(.*)$/i);
+    if (m){
+      var clave = m[1].toLowerCase(), valor = m[2].trim();
+      /* `media` se puede repetir: son los videos e imagenes extra */
+      if (clave === 'media'){ if (valor) cur.media.push(valor); }
+      else cur[clave] = valor;
+      return;
+    }
+
+    cur.desc.push(line);                                   // el resto es descripcion
+  });
+
+  /* --- Una columna por categoria, desplegable --- */
+  var columnas = [];
+
+  CATS.forEach(function(c){
+    var propios = items.filter(function(p){
+      var cat = (p.cat || 'dev').toLowerCase();
+      return cat === c.id;
+    });
+
+    var boton = document.createElement('button');
+    boton.className = 'cat';
+    boton.type = 'button';
+    boton.setAttribute('aria-selected', 'false');
+
+    var nm = document.createElement('span');
+    nm.className = 'cat-name';
+    nm.textContent = c.label;
+    boton.appendChild(nm);
+
+    var n = document.createElement('span');
+    n.className = 'cat-n';
+    n.textContent = propios.length;
+    boton.appendChild(n);
+
+    columnas.push({ id:c.id, el:boton, nm:nm, label:c.label, propios:propios });
+    boton.addEventListener('click', function(){ seleccionar(c.id); });
+
+    cats.appendChild(boton);
+  });
+
+  /* Lleva un elemento al borde superior util, descontando la altura
+     real de la barra fija (que en el telefono puede ser de dos filas).
+     Se usa offsetTop y no getBoundingClientRect porque el titulo esta
+     animandose y su transform falsearia la medicion. */
+  function acomodarEn(el){
+    var y = 0, n = el;
+    while (n){ y += n.offsetTop; n = n.offsetParent; }
+
+    var barra = document.querySelector('.topbar');
+    var alto  = barra ? barra.getBoundingClientRect().height : 0;
+    var meta  = Math.max(0, y - alto - 14);
+
+    if (window.scrollTo.length === 1 || 'scrollBehavior' in document.documentElement.style){
+      window.scrollTo({ top:meta, behavior:'smooth' });
+    } else {
+      window.scrollTo(0, meta);
+    }
+  }
+
+  /* --- Seleccion: los botones no se mueven; el texto baja y se
+         convierte en el titulo de la seccion, y las tarjetas
+         entran una por una como una ola. --- */
+  var titulo = document.getElementById('cat-title');
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function seleccionar(id, sinAnimar){
+    var elegidos = [], etiqueta = null, label = '';
+
+    columnas.forEach(function(c){
+      var elegida = c.id === id;
+      c.el.classList.toggle('sel', elegida);
+      c.el.setAttribute('aria-selected', elegida ? 'true' : 'false');
+      if (elegida){ elegidos = c.propios; etiqueta = c.nm; label = c.label; }
+    });
+
+    /* --- El titulo: sale del boton clickeado y aterriza centrado --- */
+    /* Si la pestaña no se ve, nada de animar: el contenido tiene que
+       estar visible sí o sí cuando el visitante vuelva. */
+    var animar = !sinAnimar && !quieto && !document.hidden;
+    var desde  = (etiqueta && animar) ? etiqueta.getBoundingClientRect() : null;
+    titulo.textContent = label;
+
+    /* Acomoda la pagina para que el titulo de la categoria quede
+       arriba de todo, justo por debajo de la barra de redes. Asi el
+       visitante arranca a leer desde el principio de la seccion. */
+    if (!sinAnimar) acomodarEn(titulo);
+
+    if (desde && titulo.animate){
+      var hasta = titulo.getBoundingClientRect();
+      var dx = (desde.left + desde.width  / 2) - (hasta.left + hasta.width  / 2);
+      var dy = (desde.top  + desde.height / 2) - (hasta.top  + hasta.height / 2);
+      var s0 = desde.height / (hasta.height || 1);
+      var sMedia = s0 + (1 - s0) * 0.55;
+
+      /* Dos tramos: primero baja hasta su altura final, recien
+         despues se corre al costado. Todo con curvas suaves.  */
+      titulo.animate([
+        { transform:'translate(' + dx + 'px,' + dy + 'px) scale(' + s0 + ')',
+          opacity:.3,  easing:'cubic-bezier(.32,0,.28,1)', offset:0 },
+        { transform:'translate(' + dx + 'px,0px) scale(' + sMedia + ')',
+          opacity:.85, easing:'cubic-bezier(.25,0,.15,1)', offset:.52 },
+        { transform:'none', opacity:1, offset:1 }
+      ], { duration:820, easing:'linear', fill:'backwards' });
+    }
+
+    /* --- La cuadricula se rehace y cae en cascada --- */
+    panel.innerHTML = '';
+
+    if (!elegidos.length){
+      var vacio = document.createElement('p');
+      vacio.className = 'cat-empty';
+      vacio.textContent = 'nothing here yet';
+      panel.appendChild(vacio);
+      return;
+    }
+
+    /* cuantas columnas tiene la cuadricula ahora mismo */
+    var cols = getComputedStyle(panel).gridTemplateColumns.split(' ').length || 1;
+
+    elegidos.forEach(function(p, i){
+      var card = tarjeta(p);
+      panel.appendChild(card);
+
+      if (quieto || document.hidden || !card.animate) return;
+
+      /* La ola avanza en diagonal: arriba-izquierda primero,
+         abajo-derecha al final. */
+      var fila = Math.floor(i / cols);
+      var col  = i % cols;
+      var demora = (fila + col) * 110;
+
+      /* solo el movimiento: la aparicion la hace la mascara de pixeles */
+      card.animate(
+        [{ transform:'translateY(-34px)' },
+         { transform:'none' }],
+        { duration:620, delay:demora, easing:'cubic-bezier(.22,1,.36,1)', fill:'backwards' }
+      );
+
+      disolver(card, demora);
+    });
+  }
+
+  /* --- Mascara de pixeles: tapa la tarjeta con el color del fondo
+         y va abriendo huecos, asi el contenido aparece pixel por
+         pixel siguiendo el mismo ruido del brillo de los bordes. --- */
+  var COLOR_FONDO = (getComputedStyle(document.documentElement)
+                      .getPropertyValue('--bg') || '#0a0e0c').trim();
+
+  /* `fijo` = cubre toda la pantalla (para el panel de detalle) en vez
+     de solo la caja del elemento. */
+  function disolver(card, demora, fijo){
+    if (quieto || document.hidden) return;
+
+    var CELL  = 5,
+        DUR   = 760,
+        BORDE = 0.14,    // franja difusa del frente de avance
+        RUIDO = 0.45;    // 0 = barrido recto de arriba a abajo, 1 = puro ruido
+    var cv  = document.createElement('canvas');
+    cv.className = 'dissolve' + (fijo ? ' fija' : '');
+    card.appendChild(cv);
+    var ctx = cv.getContext('2d');
+
+    /* ruido estable por celda: define cuando se apaga cada pixel */
+    function ruido(x, y, sal){
+      var n = Math.sin(x * 12.9898 + y * 78.233 + sal * 43.1) * 43758.5453;
+      return n - Math.floor(n);
+    }
+
+    var quitar = setTimeout(function(){ if (cv.parentNode) cv.remove(); }, demora + DUR + 2000);
+
+    /* Se tapa YA, antes de que empiece su turno en la ola: si no,
+       la tarjeta asomaria un instante y despues se cubriria. */
+    var r = card.getBoundingClientRect();
+    var w = fijo ? window.innerWidth  : Math.max(1, Math.round(r.width));
+    var h = fijo ? window.innerHeight : Math.max(1, Math.round(r.height));
+    cv.width = w; cv.height = h;
+
+    var cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
+    ctx.fillStyle = COLOR_FONDO;
+    ctx.fillRect(0, 0, w, h);
+
+    /* Se dibuja en un lienzo de 1 pixel por celda y se amplia sin
+       suavizado. A pantalla completa serian ~43.000 rectangulos por
+       cuadro; asi es una sola imagen escalada. */
+    var buf  = document.createElement('canvas');
+    buf.width = cols; buf.height = rows;
+    var bctx   = buf.getContext('2d');
+    var imagen = bctx.createImageData(cols, rows);
+    var datos  = imagen.data;
+
+    /* el color de fondo a RGB, una sola vez */
+    var hex = COLOR_FONDO.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var R = parseInt(hex.slice(0,2),16) || 10,
+        G = parseInt(hex.slice(2,4),16) || 14,
+        B = parseInt(hex.slice(4,6),16) || 12;
+
+    ctx.imageSmoothingEnabled = false;
+
+    setTimeout(function(){
+      var inicio = performance.now();
+
+      (function frame(now){
+        var t = Math.min(1, (now - inicio) / DUR);
+        var flick = Math.floor(now / 70);          // parpadeo, como el edge glow
+        var i = 0;
+
+        for (var cy = 0; cy < rows; cy++){
+          /* El umbral mezcla la altura con el ruido: el frente baja
+             de arriba hacia abajo, pero con el borde deshilachado. */
+          var altura = (cy / rows) * (1 - RUIDO);
+
+          for (var cx = 0; cx < cols; cx++, i += 4){
+            var n = altura + ruido(cx, cy, 0) * RUIDO;
+
+            datos[i] = R; datos[i+1] = G; datos[i+2] = B;
+
+            if (n < t)              datos[i+3] = 0;      // abierto: se ve el contenido
+            else if (n < t + BORDE) datos[i+3] = (0.35 + ruido(cx, cy, flick) * 0.4) * 255;
+            else                    datos[i+3] = 255;    // todavia tapado
+          }
+        }
+
+        bctx.putImageData(imagen, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(buf, 0, 0, w, h);
+
+        if (t < 1) requestAnimationFrame(frame);
+        else { clearTimeout(quitar); cv.remove(); }
+      })(performance.now());
+    }, demora);
+  }
+
+  /* ==========================================================
+     Panel de detalle: se abre sobre la pagina, sin navegar.
+     ========================================================== */
+  var panelDet = document.getElementById('detalle');
+  var cerrarBt = document.getElementById('volver');
+  var abierto  = false;
+
+  function abrirDetalle(p){
+    document.getElementById('detalle-titulo').textContent = p.title || 'Untitled';
+    document.getElementById('detalle-desc').textContent   = p.desc.join(' ');
+
+    var tags = document.getElementById('detalle-tags');
+    tags.innerHTML = '';
+    (p.tags || '').split(',').forEach(function(t){
+      t = t.trim();
+      if (!t) return;
+      var s = document.createElement('span');
+      s.textContent = t;
+      tags.appendChild(s);
+    });
+
+    var link = document.getElementById('detalle-link');
+    if (p.link){ link.href = p.link; link.hidden = false; }
+    else link.hidden = true;
+
+    /* Galeria: se construye UNA vez por proyecto y se reutiliza.
+       Si se destruyera al cerrar, volver a entrar obligaria a
+       descargar los videos de nuevo desde cero. */
+    var cont  = document.getElementById('detalle-media');
+    var clave = p.title + '|' + mediosDe(p).join(',');
+
+    cont.innerHTML = '';
+    cont.appendChild(galeriaDe(p, clave));
+
+    panelDet.hidden = false;
+    panelDet.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    abierto = true;
+
+    disolver(panelDet, 0, true);              // aparece con el ruido de pixeles
+
+    try { history.pushState({ detalle:true }, ''); } catch(e){}
+  }
+
+  /* Galerias ya construidas, por proyecto. Se guardan aunque el
+     panel este cerrado: asi conservan lo que ya descargaron. */
+  var galerias = {};
+
+  function galeriaDe(p, clave){
+    if (galerias[clave]) return galerias[clave];
+
+    var g = document.createElement('div');
+    g.className = 'galeria-detalle';
+
+    var obs = window.IntersectionObserver
+      ? new IntersectionObserver(function(entradas){
+          entradas.forEach(function(e){
+            if (!e.isIntersecting) return;
+            obs.unobserve(e.target);
+            e.target.classList.remove('esperando');
+            e.target.innerHTML = '';
+            montarMedia(e.target, e.target.getAttribute('data-src'), p.title, false);
+          });
+        }, { root:panelDet, rootMargin:'300px' })
+      : null;
+
+    mediosDe(p).forEach(function(src, i){
+      var visor = document.createElement('div');
+      visor.className = 'visor';
+      visor.setAttribute('data-src', src);
+
+      if (i === 0 || !obs){
+        montarMedia(visor, src, p.title, false);
+      } else {
+        visor.classList.add('esperando');
+        visor.innerHTML = '<span class="aviso">loading<span class="puntos"></span></span>';
+        obs.observe(visor);
+      }
+      g.appendChild(visor);
+    });
+
+    galerias[clave] = g;
+    return g;
+  }
+
+  function cerrarDetalle(porHistoria){
+    if (!abierto) return;
+    abierto = false;
+    panelDet.hidden = true;
+
+    /* Se pausan, NO se destruyen: conservan lo descargado para
+       que volver a abrir el proyecto sea instantaneo. */
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#detalle-media video'),
+      function(v){ try { v.pause(); } catch(e){} }
+    );
+    document.body.style.overflow = '';
+    if (!porHistoria){ try { history.back(); } catch(e){} }
+  }
+
+  cerrarBt.addEventListener('click', function(){ cerrarDetalle(false); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') cerrarDetalle(false);
+  });
+
+  /* El boton "atras" del navegador tambien cierra */
+  window.addEventListener('popstate', function(){ cerrarDetalle(true); });
+
+  /* Arranca con Dev al centro y abierta */
+  seleccionar('dev', true);
+
+  /* --- Medios: sirve igual para la portada y para la galeria --- */
+  function esVideo(src){ return /\.(mp4|webm)$/i.test(src || ''); }
+
+  /* Todo lo que se muestra en el detalle: portada + extras, sin repetir */
+  function mediosDe(p){
+    var todo = [];
+    if (p.image) todo.push(p.image);
+    (p.media || []).forEach(function(m){
+      if (m && todo.indexOf(m) < 0) todo.push(m);
+    });
+    return todo;
+  }
+
+  function montarMedia(cont, src, alt, conSello){
+    var video = esVideo(src), media;
+
+    if (video){
+      media = document.createElement('video');
+      media.src = src;
+      media.autoplay = media.muted = media.loop = media.playsInline = true;
+      media.preload = 'metadata';
+      media.controls = !conSello;                 // controles solo en el detalle
+
+      /* Un video tarda en arrancar: mostramos que esta cargando
+         para que no parezca una imagen rota. */
+      var spin = document.createElement('span');
+      spin.className = 'spinner';
+      cont.appendChild(spin);
+      cont.classList.add('cargando');
+
+      var rendicion;
+      var listo = function(){
+        if (!spin.parentNode) return;
+        clearTimeout(rendicion);
+        cont.classList.remove('cargando');
+        spin.parentNode.removeChild(spin);
+      };
+
+      /* Se saca recien cuando hay un frame PINTADO en pantalla.
+         'loadeddata' y 'canplay' avisan demasiado pronto: el video
+         todavia se ve negro un par de segundos. */
+      if (media.requestVideoFrameCallback){
+        media.requestVideoFrameCallback(listo);
+      } else {
+        media.addEventListener('playing', listo);
+        media.addEventListener('timeupdate', function(){
+          if (media.currentTime > 0) listo();
+        });
+      }
+
+      /* Red de seguridad: si el navegador bloquea la reproduccion
+         automatica, que no gire para siempre. */
+      rendicion = setTimeout(listo, 12000);
+
+      /* Un video alojado en Releases puede no estar todavia: el
+         archivo se sube despues de publicar la pagina. En vez de
+         darlo por muerto, se avisa y se reintenta. */
+      media.addEventListener('error', function(){
+        listo();
+        media.remove();
+
+        var enReleases = /releases\/download/.test(src);
+        var intentos   = (parseInt(cont.dataset.intentos, 10) || 0) + 1;
+        cont.dataset.intentos = intentos;
+
+        if (enReleases && intentos <= 3){
+          /* Reintento callado, sin carteles: puede estar subiendose. */
+          cont.classList.add('esperando');
+          cont.innerHTML = '<span class="spinner"></span>';
+          setTimeout(function(){
+            cont.classList.remove('esperando');
+            cont.innerHTML = '';
+            montarMedia(cont, src, alt, conSello);
+          }, 6000);
+        } else {
+          /* Se rinde: el hueco DESAPARECE. Un visitante nunca tiene que
+             ver un mensaje de error en el portafolio. */
+          cont.innerHTML = '';
+          if (cont.parentNode && cont.className.indexOf('visor') >= 0){
+            cont.parentNode.removeChild(cont);
+          } else {
+            cont.className = cont.className.replace('cargando','') + ' sin-medio';
+          }
+        }
+      });
+    } else {
+      media = document.createElement('img');
+      media.src = src;
+      media.alt = alt || '';
+      media.loading = 'lazy';
+    }
+    cont.appendChild(media);
+
+    /* Sello en la esquina: dice de un vistazo si es video o imagen */
+    if (conSello){
+      var sello = document.createElement('span');
+      sello.className = 'sello';
+      sello.title = video ? 'Video' : 'Image';
+      sello.innerHTML = video
+        ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.4v7.2l6-3.6z"/></svg>'
+        : '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+            '<rect x="2" y="3.4" width="12" height="9.2" rx="1.6" fill="none" ' +
+              'stroke="currentColor" stroke-width="1.4"/>' +
+            '<circle cx="5.7" cy="6.7" r="1.1"/>' +
+            '<path d="M3.4 11.8l2.9-3 2.1 2.1 2-2 2.2 2.9z"/>' +
+          '</svg>';
+      cont.appendChild(sello);
+    }
+    return media;
+  }
+
+  /* --- Armado de una tarjeta --- */
+  function tarjeta(p){
+    var card = document.createElement('article');
+    card.className = 'card';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+
+    var medios = mediosDe(p);
+    var thumb  = document.createElement('div');
+    thumb.className = 'thumb';
+
+    if (medios.length){
+      montarMedia(thumb, medios[0], p.title, true);
+      /* si hay mas de uno, se avisa en la portada */
+      if (medios.length > 1){
+        var cuenta = document.createElement('span');
+        cuenta.className = 'cuenta';
+        cuenta.textContent = medios.length;
+        thumb.appendChild(cuenta);
+      }
+    } else {
+      thumb.textContent = '16:9 image';
+    }
+    card.appendChild(thumb);
+
+    card.addEventListener('click', function(){ abrirDetalle(p); });
+    card.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); abrirDetalle(p); }
+    });
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
+
+    var h3 = document.createElement('h3');
+    h3.textContent = p.title || 'Untitled';
+    body.appendChild(h3);
+
+    if (p.desc.length){
+      var d = document.createElement('p');
+      d.textContent = p.desc.join(' ');
+      body.appendChild(d);
+    }
+
+    if (p.tags){
+      var tags = document.createElement('div');
+      tags.className = 'tags';
+      p.tags.split(',').forEach(function(t){
+        t = t.trim();
+        if (!t) return;
+        var s = document.createElement('span');
+        s.textContent = t;
+        tags.appendChild(s);
+      });
+      body.appendChild(tags);
+    }
+
+    card.appendChild(body);
+    return card;
+  }
+})();
+</script>
+
+<script>
+/* ---------------------------------------------------------
+   Efectos de cursor sobre un unico canvas:
+     1) trail  - estela que se afina y se apaga con la edad
+     2) burst  - explosion de pixeles al hacer click
+   --------------------------------------------------------- */
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var coarse = window.matchMedia('(pointer: coarse)').matches;
+  if (reduce) return;                    // el sistema pide menos movimiento: nada de esto
+
+  var canvas = document.getElementById('trail');
+  var ctx    = canvas.getContext('2d');
+
+  var LIFETIME = 420;   // ms que dura cada punto del trail
+  var MAX_W    = 3.2;   // grosor en la punta
+  var points   = [];
+  var particles= [];
+  var dpr      = 1;
+
+  /* Intensidad del brillo en cada borde (0 = apagado, 1 = tope) */
+  var edge = { top:0, bottom:0 };
+
+  /* Verdes de la paleta, del mas claro (chispa) al mas apagado */
+  var COLORS = ['#b9ffd6','#3ddc84','#3ddc84','#2a9e5f','#1f7a48'];
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width  = window.innerWidth  * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width  = window.innerWidth  + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  if (!coarse){
+    window.addEventListener('mousemove', function(e){
+      points.push({ x:e.clientX, y:e.clientY, t:performance.now() });
+      if (points.length > 90) points.shift();
+    }, { passive:true });
+  }
+
+  /* ---------- Explosion de pixeles ---------- */
+  function burst(x, y, big){
+    var count = big ? 46 : 14;
+    var maxSpeed = big ? 7.5 : 4;
+    var maxLife  = big ? 1100 : 700;
+    var sizes    = big ? [2,3,3,4,5] : [2,2,3,3];
+
+    for (var i = 0; i < count; i++){
+      var ang = Math.random() * Math.PI * 2;
+      var spd = (0.35 + Math.random() * 0.65) * maxSpeed;
+      particles.push({
+        x:x, y:y,
+        vx:Math.cos(ang) * spd,
+        vy:Math.sin(ang) * spd - (big ? 1.4 : 0.8),   // empujon hacia arriba
+        size:sizes[(Math.random() * sizes.length) | 0],
+        color:COLORS[(Math.random() * COLORS.length) | 0],
+        life:1,
+        g:0.13,
+        decay:1 / ((0.55 + Math.random() * 0.45) * maxLife / 16.7)
+      });
+    }
+    if (particles.length > 700) particles.splice(0, particles.length - 700);
+  }
+
+  /* Onda expansiva: un anillo corto y chico, casi sin gravedad.
+     La disparan los botones de la barra al "aterrizar". */
+  function onda(x, y, color){
+    var N = 22;
+    for (var i = 0; i < N; i++){
+      var ang = (i / N) * Math.PI * 2 + Math.random() * 0.18;
+      var spd = 2.4 + Math.random() * 1.1;
+      particles.push({
+        x:x, y:y,
+        vx:Math.cos(ang) * spd,
+        vy:Math.sin(ang) * spd * 0.55,     /* achatada: se ve desde arriba */
+        size:(Math.random() < 0.5 ? 2 : 3),
+        color:color || COLORS[1],
+        life:1,
+        g:0.012,                            /* casi no cae */
+        decay:1 / (26)                      /* ~430 ms */
+      });
+    }
+  }
+
+  /* Puente para que otras partes de la pagina la disparen */
+  window.addEventListener('pixelwave', function(e){
+    if (e.detail) onda(e.detail.x, e.detail.y, e.detail.color);
+  });
+
+  /* Chico en cualquier lado; grande sobre algo clickeable */
+  window.addEventListener('mousedown', function(e){
+    /* los botones tienen su propio efecto (estiron + onda al caer) */
+    if (e.target.closest && e.target.closest(window.BOTONES || '.topbar')) return;
+
+    var big = !!(e.target.closest && e.target.closest('a, button, .card'));
+    burst(e.clientX, e.clientY, big);
+  }, { passive:true });
+
+  /* ---------- Brillo en los bordes al pasarse del limite ---------- */
+  function atTop(){
+    return window.scrollY <= 0;
+  }
+  function atBottom(){
+    var doc = document.documentElement;
+    return window.scrollY + window.innerHeight >= doc.scrollHeight - 1;
+  }
+
+  /* Acumula: cuanto mas insistis contra el tope, mas crece */
+  function pushEdge(side, amount){
+    edge[side] = Math.min(1, edge[side] + Math.min(amount / 700, 0.22));
+  }
+
+  window.addEventListener('wheel', function(e){
+    if (e.deltaY < 0 && atTop())    pushEdge('top',    -e.deltaY);
+    if (e.deltaY > 0 && atBottom()) pushEdge('bottom',  e.deltaY);
+  }, { passive:true });
+
+  /* En movil: mismo efecto arrastrando el dedo contra el tope */
+  var lastTouchY = 0;
+  window.addEventListener('touchstart', function(e){
+    lastTouchY = e.touches[0].clientY;
+  }, { passive:true });
+
+  window.addEventListener('touchmove', function(e){
+    var y  = e.touches[0].clientY;
+    var dy = y - lastTouchY;          // positivo = el dedo baja = querer ver arriba
+    lastTouchY = y;
+    if (dy > 0 && atTop())    pushEdge('top',    dy * 4);
+    if (dy < 0 && atBottom()) pushEdge('bottom', -dy * 4);
+  }, { passive:true });
+
+  /* Dibuja la banda de luz de un borde, con disolucion de pixeles */
+  var CELL = 5;   // tamaño del pixel de la disolucion
+  function drawEdge(side, v, now){
+    if (v <= 0.004) return;
+
+    var W    = window.innerWidth;
+    var H    = window.innerHeight;
+    var band = 210 * (1 - Math.pow(1 - v, 2.2));   // mas insistencia = banda mas larga
+    var top  = (side === 'top');
+    var y0   = top ? 0 : H - band;
+
+    /* 1) Nucleo: degradado suave pegado al borde */
+    var g = ctx.createLinearGradient(0, top ? 0 : H, 0, top ? band : H - band);
+    g.addColorStop(0,   'rgba(61,220,132,' + (0.42 * v) + ')');
+    g.addColorStop(0.35,'rgba(61,220,132,' + (0.14 * v) + ')');
+    g.addColorStop(1,   'rgba(61,220,132,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y0, W, band);
+
+    /* 2) Linea marcando el tope exacto */
+    ctx.fillStyle = 'rgba(185,255,214,' + (0.75 * v) + ')';
+    ctx.fillRect(0, top ? 0 : H - 2, W, 2);
+
+    /* 3) Disolucion: pixeles que parpadean, mas ralos cuanto mas lejos del borde */
+    var flick = Math.floor(now / 70);      // cambia el patron ~14 veces por segundo
+    var cols  = Math.ceil(W / CELL);
+    var rows  = Math.ceil(band / CELL);
+
+    ctx.fillStyle = '#3ddc84';
+    for (var cy = 0; cy < rows; cy++){
+      var depth = cy / rows;                       // 0 = pegado al borde
+      var prob  = (1 - depth) * (1 - depth) * v;   // se ralea hacia adentro
+      for (var cx = 0; cx < cols; cx++){
+        // ruido barato y estable por celda, que cambia con flick
+        var n = Math.sin((cx * 12.9898 + cy * 78.233 + flick * 43.1) ) * 43758.5453;
+        n = n - Math.floor(n);
+        if (n > prob) continue;
+        ctx.globalAlpha = (0.35 + n * 0.5) * v;
+        // sin restarle nada: los pixeles se tocan y no queda rejilla
+        ctx.fillRect(
+          cx * CELL,
+          (top ? cy * CELL : H - band + (rows - 1 - cy) * CELL),
+          CELL, CELL
+        );
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function frame(){
+    var now = performance.now();
+
+    // descartar los puntos ya apagados
+    while (points.length && now - points[0].t > LIFETIME) points.shift();
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (points.length > 1){
+      ctx.lineCap  = 'round';
+      ctx.lineJoin = 'round';
+
+      for (var i = 1; i < points.length; i++){
+        var p = points[i], prev = points[i-1];
+        var life = 1 - (now - p.t) / LIFETIME;   // 1 = recien hecho, 0 = muerto
+        if (life <= 0) continue;
+
+        var e = life * life;                     // cae mas rapido al final
+
+        ctx.strokeStyle = 'rgba(61,220,132,' + (e * 0.85) + ')';
+        ctx.lineWidth   = MAX_W * e;
+        ctx.shadowColor = 'rgba(61,220,132,' + (e * 0.6) + ')';
+        ctx.shadowBlur  = 12 * e;
+
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    /* --- Particulas: se mueven, caen y se apagan --- */
+    for (var j = particles.length - 1; j >= 0; j--){
+      var q = particles[j];
+
+      q.x  += q.vx;
+      q.y  += q.vy;
+      q.vy += (q.g === undefined ? 0.13 : q.g);   // gravedad propia de cada particula
+      q.vx *= 0.985;     // roce
+      q.vy *= 0.985;
+      q.life -= q.decay;
+
+      if (q.life <= 0){ particles.splice(j, 1); continue; }
+
+      ctx.globalAlpha = q.life > .8 ? 1 : q.life / .8;
+      ctx.fillStyle   = q.color;
+      ctx.shadowColor = q.color;
+      ctx.shadowBlur  = 8 * q.life;
+      // redondeado a entero: los pixeles quedan nitidos, sin antialias
+      ctx.fillRect(q.x | 0, q.y | 0, q.size, q.size);
+    }
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur  = 0;
+
+    /* --- Bordes: dibujar y dejar que se apaguen --- */
+    drawEdge('top',    edge.top,    now);
+    drawEdge('bottom', edge.bottom, now);
+    edge.top    *= 0.93;
+    edge.bottom *= 0.93;
+    if (edge.top    < 0.004) edge.top    = 0;
+    if (edge.bottom < 0.004) edge.bottom = 0;
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
