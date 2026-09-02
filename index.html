@@ -560,9 +560,10 @@ One or two lines about what it is and what you did on it.
       var col  = i % cols;
       var demora = (fila + col) * 110;
 
+      /* solo el movimiento: la aparicion la hace la mascara de pixeles */
       card.animate(
-        [{ opacity:0, transform:'translateY(-34px)' },
-         { opacity:1, transform:'none' }],
+        [{ transform:'translateY(-34px)' },
+         { transform:'none' }],
         { duration:620, delay:demora, easing:'cubic-bezier(.22,1,.36,1)', fill:'backwards' }
       );
 
@@ -570,11 +571,19 @@ One or two lines about what it is and what you did on it.
     });
   }
 
-  /* --- Disolucion de pixeles, igual que el brillo de los bordes --- */
+  /* --- Mascara de pixeles: tapa la tarjeta con el color del fondo
+         y va abriendo huecos, asi el contenido aparece pixel por
+         pixel siguiendo el mismo ruido del brillo de los bordes. --- */
+  var COLOR_FONDO = (getComputedStyle(document.documentElement)
+                      .getPropertyValue('--bg') || '#0a0e0c').trim();
+
   function disolver(card, demora){
     if (quieto || document.hidden) return;
 
-    var CELL = 5, DUR = 700;
+    var CELL  = 5,
+        DUR   = 760,
+        BORDE = 0.14,    // franja difusa del frente de avance
+        RUIDO = 0.45;    // 0 = barrido recto de arriba a abajo, 1 = puro ruido
     var cv  = document.createElement('canvas');
     cv.className = 'dissolve';
     card.appendChild(cv);
@@ -588,13 +597,18 @@ One or two lines about what it is and what you did on it.
 
     var quitar = setTimeout(function(){ if (cv.parentNode) cv.remove(); }, demora + DUR + 2000);
 
-    setTimeout(function(){
-      var r = card.getBoundingClientRect();
-      var w = Math.max(1, Math.round(r.width));
-      var h = Math.max(1, Math.round(r.height));
-      cv.width = w; cv.height = h;
+    /* Se tapa YA, antes de que empiece su turno en la ola: si no,
+       la tarjeta asomaria un instante y despues se cubriria. */
+    var r = card.getBoundingClientRect();
+    var w = Math.max(1, Math.round(r.width));
+    var h = Math.max(1, Math.round(r.height));
+    cv.width = w; cv.height = h;
 
-      var cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
+    var cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
+    ctx.fillStyle = COLOR_FONDO;
+    ctx.fillRect(0, 0, w, h);
+
+    setTimeout(function(){
       var inicio = performance.now();
 
       (function frame(now){
@@ -602,12 +616,23 @@ One or two lines about what it is and what you did on it.
         var flick = Math.floor(now / 70);          // parpadeo, como el edge glow
 
         ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = '#3ddc84';
+        ctx.fillStyle = COLOR_FONDO;
 
         for (var cy = 0; cy < rows; cy++){
+          /* El umbral mezcla la altura con el ruido: el frente baja
+             de arriba hacia abajo, pero con el borde deshilachado. */
+          var altura = (cy / rows) * (1 - RUIDO);
+
           for (var cx = 0; cx < cols; cx++){
-            if (ruido(cx, cy, 0) < t) continue;    // ese pixel ya se disolvio
-            ctx.globalAlpha = 0.3 + ruido(cx, cy, flick) * 0.55;
+            var n = altura + ruido(cx, cy, 0) * RUIDO;
+
+            if (n < t) continue;                   // ya se abrio: se ve el contenido
+
+            /* justo en el frente de avance, medio abierto y titilando */
+            ctx.globalAlpha = (n < t + BORDE)
+              ? 0.35 + ruido(cx, cy, flick) * 0.4
+              : 1;
+
             ctx.fillRect(cx * CELL, cy * CELL, CELL, CELL);
           }
         }
