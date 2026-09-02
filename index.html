@@ -339,6 +339,7 @@
   .detalle-link[hidden]{display:none}
 
   /* Galeria: cada medio a lo ancho, uno debajo del otro */
+  .galeria-detalle{display:flex;flex-direction:column;gap:26px}
   .detalle-media{display:flex;flex-direction:column;gap:26px}
   .visor{
     position:relative;background:#0d1411;border:1px solid var(--border);
@@ -940,7 +941,6 @@ One or two lines about what it is and what you did on it.
   var panelDet = document.getElementById('detalle');
   var cerrarBt = document.getElementById('volver');
   var abierto  = false;
-  var mirador  = null;      // observador de cercania para la carga diferida
 
   function abrirDetalle(p){
     document.getElementById('detalle-titulo').textContent = p.title || 'Untitled';
@@ -960,39 +960,14 @@ One or two lines about what it is and what you did on it.
     if (p.link){ link.href = p.link; link.hidden = false; }
     else link.hidden = true;
 
-    /* Galeria: solo el primero se carga ya. Los demas esperan a
-       estar cerca de la pantalla, asi abrir un proyecto no dispara
-       todas las descargas a la vez. */
-    var cont = document.getElementById('detalle-media');
+    /* Galeria: se construye UNA vez por proyecto y se reutiliza.
+       Si se destruyera al cerrar, volver a entrar obligaria a
+       descargar los videos de nuevo desde cero. */
+    var cont  = document.getElementById('detalle-media');
+    var clave = p.title + '|' + mediosDe(p).join(',');
+
     cont.innerHTML = '';
-    if (mirador){ mirador.disconnect(); mirador = null; }
-
-    if (window.IntersectionObserver){
-      mirador = new IntersectionObserver(function(entradas){
-        entradas.forEach(function(e){
-          if (!e.isIntersecting) return;
-          mirador.unobserve(e.target);
-          e.target.classList.remove('esperando');
-          e.target.innerHTML = '';
-          montarMedia(e.target, e.target.getAttribute('data-src'), p.title, false);
-        });
-      }, { root:panelDet, rootMargin:'300px' });
-    }
-
-    mediosDe(p).forEach(function(src, i){
-      var visor = document.createElement('div');
-      visor.className = 'visor';
-      visor.setAttribute('data-src', src);
-
-      if (i === 0 || !mirador){
-        montarMedia(visor, src, p.title, false);
-      } else {
-        visor.classList.add('esperando');
-        visor.innerHTML = '<span class="aviso">loading<span class="puntos"></span></span>';
-        mirador.observe(visor);
-      }
-      cont.appendChild(visor);
-    });
+    cont.appendChild(galeriaDe(p, clave));
 
     panelDet.hidden = false;
     panelDet.scrollTop = 0;
@@ -1004,12 +979,58 @@ One or two lines about what it is and what you did on it.
     try { history.pushState({ detalle:true }, ''); } catch(e){}
   }
 
+  /* Galerias ya construidas, por proyecto. Se guardan aunque el
+     panel este cerrado: asi conservan lo que ya descargaron. */
+  var galerias = {};
+
+  function galeriaDe(p, clave){
+    if (galerias[clave]) return galerias[clave];
+
+    var g = document.createElement('div');
+    g.className = 'galeria-detalle';
+
+    var obs = window.IntersectionObserver
+      ? new IntersectionObserver(function(entradas){
+          entradas.forEach(function(e){
+            if (!e.isIntersecting) return;
+            obs.unobserve(e.target);
+            e.target.classList.remove('esperando');
+            e.target.innerHTML = '';
+            montarMedia(e.target, e.target.getAttribute('data-src'), p.title, false);
+          });
+        }, { root:panelDet, rootMargin:'300px' })
+      : null;
+
+    mediosDe(p).forEach(function(src, i){
+      var visor = document.createElement('div');
+      visor.className = 'visor';
+      visor.setAttribute('data-src', src);
+
+      if (i === 0 || !obs){
+        montarMedia(visor, src, p.title, false);
+      } else {
+        visor.classList.add('esperando');
+        visor.innerHTML = '<span class="aviso">loading<span class="puntos"></span></span>';
+        obs.observe(visor);
+      }
+      g.appendChild(visor);
+    });
+
+    galerias[clave] = g;
+    return g;
+  }
+
   function cerrarDetalle(porHistoria){
     if (!abierto) return;
     abierto = false;
     panelDet.hidden = true;
-    if (mirador){ mirador.disconnect(); mirador = null; }
-    document.getElementById('detalle-media').innerHTML = '';   // corta los videos
+
+    /* Se pausan, NO se destruyen: conservan lo descargado para
+       que volver a abrir el proyecto sea instantaneo. */
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#detalle-media video'),
+      function(v){ try { v.pause(); } catch(e){} }
+    );
     document.body.style.overflow = '';
     if (!porHistoria){ try { history.back(); } catch(e){} }
   }
