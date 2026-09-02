@@ -7,6 +7,24 @@ echo    PUBLICANDO EL PORTAFOLIO
 echo ===========================================
 echo.
 
+rem --- Primero, los videos que el editor dejo esperando ---
+if exist "subir\*.*" (
+    where gh >nul 2>&1
+    if errorlevel 1 (
+        echo OJO: falta el CLI de GitHub, los videos no se pueden subir.
+        echo      winget install --id GitHub.cli
+        echo.
+    ) else (
+        gh release view media >nul 2>&1
+        if errorlevel 1 gh release create media --title "Media" --notes "Videos del portafolio." >nul 2>&1
+        for %%F in ("subir\*.*") do (
+            echo Subiendo %%~nxF a Releases...
+            gh release upload media "%%F" --clobber && del "%%F"
+        )
+        echo.
+    )
+)
+
 git add .
 
 git diff --cached --quiet

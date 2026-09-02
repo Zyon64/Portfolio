@@ -347,6 +347,19 @@
     color:var(--dim);font-family:var(--mono);font-size:.8rem;
   }
   .visor video,.visor img{width:100%;height:auto;display:block}
+  /* mientras espera su turno o su subida, reserva el hueco */
+  .visor.esperando{aspect-ratio:16/9}
+  .visor .aviso{
+    font-family:var(--mono);font-size:.82rem;color:var(--muted);
+    text-align:center;line-height:1.9;
+  }
+  .visor .aviso small{color:var(--dim);font-size:.72rem}
+  .visor.fallo{color:var(--dim);min-height:150px}
+  /* puntos suspensivos animados */
+  .puntos::after{content:"";animation:puntitos 1.2s steps(4) infinite}
+  @keyframes puntitos{
+    0%{content:""} 25%{content:"."} 50%{content:".."} 75%{content:"..."}
+  }
 
   /* Contador de medios en la portada de la tarjeta */
   .cuenta{
@@ -410,7 +423,10 @@
 
 == Ice cube prototype
 image: img/2023-06-27-16-12-07-min.webm
-tags: Unity, C#, Dev, unity3d, prototype
+media: https://github.com/Zyon64/Portfolio/releases/download/media/2025-08-27-17-51-01.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/2025-11-15-20-17-48.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/2025-12-22-08-55-18.mp4
+tags: Unity, C#, Dev, unity3d, prototype, icecube
 link: 
 cat: dev
 Prototype of a 3d platform game with a icecube character speed mechanics, animations, sounds, vfxs, everything on video and mechanics maded by me
@@ -861,35 +877,51 @@ One or two lines about what it is and what you did on it.
     ctx.fillStyle = COLOR_FONDO;
     ctx.fillRect(0, 0, w, h);
 
+    /* Se dibuja en un lienzo de 1 pixel por celda y se amplia sin
+       suavizado. A pantalla completa serian ~43.000 rectangulos por
+       cuadro; asi es una sola imagen escalada. */
+    var buf  = document.createElement('canvas');
+    buf.width = cols; buf.height = rows;
+    var bctx   = buf.getContext('2d');
+    var imagen = bctx.createImageData(cols, rows);
+    var datos  = imagen.data;
+
+    /* el color de fondo a RGB, una sola vez */
+    var hex = COLOR_FONDO.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var R = parseInt(hex.slice(0,2),16) || 10,
+        G = parseInt(hex.slice(2,4),16) || 14,
+        B = parseInt(hex.slice(4,6),16) || 12;
+
+    ctx.imageSmoothingEnabled = false;
+
     setTimeout(function(){
       var inicio = performance.now();
 
       (function frame(now){
         var t = Math.min(1, (now - inicio) / DUR);
         var flick = Math.floor(now / 70);          // parpadeo, como el edge glow
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = COLOR_FONDO;
+        var i = 0;
 
         for (var cy = 0; cy < rows; cy++){
           /* El umbral mezcla la altura con el ruido: el frente baja
              de arriba hacia abajo, pero con el borde deshilachado. */
           var altura = (cy / rows) * (1 - RUIDO);
 
-          for (var cx = 0; cx < cols; cx++){
+          for (var cx = 0; cx < cols; cx++, i += 4){
             var n = altura + ruido(cx, cy, 0) * RUIDO;
 
-            if (n < t) continue;                   // ya se abrio: se ve el contenido
+            datos[i] = R; datos[i+1] = G; datos[i+2] = B;
 
-            /* justo en el frente de avance, medio abierto y titilando */
-            ctx.globalAlpha = (n < t + BORDE)
-              ? 0.35 + ruido(cx, cy, flick) * 0.4
-              : 1;
-
-            ctx.fillRect(cx * CELL, cy * CELL, CELL, CELL);
+            if (n < t)              datos[i+3] = 0;      // abierto: se ve el contenido
+            else if (n < t + BORDE) datos[i+3] = (0.35 + ruido(cx, cy, flick) * 0.4) * 255;
+            else                    datos[i+3] = 255;    // todavia tapado
           }
         }
-        ctx.globalAlpha = 1;
+
+        bctx.putImageData(imagen, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(buf, 0, 0, w, h);
 
         if (t < 1) requestAnimationFrame(frame);
         else { clearTimeout(quitar); cv.remove(); }
@@ -903,6 +935,7 @@ One or two lines about what it is and what you did on it.
   var panelDet = document.getElementById('detalle');
   var cerrarBt = document.getElementById('volver');
   var abierto  = false;
+  var mirador  = null;      // observador de cercania para la carga diferida
 
   function abrirDetalle(p){
     document.getElementById('detalle-titulo').textContent = p.title || 'Untitled';
@@ -922,13 +955,37 @@ One or two lines about what it is and what you did on it.
     if (p.link){ link.href = p.link; link.hidden = false; }
     else link.hidden = true;
 
-    /* Galeria */
+    /* Galeria: solo el primero se carga ya. Los demas esperan a
+       estar cerca de la pantalla, asi abrir un proyecto no dispara
+       todas las descargas a la vez. */
     var cont = document.getElementById('detalle-media');
     cont.innerHTML = '';
-    mediosDe(p).forEach(function(src){
+    if (mirador){ mirador.disconnect(); mirador = null; }
+
+    if (window.IntersectionObserver){
+      mirador = new IntersectionObserver(function(entradas){
+        entradas.forEach(function(e){
+          if (!e.isIntersecting) return;
+          mirador.unobserve(e.target);
+          e.target.classList.remove('esperando');
+          e.target.innerHTML = '';
+          montarMedia(e.target, e.target.getAttribute('data-src'), p.title, false);
+        });
+      }, { root:panelDet, rootMargin:'300px' });
+    }
+
+    mediosDe(p).forEach(function(src, i){
       var visor = document.createElement('div');
       visor.className = 'visor';
-      montarMedia(visor, src, p.title, false);
+      visor.setAttribute('data-src', src);
+
+      if (i === 0 || !mirador){
+        montarMedia(visor, src, p.title, false);
+      } else {
+        visor.classList.add('esperando');
+        visor.innerHTML = '<span class="aviso">loading<span class="puntos"></span></span>';
+        mirador.observe(visor);
+      }
       cont.appendChild(visor);
     });
 
@@ -946,6 +1003,7 @@ One or two lines about what it is and what you did on it.
     if (!abierto) return;
     abierto = false;
     panelDet.hidden = true;
+    if (mirador){ mirador.disconnect(); mirador = null; }
     document.getElementById('detalle-media').innerHTML = '';   // corta los videos
     document.body.style.overflow = '';
     if (!porHistoria){ try { history.back(); } catch(e){} }
@@ -1016,11 +1074,31 @@ One or two lines about what it is and what you did on it.
       /* Red de seguridad: si el navegador bloquea la reproduccion
          automatica, que no gire para siempre. */
       rendicion = setTimeout(listo, 12000);
+
+      /* Un video alojado en Releases puede no estar todavia: el
+         archivo se sube despues de publicar la pagina. En vez de
+         darlo por muerto, se avisa y se reintenta. */
       media.addEventListener('error', function(){
         listo();
-        cont.classList.add('fallo');
         media.remove();
-        cont.textContent = 'video unavailable';
+
+        var enReleases = /releases\/download/.test(src);
+        var intentos   = (parseInt(cont.dataset.intentos, 10) || 0) + 1;
+        cont.dataset.intentos = intentos;
+
+        if (enReleases && intentos <= 6){
+          cont.classList.add('esperando');
+          cont.innerHTML = '<span class="aviso">uploading<span class="puntos"></span><br>' +
+                           '<small>retrying in 15s (' + intentos + '/6)</small></span>';
+          setTimeout(function(){
+            cont.classList.remove('esperando');
+            cont.innerHTML = '';
+            montarMedia(cont, src, alt, conSello);
+          }, 15000);
+        } else {
+          cont.classList.add('fallo');
+          cont.textContent = enReleases ? 'not uploaded yet' : 'video unavailable';
+        }
       });
     } else {
       media = document.createElement('img');
