@@ -101,6 +101,15 @@
   .imgrow{display:flex;align-items:center;gap:10px;margin-top:8px}
   .imgrow code{font-family:var(--mono);font-size:.76rem;color:var(--muted);flex:1;word-break:break-all}
 
+  /* Compresor de video */
+  .compress{margin-top:10px;padding:12px;background:#0d1411;border:1px solid var(--border);border-radius:8px}
+  .compress.hidden{display:none}
+  .crow{display:flex;gap:10px;align-items:center}
+  .cbar{height:3px;background:var(--border);border-radius:2px;margin-top:11px;overflow:hidden}
+  #c-fill{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .cinfo{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:8px;min-height:1.2em}
+  .cinfo b{color:var(--accent)}
+
   .foot{
     border-top:1px solid var(--border);padding-top:18px;margin-top:26px;
     display:flex;gap:10px;max-width:620px;
@@ -158,6 +167,19 @@
       <div class="imgrow">
         <input type="text" id="imgpath" placeholder="img/archivo.jpg  o  https://...">
       </div>
+      <div class="compress hidden" id="compress">
+        <div class="crow">
+          <select id="c-preset">
+            <option value="720|1200000">720p — liviano (recomendado)</option>
+            <option value="720|2500000">720p — más calidad</option>
+            <option value="480|700000">480p — muy liviano</option>
+          </select>
+          <button id="c-run" type="button">Comprimir</button>
+        </div>
+        <div class="cbar"><div id="c-fill"></div></div>
+        <div class="cinfo" id="c-info"></div>
+      </div>
+
       <p class="hint">
         Si el archivo <b>ya está</b> en la carpeta <b>img</b>, elegilo de la lista: no se copia nada.
         Si lo arrastrás desde otro lado, se copia a <b>img</b> (hace falta: la página solo puede
@@ -367,6 +389,7 @@
     }
     $('imgpath').value = p.image || '';
     $('imgpick').value = existentes.indexOf(p.image) >= 0 ? p.image : '';
+    refrescarCompresor();
   }
 
   /* Lista de lo que ya vive en la carpeta img, para no duplicar archivos */
@@ -415,6 +438,122 @@
     projects[sel].file  = null;
     projects[sel].image = this.value.trim();
     renderList(); markDirty();
+  });
+
+  /* =========================================================
+     Compresor de video, sin librerias: se redibuja el video
+     en un canvas mas chico y se graba con MediaRecorder.
+     Se descarta el audio porque las tarjetas van en mudo.
+     ========================================================= */
+  function mb(bytes){ return (bytes / 1048576).toFixed(1) + ' MB'; }
+
+  /* Devuelve el File del medio actual, este adjunto o ya en img/ */
+  async function archivoActual(){
+    if (sel < 0) return null;
+    var p = projects[sel];
+    if (p.file) return p.file;
+    if (!dirHandle || !/^img\//.test(p.image)) return null;
+    try{
+      var imgDir = await dirHandle.getDirectoryHandle('img', { create:false });
+      var fh     = await imgDir.getFileHandle(p.image.replace(/^img\//, ''));
+      return await fh.getFile();
+    } catch(err){ return null; }
+  }
+
+  async function refrescarCompresor(){
+    var box = $('compress');
+    var p   = sel >= 0 ? projects[sel] : null;
+    var esVideo = p && (isVideo(p.image) || (p.file && p.file.type.indexOf('video') === 0));
+    box.classList.toggle('hidden', !esVideo || typeof MediaRecorder === 'undefined');
+    if (!esVideo) return;
+
+    var f = await archivoActual();
+    $('c-info').innerHTML = f ? 'Ahora pesa <b>' + mb(f.size) + '</b>' : '';
+    $('c-fill').style.width = '0';
+  }
+
+  function comprimir(file, maxH, bitrate, onProgress){
+    return new Promise(function(resolve, reject){
+      var url = URL.createObjectURL(file);
+      var v   = document.createElement('video');
+      v.src = url; v.muted = true; v.playsInline = true;
+
+      v.onerror = function(){ reject(new Error('no se pudo leer el video')); };
+
+      v.onloadedmetadata = function(){
+        var escala = Math.min(1, maxH / v.videoHeight);
+        var w = Math.round(v.videoWidth  * escala / 2) * 2;   // pares: los codecs lo prefieren
+        var h = Math.round(v.videoHeight * escala / 2) * 2;
+
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+
+        var tipo = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+                   .filter(function(t){ return MediaRecorder.isTypeSupported(t); })[0];
+        if (!tipo){ reject(new Error('el navegador no puede grabar video')); return; }
+
+        var rec = new MediaRecorder(canvas.captureStream(30), {
+          mimeType: tipo, videoBitsPerSecond: bitrate
+        });
+        var trozos = [];
+        rec.ondataavailable = function(e){ if (e.data.size) trozos.push(e.data); };
+        rec.onstop = function(){
+          URL.revokeObjectURL(url);
+          resolve(new Blob(trozos, { type:'video/webm' }));
+        };
+
+        rec.start();
+        v.play().then(function(){
+          (function dibujar(){
+            if (v.ended || v.paused){ rec.stop(); return; }
+            ctx.drawImage(v, 0, 0, w, h);
+            onProgress(v.currentTime / (v.duration || 1));
+            requestAnimationFrame(dibujar);
+          })();
+        }, reject);
+      };
+    });
+  }
+
+  $('c-run').addEventListener('click', async function(){
+    var f = await archivoActual();
+    if (!f || sel < 0) return;
+
+    var partes  = $('c-preset').value.split('|');
+    var maxH    = parseInt(partes[0], 10);
+    var bitrate = parseInt(partes[1], 10);
+    var original = f.size;
+
+    this.disabled = true;
+    var textoPrevio = this.textContent;
+    this.textContent = 'Comprimiendo...';
+    $('c-info').innerHTML = 'Se reproduce entero una vez para grabarlo: tarda lo que dura el video.';
+
+    try{
+      var blob = await comprimir(f, maxH, bitrate, function(p){
+        $('c-fill').style.width = Math.round(p * 100) + '%';
+      });
+
+      var base = (projects[sel].image || f.name).split('/').pop().replace(/\.[^.]+$/, '');
+      var nombre = base.replace(/-min$/, '') + '-min.webm';
+
+      projects[sel].file  = new File([blob], nombre, { type:'video/webm' });
+      projects[sel].image = 'img/' + nombre;
+
+      $('c-fill').style.width = '100%';
+      $('c-info').innerHTML =
+        'De ' + mb(original) + ' a <b>' + mb(blob.size) + '</b> ' +
+        '(' + Math.round(100 - blob.size / original * 100) + '% menos). ' +
+        'Se guarda como <b>' + nombre + '</b>.';
+
+      renderDrop(projects[sel]); renderList(); markDirty();
+    } catch(err){
+      $('c-info').textContent = 'No se pudo comprimir: ' + err.message;
+    }
+
+    this.disabled = false;
+    this.textContent = textoPrevio;
   });
 
   /* ---------- Campos ---------- */
