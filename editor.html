@@ -149,6 +149,16 @@
     </div>
 
     <div class="field">
+      <label for="f-cat">Categoría</label>
+      <select id="f-cat">
+        <option value="dev">Dev</option>
+        <option value="3d">3D Modeling</option>
+        <option value="pixelart">Pixel Art</option>
+      </select>
+      <p class="hint">Define en cuál de las tres columnas aparece el proyecto.</p>
+    </div>
+
+    <div class="field">
       <label for="f-desc">Descripción</label>
       <textarea id="f-desc" placeholder="Qué es el proyecto y qué hiciste vos."></textarea>
     </div>
@@ -243,12 +253,12 @@
       var line = rawLine.trim();
       if (!line || line.charAt(0) === '#') return;
       if (line.slice(0,2) === '=='){
-        cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', desc:'', file:null };
+        cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', cat:'dev', desc:'', file:null };
         out.push(cur);
         return;
       }
       if (!cur) return;
-      var m = line.match(/^(image|tags|link)\s*:\s*(.*)$/i);
+      var m = line.match(/^(image|tags|link|cat)\s*:\s*(.*)$/i);
       if (m){ cur[m[1].toLowerCase()] = m[2].trim(); return; }
       cur.desc += (cur.desc ? ' ' : '') + line;
     });
@@ -262,6 +272,7 @@
       s += 'image: ' + clean(p.image) + '\n';
       s += 'tags: '  + clean(p.tags)  + '\n';
       s += 'link: '  + clean(p.link)  + '\n';
+      s += 'cat: '   + clean(p.cat || 'dev') + '\n';
       if (p.desc) s += clean(p.desc) + '\n';
       s += '\n\n';
     });
@@ -366,6 +377,7 @@
     $('f-desc').value  = p.desc;
     $('f-tags').value  = p.tags;
     $('f-link').value  = p.link;
+    $('f-cat').value   = p.cat || 'dev';
     renderDrop(p);
     renderList();
   }
@@ -593,6 +605,12 @@
   bind('f-tags','tags');
   bind('f-link','link');
 
+  $('f-cat').addEventListener('change', function(){
+    if (sel < 0) return;
+    projects[sel].cat = this.value;
+    renderList(); markDirty();
+  });
+
   /* ---------- Imagen ---------- */
   function attachFile(file){
     if (sel < 0 || !file) return;
@@ -627,7 +645,7 @@
   /* ---------- Alta y baja ---------- */
   $('add').addEventListener('click', function(){
     if (!dirHandle && hasFS){ note('Primero abrí la carpeta del portafolio.'); return; }
-    projects.push({ title:'Nuevo proyecto', image:'', tags:'', link:'', desc:'', file:null });
+    projects.push({ title:'Nuevo proyecto', image:'', tags:'', link:'', cat:'dev', desc:'', file:null });
     markDirty();
     select(projects.length - 1);
   });
