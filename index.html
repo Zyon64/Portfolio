@@ -6,71 +6,145 @@
 <title>Zyon64 — Game Developer</title>
 <style>
   :root{
-    --bg:#0e0e12;
-    --surface:#16161d;
-    --border:#26262f;
-    --text:#e8e8ee;
-    --muted:#8f8fa0;
-    --accent:#ff5c3d;
+    /* --- Fondos --- */
+    --bg:#0a0e0c;           /* negro con tinte verde */
+    --surface:#111815;      /* tarjetas */
+    --surface-hi:#16201c;   /* tarjeta en hover */
+    --border:#1f2b26;       /* verde gris oscuro */
+    --border-hi:#2e4038;
+
+    /* --- Texto --- */
+    --text:#dbe7e0;
+    --muted:#7d968a;        /* verde gris */
+    --dim:#4a5c53;
+
+    /* --- Acento --- */
+    --accent:#3ddc84;       /* verde code */
+    --accent-dim:#2a9e5f;
+    --glow:rgba(61,220,132,.35);
+
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,"Courier New",monospace;
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
   body{
     margin:0;
     background:var(--bg);
     color:var(--text);
-    font:16px/1.6 "Segoe UI",system-ui,sans-serif;
+    font:16px/1.65 "Segoe UI",system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
   }
-  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+
+  /* Trama sutil de fondo, tipo grilla de editor */
+  body::before{
+    content:"";
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--border) 1px,transparent 1px),
+      linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size:64px 64px;
+    opacity:.25;
+    mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);
+  }
+
+  /* Canvas del trail del cursor */
+  #trail{position:fixed;inset:0;z-index:9999;pointer-events:none}
+
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
 
   /* ---------- Hero ---------- */
-  header{padding:120px 0 80px;border-bottom:1px solid var(--border)}
-  h1{font-size:clamp(2.4rem,6vw,4rem);line-height:1.05;margin:0 0 16px;letter-spacing:-.02em}
-  .tagline{font-size:1.15rem;color:var(--muted);max-width:52ch;margin:0 0 28px}
-  .links a{
-    color:var(--text);text-decoration:none;border:1px solid var(--border);
-    padding:9px 18px;border-radius:6px;margin-right:8px;display:inline-block;
-    transition:border-color .2s,color .2s;
+  header{padding:130px 0 90px;border-bottom:1px solid var(--border)}
+  .prompt{
+    font-family:var(--mono);font-size:.85rem;color:var(--accent);
+    margin:0 0 18px;letter-spacing:.02em;
   }
-  .links a:hover{border-color:var(--accent);color:var(--accent)}
+  .prompt::before{content:"> ";color:var(--accent-dim)}
+  .caret{
+    display:inline-block;width:8px;height:1em;background:var(--accent);
+    vertical-align:-2px;margin-left:2px;animation:blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+  h1{
+    font-size:clamp(2.6rem,7vw,4.4rem);line-height:1.02;margin:0 0 20px;
+    letter-spacing:-.03em;font-weight:700;
+  }
+  h1 .dot{color:var(--accent);text-shadow:0 0 24px var(--glow)}
+  .tagline{font-size:1.13rem;color:var(--muted);max-width:54ch;margin:0 0 34px}
+
+  .links a{
+    font-family:var(--mono);font-size:.88rem;
+    color:var(--muted);text-decoration:none;
+    border:1px solid var(--border);background:var(--surface);
+    padding:10px 20px;border-radius:6px;margin:0 8px 8px 0;display:inline-block;
+    transition:border-color .2s,color .2s,box-shadow .2s,background .2s;
+  }
+  .links a:hover{
+    border-color:var(--accent);color:var(--accent);background:var(--surface-hi);
+    box-shadow:0 0 18px -4px var(--glow);
+  }
 
   /* ---------- Secciones ---------- */
-  section{padding:72px 0}
-  h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.18em;color:var(--muted);margin:0 0 32px;font-weight:600}
+  section{padding:84px 0}
+  h2{
+    font-family:var(--mono);font-size:.78rem;text-transform:uppercase;
+    letter-spacing:.22em;color:var(--dim);margin:0 0 36px;font-weight:600;
+    display:flex;align-items:center;gap:16px;
+  }
+  h2::before{content:"//";color:var(--accent-dim)}
+  h2::after{content:"";flex:1;height:1px;background:var(--border)}
 
   /* ---------- Grid de proyectos ---------- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:26px}
   .card{
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
-    overflow:hidden;transition:transform .2s,border-color .2s;
+    overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s,background .25s;
   }
-  .card:hover{transform:translateY(-4px);border-color:var(--accent)}
+  .card:hover{
+    transform:translateY(-5px);border-color:var(--accent-dim);background:var(--surface-hi);
+    box-shadow:0 12px 32px -12px var(--glow);
+  }
   .thumb{
-    aspect-ratio:16/9;background:#1d1d26;display:flex;align-items:center;
-    justify-content:center;color:#4a4a5a;font-size:.85rem;
+    aspect-ratio:16/9;background:#0d1411;display:flex;align-items:center;
+    justify-content:center;color:var(--dim);font-family:var(--mono);font-size:.8rem;
+    border-bottom:1px solid var(--border);
   }
   .thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
-  .card-body{padding:20px}
-  .card h3{margin:0 0 8px;font-size:1.1rem}
-  .card p{margin:0 0 14px;color:var(--muted);font-size:.93rem}
+  .card-body{padding:22px}
+  .card h3{margin:0 0 9px;font-size:1.12rem;letter-spacing:-.01em}
+  .card p{margin:0 0 16px;color:var(--muted);font-size:.93rem}
   .tags span{
-    font-size:.72rem;color:var(--muted);border:1px solid var(--border);
-    padding:3px 9px;border-radius:20px;margin-right:6px;display:inline-block;
+    font-family:var(--mono);font-size:.71rem;color:var(--accent-dim);
+    border:1px solid var(--border-hi);background:#0d1411;
+    padding:3px 10px;border-radius:4px;margin:0 6px 6px 0;display:inline-block;
   }
 
   /* ---------- About ---------- */
-  .about p{max-width:60ch;color:var(--muted)}
+  .about p{max-width:62ch;color:var(--muted)}
+  .about strong{color:var(--accent);font-weight:600}
 
-  footer{padding:48px 0;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
+  footer{
+    padding:52px 0;border-top:1px solid var(--border);
+    color:var(--dim);font-size:.85rem;font-family:var(--mono);
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    html{scroll-behavior:auto}
+  }
 </style>
 </head>
 <body>
 
+<canvas id="trail"></canvas>
+
 <header>
   <div class="wrap">
-    <h1>Zyon64</h1>
+    <p class="prompt">game developer<span class="caret"></span></p>
+    <h1>Zyon64<span class="dot">.</span></h1>
     <p class="tagline">
-      Game developer. Hago juegos en Unity de principio a fin: código, arte, sonido y las
+      Hago juegos en Unity de principio a fin: código, arte, sonido y las
       herramientas que hacen falta en el camino.
     </p>
     <div class="links">
@@ -134,6 +208,78 @@
 <footer>
   <div class="wrap">© 2026 Zyon64</div>
 </footer>
+
+<script>
+/* ---------------------------------------------------------
+   Trail del cursor: guarda los ultimos puntos del mouse y
+   dibuja una linea que se afina y se apaga con la edad.
+   --------------------------------------------------------- */
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var coarse = window.matchMedia('(pointer: coarse)').matches;
+  if (reduce || coarse) return;          // sin trail en tactil o si el sistema pide menos movimiento
+
+  var canvas = document.getElementById('trail');
+  var ctx    = canvas.getContext('2d');
+
+  var LIFETIME = 420;   // ms que dura cada punto
+  var MAX_W    = 3.2;   // grosor en la punta
+  var points   = [];
+  var dpr      = 1;
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width  = window.innerWidth  * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width  = window.innerWidth  + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  window.addEventListener('mousemove', function(e){
+    points.push({ x:e.clientX, y:e.clientY, t:performance.now() });
+    if (points.length > 90) points.shift();
+  }, { passive:true });
+
+  function frame(){
+    var now = performance.now();
+
+    // descartar los puntos ya apagados
+    while (points.length && now - points[0].t > LIFETIME) points.shift();
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (points.length > 1){
+      ctx.lineCap  = 'round';
+      ctx.lineJoin = 'round';
+
+      for (var i = 1; i < points.length; i++){
+        var p = points[i], prev = points[i-1];
+        var life = 1 - (now - p.t) / LIFETIME;   // 1 = recien hecho, 0 = muerto
+        if (life <= 0) continue;
+
+        var e = life * life;                     // cae mas rapido al final
+
+        ctx.strokeStyle = 'rgba(61,220,132,' + (e * 0.85) + ')';
+        ctx.lineWidth   = MAX_W * e;
+        ctx.shadowColor = 'rgba(61,220,132,' + (e * 0.6) + ')';
+        ctx.shadowBlur  = 12 * e;
+
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
 
 </body>
 </html>
