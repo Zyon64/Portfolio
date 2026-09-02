@@ -504,14 +504,21 @@
         };
 
         rec.start();
-        v.play().then(function(){
-          (function dibujar(){
-            if (v.ended || v.paused){ rec.stop(); return; }
-            ctx.drawImage(v, 0, 0, w, h);
-            onProgress(v.currentTime / (v.duration || 1));
-            requestAnimationFrame(dibujar);
-          })();
-        }, reject);
+
+        /* Con setInterval y no requestAnimationFrame: si el usuario cambia
+           de pestaña, rAF se congela y la compresion se colgaria. */
+        var timer = setInterval(function(){
+          if (v.ended) return;
+          ctx.drawImage(v, 0, 0, w, h);
+          onProgress(v.currentTime / (v.duration || 1));
+        }, 33);
+
+        v.onended = function(){
+          clearInterval(timer);
+          rec.stop();
+        };
+
+        v.play().catch(function(err){ clearInterval(timer); reject(err); });
       };
     });
   }
@@ -528,7 +535,7 @@
     this.disabled = true;
     var textoPrevio = this.textContent;
     this.textContent = 'Comprimiendo...';
-    $('c-info').innerHTML = 'Se reproduce entero una vez para grabarlo: tarda lo que dura el video.';
+    $('c-info').innerHTML = 'Se reproduce entero una vez para grabarlo: tarda lo que dura el video. Dejá esta pestaña visible mientras tanto.';
 
     try{
       var blob = await comprimir(f, maxH, bitrate, function(p){
