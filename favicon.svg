@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Fondo: el mismo negro verdoso del portafolio -->
+  <rect width="64" height="64" rx="14" fill="#0a0e0c"/>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="12.5"
+        fill="none" stroke="#1f2b26" stroke-width="3"/>
+
+  <!-- Z en verde terminal -->
+  <path d="M18 19 H46 L24 45 H46"
+        fill="none" stroke="#3ddc84" stroke-width="7"
+        stroke-linecap="square" stroke-linejoin="miter"/>
+
+  <!-- El punto de acento, como en "Zyon64." -->
+  <circle cx="50" cy="45" r="4.5" fill="#3ddc84"/>
+</svg>
