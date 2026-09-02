@@ -198,7 +198,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v8 · sin sondeo</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v9 · arreglado</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
@@ -904,6 +904,89 @@
     p.medios.splice(medioSel, 1);
     renderGaleria(); renderList(); markDirty();
   });
+
+  /* =========================================================
+     Estado de las subidas, leyendo SOLO la carpeta del disco.
+     Nada de consultar la web: es instantaneo, no gasta red y no
+     puede dar falsos negativos.
+     ========================================================= */
+  var vigia = null, totalTanda = 0;
+
+  async function pendientes(){
+    if (!dirHandle) return null;
+    try{
+      var dir = await dirHandle.getDirectoryHandle('subir', { create:false });
+      var faltan = [], actual = '', fase = '', pct = 0;
+
+      for await (var e of dir.values()){
+        if (e.kind !== 'file') continue;
+
+        if (e.name === '_estado.txt'){
+          try{
+            var txt  = await (await e.getFile()).text();
+            var leer = function(k){
+              var m = txt.match(new RegExp('^' + k + '=(.*)$', 'm'));
+              return m ? m[1].trim() : '';
+            };
+            actual = leer('archivo');
+            fase   = leer('fase');
+            pct    = parseFloat(leer('pct'));
+            if (isNaN(pct)) pct = -1;
+          } catch(err){}
+          continue;
+        }
+        if (e.name.charAt(0) === '_') continue;
+        faltan.push(e.name);
+      }
+      return { faltan:faltan, actual:actual, fase:fase, pct:pct };
+    } catch(err){ return { faltan:[], actual:'', fase:'', pct:0 }; }
+  }
+
+  async function vigilarSubidas(){
+    var est = await pendientes();
+    if (!est) return;
+
+    if (!est.faltan.length){
+      if (vigia){ clearInterval(vigia); vigia = null; }
+      totalTanda = 0;
+      $('estado').classList.add('hidden');
+      return;
+    }
+
+    $('estado').classList.remove('hidden');
+    if (est.faltan.length > totalTanda) totalTanda = est.faltan.length;
+
+    var hechos  = totalTanda - est.faltan.length;
+    var medible = est.pct >= 0;
+    var avance  = (hechos + (medible ? est.pct / 100 : 0.5)) / totalTanda;
+
+    $('estado-fill').style.width = Math.round(avance * 100) + '%';
+    $('estado-fill').classList.toggle('indeterminado', !medible);
+
+    var etiqueta;
+    if (!est.actual)                     etiqueta = 'Esperando al publicador';
+    else if (est.fase === 'optimizando') etiqueta = 'Optimizando ' + est.actual;
+    else                                 etiqueta = 'Subiendo ' + est.actual;
+    if (est.actual && medible) etiqueta += ' — ' + Math.round(est.pct) + '%';
+
+    $('estado-txt').textContent = etiqueta + ' · ' + (hechos + 1) + ' de ' + totalTanda;
+
+    var ul = $('estado-lista');
+    ul.innerHTML = '';
+    est.faltan.forEach(function(n){
+      var li = document.createElement('li');
+      li.className = (n === est.actual) ? 'pend' : 'nog';
+      var a = document.createElement('span');
+      a.className = 'arch'; a.textContent = n;
+      li.appendChild(a);
+      var q = document.createElement('span');
+      q.textContent = (n === est.actual) ? (est.fase || 'procesando') : 'en cola';
+      li.appendChild(q);
+      ul.appendChild(li);
+    });
+
+    if (!vigia) vigia = setInterval(vigilarSubidas, 2000);
+  }
 
   $('estado-ver').addEventListener('click', function(){
     $('estado-lista').classList.toggle('hidden');

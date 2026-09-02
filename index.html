@@ -459,15 +459,15 @@ testing shader, gameplay, controller, environment, functions, mechanics, graphic
 
 
 == Modeling1
-image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-140028.mp4
+image: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-124410.mp4
 media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-20-210847.mp4
 media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-11-06-151651.mp4
-media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-124410.mp4
+media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-140028.mp4
 media: https://github.com/Zyon64/Portfolio/releases/download/media/grabaci-n-de-pantalla-2024-10-25-121047.mp4
 tags: Aseprite
 link: 
 cat: 3d
-chef
+Models maded for a prototype of a chef game
 
 
 </script>
@@ -1128,18 +1128,24 @@ chef
         var intentos   = (parseInt(cont.dataset.intentos, 10) || 0) + 1;
         cont.dataset.intentos = intentos;
 
-        if (enReleases && intentos <= 6){
+        if (enReleases && intentos <= 3){
+          /* Reintento callado, sin carteles: puede estar subiendose. */
           cont.classList.add('esperando');
-          cont.innerHTML = '<span class="aviso">uploading<span class="puntos"></span><br>' +
-                           '<small>retrying in 15s (' + intentos + '/6)</small></span>';
+          cont.innerHTML = '<span class="spinner"></span>';
           setTimeout(function(){
             cont.classList.remove('esperando');
             cont.innerHTML = '';
             montarMedia(cont, src, alt, conSello);
-          }, 15000);
+          }, 6000);
         } else {
-          cont.classList.add('fallo');
-          cont.textContent = enReleases ? 'not uploaded yet' : 'video unavailable';
+          /* Se rinde: el hueco DESAPARECE. Un visitante nunca tiene que
+             ver un mensaje de error en el portafolio. */
+          cont.innerHTML = '';
+          if (cont.parentNode && cont.className.indexOf('visor') >= 0){
+            cont.parentNode.removeChild(cont);
+          } else {
+            cont.className = cont.className.replace('cargando','') + ' sin-medio';
+          }
         }
       });
     } else {
