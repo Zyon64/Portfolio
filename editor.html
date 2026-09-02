@@ -429,9 +429,7 @@
   }
 
   function generate(){
-    var s = HEADER + '@cats ' + categorias.join(', ') + '
-
-';
+    var s = HEADER + '@cats ' + categorias.join(', ') + String.fromCharCode(10,10);
     projects.forEach(function(p){
       s += '== ' + clean(p.title) + '\n';
       /* el primero es la portada; el resto van como `media` */
