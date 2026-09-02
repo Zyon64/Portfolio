@@ -510,7 +510,10 @@ One or two lines about what it is and what you did on it.
     });
 
     /* --- El titulo: sale del boton clickeado y aterriza centrado --- */
-    var desde = (etiqueta && !sinAnimar && !quieto) ? etiqueta.getBoundingClientRect() : null;
+    /* Si la pestaña no se ve, nada de animar: el contenido tiene que
+       estar visible sí o sí cuando el visitante vuelva. */
+    var animar = !sinAnimar && !quieto && !document.hidden;
+    var desde  = (etiqueta && animar) ? etiqueta.getBoundingClientRect() : null;
     titulo.textContent = label;
 
     if (desde && titulo.animate){
@@ -549,7 +552,7 @@ One or two lines about what it is and what you did on it.
       var card = tarjeta(p);
       panel.appendChild(card);
 
-      if (quieto || !card.animate) return;
+      if (quieto || document.hidden || !card.animate) return;
 
       /* La ola avanza en diagonal: arriba-izquierda primero,
          abajo-derecha al final. */
