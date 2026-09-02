@@ -176,9 +176,9 @@
 
   /* Titulo de la categoria: aterriza acá el texto del boton */
   .cat-title{
-    font-family:var(--mono);font-size:1.55rem;font-weight:700;
-    color:var(--accent);text-align:center;letter-spacing:-.01em;
-    margin:0 0 30px;
+    font-family:var(--mono);font-size:2rem;font-weight:700;
+    color:var(--accent);text-align:center;letter-spacing:-.02em;
+    margin:0 0 34px;text-shadow:0 0 28px var(--glow);
   }
 
   /* Indicador de carga de video */
@@ -211,13 +211,15 @@
   @media (max-width:600px){
     .cats{grid-template-columns:1fr;gap:12px}
     .grid{grid-template-columns:1fr}
-    .cat-title{font-size:1.3rem}
+    .cat-title{font-size:1.5rem}
   }
   .card{
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
     overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s,background .25s;
   }
   a.card{text-decoration:none;color:inherit;display:block}
+  .card{position:relative}
+  canvas.dissolve{position:absolute;inset:0;z-index:3;pointer-events:none}
   .card:hover{
     transform:translateY(-5px);border-color:var(--accent-dim);background:var(--surface-hi);
     box-shadow:0 12px 32px -12px var(--glow);
@@ -515,13 +517,18 @@ One or two lines about what it is and what you did on it.
       var hasta = titulo.getBoundingClientRect();
       var dx = (desde.left + desde.width  / 2) - (hasta.left + hasta.width  / 2);
       var dy = (desde.top  + desde.height / 2) - (hasta.top  + hasta.height / 2);
-      var escala = desde.height / (hasta.height || 1);
+      var s0 = desde.height / (hasta.height || 1);
+      var sMedia = s0 + (1 - s0) * 0.55;
 
-      titulo.animate(
-        [{ transform:'translate(' + dx + 'px,' + dy + 'px) scale(' + escala + ')', opacity:.35 },
-         { transform:'none', opacity:1 }],
-        { duration:520, easing:'cubic-bezier(.2,.7,.2,1)' }
-      );
+      /* Dos tramos: primero baja hasta su altura final, recien
+         despues se corre al costado. Todo con curvas suaves.  */
+      titulo.animate([
+        { transform:'translate(' + dx + 'px,' + dy + 'px) scale(' + s0 + ')',
+          opacity:.3,  easing:'cubic-bezier(.32,0,.28,1)', offset:0 },
+        { transform:'translate(' + dx + 'px,0px) scale(' + sMedia + ')',
+          opacity:.85, easing:'cubic-bezier(.25,0,.15,1)', offset:.52 },
+        { transform:'none', opacity:1, offset:1 }
+      ], { duration:820, easing:'linear', fill:'backwards' });
     }
 
     /* --- La cuadricula se rehace y cae en cascada --- */
@@ -535,17 +542,78 @@ One or two lines about what it is and what you did on it.
       return;
     }
 
+    /* cuantas columnas tiene la cuadricula ahora mismo */
+    var cols = getComputedStyle(panel).gridTemplateColumns.split(' ').length || 1;
+
     elegidos.forEach(function(p, i){
       var card = tarjeta(p);
       panel.appendChild(card);
 
       if (quieto || !card.animate) return;
+
+      /* La ola avanza en diagonal: arriba-izquierda primero,
+         abajo-derecha al final. */
+      var fila = Math.floor(i / cols);
+      var col  = i % cols;
+      var demora = (fila + col) * 110;
+
       card.animate(
-        [{ opacity:0, transform:'translateY(26px)' },
+        [{ opacity:0, transform:'translateY(-34px)' },
          { opacity:1, transform:'none' }],
-        { duration:460, delay:i * 80, easing:'cubic-bezier(.2,.7,.2,1)', fill:'backwards' }
+        { duration:620, delay:demora, easing:'cubic-bezier(.22,1,.36,1)', fill:'backwards' }
       );
+
+      disolver(card, demora);
     });
+  }
+
+  /* --- Disolucion de pixeles, igual que el brillo de los bordes --- */
+  function disolver(card, demora){
+    if (quieto || document.hidden) return;
+
+    var CELL = 5, DUR = 700;
+    var cv  = document.createElement('canvas');
+    cv.className = 'dissolve';
+    card.appendChild(cv);
+    var ctx = cv.getContext('2d');
+
+    /* ruido estable por celda: define cuando se apaga cada pixel */
+    function ruido(x, y, sal){
+      var n = Math.sin(x * 12.9898 + y * 78.233 + sal * 43.1) * 43758.5453;
+      return n - Math.floor(n);
+    }
+
+    var quitar = setTimeout(function(){ if (cv.parentNode) cv.remove(); }, demora + DUR + 2000);
+
+    setTimeout(function(){
+      var r = card.getBoundingClientRect();
+      var w = Math.max(1, Math.round(r.width));
+      var h = Math.max(1, Math.round(r.height));
+      cv.width = w; cv.height = h;
+
+      var cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
+      var inicio = performance.now();
+
+      (function frame(now){
+        var t = Math.min(1, (now - inicio) / DUR);
+        var flick = Math.floor(now / 70);          // parpadeo, como el edge glow
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#3ddc84';
+
+        for (var cy = 0; cy < rows; cy++){
+          for (var cx = 0; cx < cols; cx++){
+            if (ruido(cx, cy, 0) < t) continue;    // ese pixel ya se disolvio
+            ctx.globalAlpha = 0.3 + ruido(cx, cy, flick) * 0.55;
+            ctx.fillRect(cx * CELL, cy * CELL, CELL, CELL);
+          }
+        }
+        ctx.globalAlpha = 1;
+
+        if (t < 1) requestAnimationFrame(frame);
+        else { clearTimeout(quitar); cv.remove(); }
+      })(performance.now());
+    }, demora);
   }
 
   /* Arranca con Dev al centro y abierta */
