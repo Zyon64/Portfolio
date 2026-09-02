@@ -34,6 +34,8 @@
     font:16px/1.65 "Segoe UI",system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
     overflow-x:hidden;
+    /* sin rebote del navegador ni pull-to-refresh: el borde lo marcamos nosotros */
+    overscroll-behavior-y:contain;
     /* nada de seleccionar texto al clickear y arrastrar */
     user-select:none;
     -webkit-user-select:none;
@@ -234,6 +236,9 @@
   var particles= [];
   var dpr      = 1;
 
+  /* Intensidad del brillo en cada borde (0 = apagado, 1 = tope) */
+  var edge = { top:0, bottom:0 };
+
   /* Verdes de la paleta, del mas claro (chispa) al mas apagado */
   var COLORS = ['#b9ffd6','#3ddc84','#3ddc84','#2a9e5f','#1f7a48'];
 
@@ -283,6 +288,87 @@
     var big = !!(e.target.closest && e.target.closest('a, button, .card'));
     burst(e.clientX, e.clientY, big);
   }, { passive:true });
+
+  /* ---------- Brillo en los bordes al pasarse del limite ---------- */
+  function atTop(){
+    return window.scrollY <= 0;
+  }
+  function atBottom(){
+    var doc = document.documentElement;
+    return window.scrollY + window.innerHeight >= doc.scrollHeight - 1;
+  }
+
+  /* Acumula: cuanto mas insistis contra el tope, mas crece */
+  function pushEdge(side, amount){
+    edge[side] = Math.min(1, edge[side] + Math.min(amount / 700, 0.22));
+  }
+
+  window.addEventListener('wheel', function(e){
+    if (e.deltaY < 0 && atTop())    pushEdge('top',    -e.deltaY);
+    if (e.deltaY > 0 && atBottom()) pushEdge('bottom',  e.deltaY);
+  }, { passive:true });
+
+  /* En movil: mismo efecto arrastrando el dedo contra el tope */
+  var lastTouchY = 0;
+  window.addEventListener('touchstart', function(e){
+    lastTouchY = e.touches[0].clientY;
+  }, { passive:true });
+
+  window.addEventListener('touchmove', function(e){
+    var y  = e.touches[0].clientY;
+    var dy = y - lastTouchY;          // positivo = el dedo baja = querer ver arriba
+    lastTouchY = y;
+    if (dy > 0 && atTop())    pushEdge('top',    dy * 4);
+    if (dy < 0 && atBottom()) pushEdge('bottom', -dy * 4);
+  }, { passive:true });
+
+  /* Dibuja la banda de luz de un borde, con disolucion de pixeles */
+  var CELL = 9;   // tamaño del pixel de la disolucion
+  function drawEdge(side, v, now){
+    if (v <= 0.004) return;
+
+    var W    = window.innerWidth;
+    var H    = window.innerHeight;
+    var band = 210 * (1 - Math.pow(1 - v, 2.2));   // mas insistencia = banda mas larga
+    var top  = (side === 'top');
+    var y0   = top ? 0 : H - band;
+
+    /* 1) Nucleo: degradado suave pegado al borde */
+    var g = ctx.createLinearGradient(0, top ? 0 : H, 0, top ? band : H - band);
+    g.addColorStop(0,   'rgba(61,220,132,' + (0.42 * v) + ')');
+    g.addColorStop(0.35,'rgba(61,220,132,' + (0.14 * v) + ')');
+    g.addColorStop(1,   'rgba(61,220,132,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y0, W, band);
+
+    /* 2) Linea marcando el tope exacto */
+    ctx.fillStyle = 'rgba(185,255,214,' + (0.75 * v) + ')';
+    ctx.fillRect(0, top ? 0 : H - 2, W, 2);
+
+    /* 3) Disolucion: pixeles que parpadean, mas ralos cuanto mas lejos del borde */
+    var flick = Math.floor(now / 70);      // cambia el patron ~14 veces por segundo
+    var cols  = Math.ceil(W / CELL);
+    var rows  = Math.ceil(band / CELL);
+
+    ctx.fillStyle = '#3ddc84';
+    for (var cy = 0; cy < rows; cy++){
+      var depth = cy / rows;                       // 0 = pegado al borde
+      var prob  = (1 - depth) * (1 - depth) * v;   // se ralea hacia adentro
+      for (var cx = 0; cx < cols; cx++){
+        // ruido barato y estable por celda, que cambia con flick
+        var n = Math.sin((cx * 12.9898 + cy * 78.233 + flick * 43.1) ) * 43758.5453;
+        n = n - Math.floor(n);
+        if (n > prob) continue;
+        ctx.globalAlpha = (0.35 + n * 0.5) * v;
+        ctx.fillRect(
+          cx * CELL,
+          (top ? cy * CELL : H - band + (rows - 1 - cy) * CELL),
+          CELL - 1, CELL - 1
+        );
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
 
   function frame(){
     var now = performance.now();
@@ -338,6 +424,14 @@
     }
     ctx.globalAlpha = 1;
     ctx.shadowBlur  = 0;
+
+    /* --- Bordes: dibujar y dejar que se apaguen --- */
+    drawEdge('top',    edge.top,    now);
+    drawEdge('bottom', edge.bottom, now);
+    edge.top    *= 0.93;
+    edge.bottom *= 0.93;
+    if (edge.top    < 0.004) edge.top    = 0;
+    if (edge.bottom < 0.004) edge.bottom = 0;
 
     requestAnimationFrame(frame);
   }
