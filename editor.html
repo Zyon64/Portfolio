@@ -556,7 +556,8 @@
     $('f-desc').value  = p.desc;
     $('f-tags').value  = p.tags;
     $('f-link').value  = p.link;
-    $('f-cat').value   = p.cat || 'dev';
+    llenarSelectCat();
+    $('f-cat').value = p.cat || categorias[0];
     renderGaleria();
     renderList();
   }
@@ -865,7 +866,17 @@
 
   $('f-cat').addEventListener('change', function(){
     if (sel < 0) return;
-    projects[sel].cat = this.value;
+
+    if (this.value === '__nueva__'){
+      var nombre = (prompt('Nombre de la categoria nueva:') || '').trim();
+      if (!nombre){ this.value = projects[sel].cat; return; }
+      anotarCat(nombre);
+      llenarSelectCat();
+      projects[sel].cat = nombre;
+      this.value = nombre;
+    } else {
+      projects[sel].cat = this.value;
+    }
     renderList(); markDirty();
   });
 
