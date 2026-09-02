@@ -507,8 +507,24 @@
 
         /* Con setInterval y no requestAnimationFrame: si el usuario cambia
            de pestaña, rAF se congela y la compresion se colgaria. */
+        /* Vigilante: si el navegador no reproduce (pestaña oculta, por
+           ejemplo) el video nunca termina. Cortamos y avisamos. */
+        var ultimoTiempo = -1;
+        var ultimoAvance = Date.now();
+
         var timer = setInterval(function(){
           if (v.ended) return;
+
+          if (v.currentTime !== ultimoTiempo){
+            ultimoTiempo = v.currentTime;
+            ultimoAvance = Date.now();
+          } else if (Date.now() - ultimoAvance > 4000){
+            clearInterval(timer);
+            try { rec.stop(); } catch(e){}
+            reject(new Error('el video no avanza. Dejá esta pestaña a la vista y probá de nuevo'));
+            return;
+          }
+
           ctx.drawImage(v, 0, 0, w, h);
           onProgress(v.currentTime / (v.duration || 1));
         }, 33);
