@@ -74,6 +74,13 @@
     display:block;font-family:var(--mono);font-size:.72rem;text-transform:uppercase;
     letter-spacing:.15em;color:var(--dim);margin-bottom:7px;
   }
+  select{
+    flex:1;background:#0d1411;color:var(--muted);
+    border:1px solid var(--border);border-radius:6px;padding:9px 11px;
+    font-family:var(--mono);font-size:.78rem;cursor:pointer;
+  }
+  select:focus{outline:none;border-color:var(--accent-dim)}
+  #imgpath{font-family:var(--mono);font-size:.78rem;padding:9px 11px}
   input[type=text],textarea{
     width:100%;background:#0d1411;color:var(--text);
     border:1px solid var(--border);border-radius:6px;padding:11px 13px;
@@ -143,10 +150,19 @@
         <div class="ph" id="drop-ph">Arrastrá una imagen acá, o hacé click para elegirla</div>
       </div>
       <div class="imgrow">
-        <code id="imgname"></code>
+        <select id="imgpick" title="Archivos que ya estan en la carpeta img">
+          <option value="">— usar uno que ya está en img/ —</option>
+        </select>
         <button class="ghost danger" id="imgclear" type="button">Quitar</button>
       </div>
-      <p class="hint">Se copia sola a la carpeta <b>img</b>. Acepta jpg, png, gif, webp, mp4 y webm.</p>
+      <div class="imgrow">
+        <input type="text" id="imgpath" placeholder="img/archivo.jpg  o  https://...">
+      </div>
+      <p class="hint">
+        Si el archivo <b>ya está</b> en la carpeta <b>img</b>, elegilo de la lista: no se copia nada.
+        Si lo arrastrás desde otro lado, se copia a <b>img</b> (hace falta: la página solo puede
+        mostrar archivos que estén dentro del portafolio).
+      </p>
     </div>
 
     <div class="field">
@@ -341,14 +357,65 @@
       m.src = src;
       if (m.tagName === 'VIDEO'){ m.muted = true; m.loop = true; m.autoplay = true; }
       d.appendChild(m);
+      /* si el archivo esta en el disco, mostrar ese y no el publicado */
+      if (!p.file && /^img\//.test(p.image)) localPreview(p.image, m);
     } else {
       var ph = document.createElement('div');
       ph.className = 'ph';
       ph.textContent = 'Arrastrá una imagen acá, o hacé click para elegirla';
       d.appendChild(ph);
     }
-    $('imgname').textContent = p.image || '';
+    $('imgpath').value = p.image || '';
+    $('imgpick').value = existentes.indexOf(p.image) >= 0 ? p.image : '';
   }
+
+  /* Lista de lo que ya vive en la carpeta img, para no duplicar archivos */
+  var existentes = [];
+
+  /* Vista previa leyendo el archivo del disco, no el de la web */
+  async function localPreview(ruta, el){
+    if (!dirHandle) return;
+    try{
+      var imgDir = await dirHandle.getDirectoryHandle('img', { create:false });
+      var fh     = await imgDir.getFileHandle(ruta.replace(/^img\//, ''));
+      el.src     = URL.createObjectURL(await fh.getFile());
+    } catch(err){ /* no esta todavia: queda el src original */ }
+  }
+
+  async function cargarExistentes(){
+    existentes = [];
+    var lista = $('imgpick');
+    lista.innerHTML = '<option value="">— usar uno que ya está en img/ —</option>';
+    if (!dirHandle) return;
+    try{
+      var imgDir = await dirHandle.getDirectoryHandle('img', { create:false });
+      for await (var entry of imgDir.values()){
+        if (entry.kind !== 'file') continue;
+        if (!/\.(jpe?g|png|gif|webp|avif|mp4|webm)$/i.test(entry.name)) continue;
+        existentes.push('img/' + entry.name);
+      }
+    } catch(err){ return; }               // todavia no existe la carpeta img
+    existentes.sort();
+    existentes.forEach(function(ruta){
+      var o = document.createElement('option');
+      o.value = o.textContent = ruta;
+      lista.appendChild(o);
+    });
+  }
+
+  $('imgpick').addEventListener('change', function(){
+    if (sel < 0 || !this.value) return;
+    projects[sel].file  = null;           // ya esta en la carpeta: no se copia
+    projects[sel].image = this.value;
+    renderDrop(projects[sel]); renderList(); markDirty();
+  });
+
+  $('imgpath').addEventListener('input', function(){
+    if (sel < 0) return;
+    projects[sel].file  = null;
+    projects[sel].image = this.value.trim();
+    renderList(); markDirty();
+  });
 
   /* ---------- Campos ---------- */
   function bind(id, key){
@@ -442,6 +509,7 @@
     }
 
     projects = parse(block[1]);
+    await cargarExistentes();
     note('');
     setStatus(dirHandle.name + ' — ' + projects.length + ' proyectos', true);
     $('save').disabled = true;
@@ -488,10 +556,9 @@
       dirty = false;
       $('save').textContent = 'Guardar';
       setStatus('guardado — ' + projects.length + ' proyectos', true);
-      note('Guardado. Para que se vea online, corré el push:<br>' +
-           '<b>git -C "C:\\Users\\MXD\\Documents\\Portfolio" add . ; ' +
-           'git -C "C:\\Users\\MXD\\Documents\\Portfolio" commit -m "proyectos" ; ' +
-           'git -C "C:\\Users\\MXD\\Documents\\Portfolio" push</b>');
+      note('Guardado en tu PC. Ahora, para que se vea en el link, hacé doble click en ' +
+           '<b>PUBLICAR.bat</b> (está en la carpeta Portfolio). Tarda 1 o 2 minutos en verse.');
+      await cargarExistentes();
       renderList();
     } catch(err){
       note('No se pudo guardar: ' + err.message);
