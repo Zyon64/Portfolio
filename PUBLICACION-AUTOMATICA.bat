@@ -19,6 +19,9 @@ echo.
 :BUCLE
 timeout /t 15 /nobreak >nul
 
+rem --- Videos que dejo el editor en subir\ : van a Releases ---
+if exist "subir\*.*" call :SUBIR_MEDIOS
+
 rem żHay algo nuevo?
 git status --porcelain >"%TEMP%\pf_estado.txt" 2>nul
 for %%A in ("%TEMP%\pf_estado.txt") do if %%~zA equ 0 goto BUCLE
@@ -49,3 +52,30 @@ if errorlevel 1 (
 )
 
 goto BUCLE
+
+
+rem ===========================================================
+rem  Manda a Releases los archivos que el editor dejo en subir\
+rem  y los borra del disco cuando ya estan arriba.
+rem ===========================================================
+:SUBIR_MEDIOS
+where gh >nul 2>&1
+if errorlevel 1 (
+    echo [%time:~0,8%] Falta el CLI de GitHub: winget install --id GitHub.cli
+    exit /b
+)
+
+gh release view media >nul 2>&1
+if errorlevel 1 gh release create media --title "Media" --notes "Videos del portafolio." >nul 2>&1
+
+for %%F in ("subir\*.*") do (
+    echo [%time:~0,8%] Subiendo %%~nxF a Releases... ^(%%~zF bytes^)
+    gh release upload media "%%F" --clobber
+    if errorlevel 1 (
+        echo [%time:~0,8%] No se pudo subir %%~nxF. Se reintenta despues.
+    ) else (
+        del "%%F"
+        echo [%time:~0,8%] %%~nxF ya esta publicado.
+    )
+)
+exit /b

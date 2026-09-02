@@ -17,6 +17,10 @@ img/*.mkv
 img/*.wmv
 img/*.flv
 
+# Bandeja de salida: el editor deja aca los videos y la publicacion
+# automatica los manda a Releases y los borra. Nunca van al repo.
+subir/
+
 # Archivos sueltos de Windows
 Thumbs.db
 desktop.ini

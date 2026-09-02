@@ -645,12 +645,40 @@
   });
 
   /* ---------- Imagen ---------- */
+  /* Los videos van a Releases (sin limite de peso) y las imagenes a
+     la carpeta img. La URL de Releases es predecible, asi que se
+     escribe ya; el archivo lo sube solo la publicacion automatica. */
+  var REPO = 'Zyon64/Portfolio', TAG = 'media';
+
+  function urlRelease(nombre){
+    return 'https://github.com/' + REPO + '/releases/download/' + TAG + '/' + nombre;
+  }
+
+  function vaARelease(file, nombre){
+    /* mp4, mov, avi y mkv nunca entran al repositorio (.gitignore),
+       y cualquier cosa pesada tampoco. */
+    if (/\.(mp4|mov|avi|mkv|wmv|flv)$/i.test(nombre)) return true;
+    return file.size > 40 * 1024 * 1024;
+  }
+
   function attachFile(file){
     if (sel < 0 || !file) return;
-    var safe = file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g,'-');
-    projects[sel].file  = file;
-    projects[sel].image = 'img/' + safe;
-    renderDrop(projects[sel]);
+
+    var safe = file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, '-');
+    var p = projects[sel];
+    p.file = file;
+
+    if (vaARelease(file, safe)){
+      p.destino = 'release';
+      p.image   = urlRelease(safe);
+      note('<b>' + safe + '</b> se va a subir a Releases al guardar. ' +
+           'Dejá abierta la ventana de PUBLICACION-AUTOMATICA.bat.');
+    } else {
+      p.destino = 'img';
+      p.image   = 'img/' + safe;
+    }
+
+    renderDrop(p);
     renderList();
     markDirty();
   }
@@ -757,17 +785,25 @@
     $('save').disabled = true;
     $('save').textContent = 'Guardando...';
     try{
-      /* 1) copiar las imagenes nuevas a img/ */
-      var imgDir = await dirHandle.getDirectoryHandle('img', { create:true });
+      /* 1) escribir los archivos nuevos donde corresponda:
+            imagenes -> img/        videos -> subir/ (de ahi los
+            manda a Releases la publicacion automatica) */
       for (var i = 0; i < projects.length; i++){
         var p = projects[i];
         if (!p.file) continue;
-        var name = p.image.replace(/^img\//, '');
-        var fh = await imgDir.getFileHandle(name, { create:true });
+
+        var name    = p.image.split('/').pop();
+        var carpeta = await dirHandle.getDirectoryHandle(
+          p.destino === 'release' ? 'subir' : 'img', { create:true }
+        );
+
+        var fh = await carpeta.getFileHandle(name, { create:true });
         var w  = await fh.createWritable();
         await w.write(p.file);
         await w.close();
+
         p.file = null;
+        p.destino = null;
       }
 
       /* 2) reescribir el bloque dentro de index.html
