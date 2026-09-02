@@ -805,6 +805,11 @@ Models maded for a prototype of a chef game
     var desde  = (etiqueta && animar) ? etiqueta.getBoundingClientRect() : null;
     titulo.textContent = label;
 
+    /* Acomoda la pagina para que el titulo de la categoria quede
+       arriba de todo, justo por debajo de la barra de redes. Asi el
+       visitante arranca a leer desde el principio de la seccion. */
+    if (!sinAnimar) acomodarEn(titulo);
+
     if (desde && titulo.animate){
       var hasta = titulo.getBoundingClientRect();
       var dx = (desde.left + desde.width  / 2) - (hasta.left + hasta.width  / 2);
