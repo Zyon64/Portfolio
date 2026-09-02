@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio Editor</title>
+<style>
+  :root{
+    --bg:#0a0e0c; --surface:#111815; --surface-hi:#16201c;
+    --border:#1f2b26; --border-hi:#2e4038;
+    --text:#dbe7e0; --muted:#7d968a; --dim:#4a5c53;
+    --accent:#3ddc84; --accent-dim:#2a9e5f; --danger:#e05252;
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "Segoe UI",system-ui,sans-serif;
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  }
+
+  /* ---------- Barra superior ---------- */
+  .bar{
+    display:flex;align-items:center;gap:10px;padding:12px 16px;
+    border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;
+  }
+  .bar h1{font-size:.95rem;margin:0 auto 0 0;font-family:var(--mono);letter-spacing:.04em}
+  .bar h1 span{color:var(--accent)}
+  #status{font-family:var(--mono);font-size:.76rem;color:var(--dim);margin-right:6px}
+
+  button{
+    font-family:var(--mono);font-size:.8rem;color:var(--text);
+    background:var(--surface-hi);border:1px solid var(--border-hi);
+    border-radius:6px;padding:9px 16px;cursor:pointer;
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  button.primary{background:var(--accent);color:#06120c;border-color:var(--accent);font-weight:700}
+  button.primary:hover:not(:disabled){background:#4dee94;color:#06120c}
+  button.ghost{background:none;border-color:var(--border)}
+  button.danger:hover{border-color:var(--danger);color:var(--danger)}
+
+  /* ---------- Cuerpo: lista + formulario ---------- */
+  .body{display:flex;flex:1;min-height:0}
+
+  .list{
+    width:290px;flex-shrink:0;border-right:1px solid var(--border);
+    overflow-y:auto;padding:12px;background:#0c110f;
+  }
+  .list .add{width:100%;margin-bottom:12px}
+
+  .item{
+    display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:8px;
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .item:hover{background:var(--surface-hi)}
+  .item.sel{border-color:var(--accent);background:var(--surface-hi)}
+  .item .mini{
+    width:52px;height:30px;flex-shrink:0;border-radius:4px;background:#0d1411;
+    border:1px solid var(--border);object-fit:cover;display:block;
+  }
+  .item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem}
+  .item .ord{display:flex;flex-direction:column;gap:2px}
+  .item .ord button{padding:0 5px;font-size:.6rem;line-height:1.35;background:none;border-color:var(--border)}
+
+  .empty{color:var(--dim);font-family:var(--mono);font-size:.78rem;text-align:center;padding:30px 10px}
+
+  .form{flex:1;overflow-y:auto;padding:26px 30px;min-width:0}
+  .form.hidden{display:none}
+  .field{margin-bottom:20px;max-width:620px}
+  label{
+    display:block;font-family:var(--mono);font-size:.72rem;text-transform:uppercase;
+    letter-spacing:.15em;color:var(--dim);margin-bottom:7px;
+  }
+  input[type=text],textarea{
+    width:100%;background:#0d1411;color:var(--text);
+    border:1px solid var(--border);border-radius:6px;padding:11px 13px;
+    font:14px/1.5 "Segoe UI",system-ui,sans-serif;
+  }
+  input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent-dim)}
+  textarea{resize:vertical;min-height:96px}
+  .hint{font-size:.76rem;color:var(--dim);margin-top:6px}
+
+  /* Zona de imagen */
+  .drop{
+    border:1px dashed var(--border-hi);border-radius:8px;background:#0d1411;
+    padding:16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--surface-hi)}
+  .drop img,.drop video{max-width:100%;max-height:190px;border-radius:5px;display:block;margin:0 auto}
+  .drop .ph{color:var(--dim);font-family:var(--mono);font-size:.78rem;padding:26px 0}
+  .imgrow{display:flex;align-items:center;gap:10px;margin-top:8px}
+  .imgrow code{font-family:var(--mono);font-size:.76rem;color:var(--muted);flex:1;word-break:break-all}
+
+  .foot{
+    border-top:1px solid var(--border);padding-top:18px;margin-top:26px;
+    display:flex;gap:10px;max-width:620px;
+  }
+
+  /* Aviso de guardado / fallback */
+  .note{
+    margin:0;padding:12px 16px;background:#141d19;border-bottom:1px solid var(--border);
+    font-family:var(--mono);font-size:.76rem;color:var(--muted);
+  }
+  .note b{color:var(--accent)}
+  .note.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>portfolio <span>editor</span></h1>
+  <span id="status">sin carpeta abierta</span>
+  <button id="open">Abrir carpeta del portafolio</button>
+  <button id="save" class="primary" disabled>Guardar</button>
+</div>
+
+<p class="note hidden" id="note"></p>
+
+<div class="body">
+
+  <div class="list" id="list">
+    <button class="add" id="add">+ Nuevo proyecto</button>
+    <div id="items"></div>
+  </div>
+
+  <div class="form hidden" id="form">
+    <div class="field">
+      <label for="f-title">Título</label>
+      <input type="text" id="f-title" placeholder="ShootDoom">
+    </div>
+
+    <div class="field">
+      <label for="f-desc">Descripción</label>
+      <textarea id="f-desc" placeholder="Qué es el proyecto y qué hiciste vos."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Imagen o video</label>
+      <div class="drop" id="drop">
+        <div class="ph" id="drop-ph">Arrastrá una imagen acá, o hacé click para elegirla</div>
+      </div>
+      <div class="imgrow">
+        <code id="imgname"></code>
+        <button class="ghost danger" id="imgclear" type="button">Quitar</button>
+      </div>
+      <p class="hint">Se copia sola a la carpeta <b>img</b>. Acepta jpg, png, gif, webp, mp4 y webm.</p>
+    </div>
+
+    <div class="field">
+      <label for="f-tags">Etiquetas</label>
+      <input type="text" id="f-tags" placeholder="Unity, C#, Shaders">
+      <p class="hint">Separadas por coma.</p>
+    </div>
+
+    <div class="field">
+      <label for="f-link">Link (opcional)</label>
+      <input type="text" id="f-link" placeholder="https://github.com/Zyon64/...">
+      <p class="hint">Si lo ponés, la tarjeta entera se vuelve clickeable.</p>
+    </div>
+
+    <div class="foot">
+      <button class="ghost danger" id="del" type="button">Borrar este proyecto</button>
+    </div>
+  </div>
+
+</div>
+
+<input type="file" id="picker" accept="image/*,video/mp4,video/webm" hidden>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     Estado
+     ========================================================= */
+  var dirHandle = null;      // carpeta del portafolio (File System Access API)
+  var htmlText  = '';        // contenido de index.html
+  var projects  = [];        // [{title,image,tags,link,desc,file}]
+  var sel       = -1;        // indice seleccionado
+  var dirty     = false;
+  var hasFS     = typeof window.showDirectoryPicker === 'function';
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* =========================================================
+     Parseo y generacion del bloque de texto
+     ========================================================= */
+  var HEADER = [
+    '',
+    '# --------------------------------------------------------------------------',
+    '#  Este bloque lo escribe el editor (editor.html). Se puede tocar a mano,',
+    '#  pero no hace falta.',
+    '# --------------------------------------------------------------------------',
+    '',
+    ''
+  ].join('\n');
+
+  function parse(txt){
+    var out = [], cur = null;
+    txt.split(/\r?\n/).forEach(function(rawLine){
+      var line = rawLine.trim();
+      if (!line || line.charAt(0) === '#') return;
+      if (line.slice(0,2) === '=='){
+        cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', desc:'', file:null };
+        out.push(cur);
+        return;
+      }
+      if (!cur) return;
+      var m = line.match(/^(image|tags|link)\s*:\s*(.*)$/i);
+      if (m){ cur[m[1].toLowerCase()] = m[2].trim(); return; }
+      cur.desc += (cur.desc ? ' ' : '') + line;
+    });
+    return out;
+  }
+
+  function generate(){
+    var s = HEADER;
+    projects.forEach(function(p){
+      s += '== ' + clean(p.title) + '\n';
+      s += 'image: ' + clean(p.image) + '\n';
+      s += 'tags: '  + clean(p.tags)  + '\n';
+      s += 'link: '  + clean(p.link)  + '\n';
+      if (p.desc) s += clean(p.desc) + '\n';
+      s += '\n\n';
+    });
+    return s;
+  }
+
+  /* Que nada rompa el bloque ni el HTML que lo contiene */
+  function clean(v){
+    return String(v || '').replace(/<\/script/gi, '<\\/script').replace(/[\r\n]+/g, ' ').trim();
+  }
+
+  /* =========================================================
+     Interfaz
+     ========================================================= */
+  function setStatus(txt, ok){
+    var el = $('status');
+    el.textContent = txt;
+    el.style.color = ok ? 'var(--accent)' : 'var(--dim)';
+  }
+
+  function note(html){
+    var n = $('note');
+    if (!html){ n.classList.add('hidden'); return; }
+    n.innerHTML = html;
+    n.classList.remove('hidden');
+  }
+
+  function markDirty(){
+    dirty = true;
+    $('save').disabled = false;
+    $('save').textContent = 'Guardar *';
+  }
+
+  function renderList(){
+    var box = $('items');
+    box.innerHTML = '';
+
+    if (!projects.length){
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = dirHandle ? 'todavia no hay proyectos' : 'abri la carpeta para empezar';
+      box.appendChild(e);
+      return;
+    }
+
+    projects.forEach(function(p, i){
+      var row = document.createElement('div');
+      row.className = 'item' + (i === sel ? ' sel' : '');
+
+      var mini = document.createElement(isVideo(p.image) ? 'video' : 'img');
+      mini.className = 'mini';
+      var src = previewSrc(p);
+      if (src) mini.src = src;
+      row.appendChild(mini);
+
+      var nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = p.title || '(sin titulo)';
+      row.appendChild(nm);
+
+      var ord = document.createElement('div');
+      ord.className = 'ord';
+      ord.appendChild(orderBtn('\u25B2', i, -1));
+      ord.appendChild(orderBtn('\u25BC', i,  1));
+      row.appendChild(ord);
+
+      row.addEventListener('click', function(){ select(i); });
+      box.appendChild(row);
+    });
+  }
+
+  function orderBtn(label, i, dir){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      var j = i + dir;
+      if (j < 0 || j >= projects.length) return;
+      var tmp = projects[i]; projects[i] = projects[j]; projects[j] = tmp;
+      if (sel === i) sel = j; else if (sel === j) sel = i;
+      markDirty(); renderList();
+    });
+    return b;
+  }
+
+  function isVideo(name){ return /\.(mp4|webm)$/i.test(name || ''); }
+
+  function previewSrc(p){
+    if (p.file) return URL.createObjectURL(p.file);
+    if (p.image) return p.image;      // relativo a esta carpeta, igual que en la pagina
+    return '';
+  }
+
+  function select(i){
+    sel = i;
+    var p = projects[i];
+    $('form').classList.toggle('hidden', !p);
+    if (!p){ renderList(); return; }
+
+    $('f-title').value = p.title;
+    $('f-desc').value  = p.desc;
+    $('f-tags').value  = p.tags;
+    $('f-link').value  = p.link;
+    renderDrop(p);
+    renderList();
+  }
+
+  function renderDrop(p){
+    var d = $('drop');
+    d.innerHTML = '';
+    var src = previewSrc(p);
+    if (src){
+      var m = document.createElement(isVideo(p.image) || (p.file && p.file.type.indexOf('video') === 0) ? 'video' : 'img');
+      m.src = src;
+      if (m.tagName === 'VIDEO'){ m.muted = true; m.loop = true; m.autoplay = true; }
+      d.appendChild(m);
+    } else {
+      var ph = document.createElement('div');
+      ph.className = 'ph';
+      ph.textContent = 'Arrastrá una imagen acá, o hacé click para elegirla';
+      d.appendChild(ph);
+    }
+    $('imgname').textContent = p.image || '';
+  }
+
+  /* ---------- Campos ---------- */
+  function bind(id, key){
+    $(id).addEventListener('input', function(){
+      if (sel < 0) return;
+      projects[sel][key] = this.value;
+      if (key === 'title') renderList();
+      markDirty();
+    });
+  }
+  bind('f-title','title');
+  bind('f-desc','desc');
+  bind('f-tags','tags');
+  bind('f-link','link');
+
+  /* ---------- Imagen ---------- */
+  function attachFile(file){
+    if (sel < 0 || !file) return;
+    var safe = file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g,'-');
+    projects[sel].file  = file;
+    projects[sel].image = 'img/' + safe;
+    renderDrop(projects[sel]);
+    renderList();
+    markDirty();
+  }
+
+  $('drop').addEventListener('click', function(){ $('picker').click(); });
+  $('picker').addEventListener('change', function(){ attachFile(this.files[0]); this.value = ''; });
+
+  ['dragenter','dragover'].forEach(function(t){
+    $('drop').addEventListener(t, function(e){ e.preventDefault(); this.classList.add('over'); });
+  });
+  ['dragleave','drop'].forEach(function(t){
+    $('drop').addEventListener(t, function(e){ e.preventDefault(); this.classList.remove('over'); });
+  });
+  $('drop').addEventListener('drop', function(e){
+    if (e.dataTransfer.files.length) attachFile(e.dataTransfer.files[0]);
+  });
+
+  $('imgclear').addEventListener('click', function(){
+    if (sel < 0) return;
+    projects[sel].file = null;
+    projects[sel].image = '';
+    renderDrop(projects[sel]); renderList(); markDirty();
+  });
+
+  /* ---------- Alta y baja ---------- */
+  $('add').addEventListener('click', function(){
+    if (!dirHandle && hasFS){ note('Primero abrí la carpeta del portafolio.'); return; }
+    projects.push({ title:'Nuevo proyecto', image:'', tags:'', link:'', desc:'', file:null });
+    markDirty();
+    select(projects.length - 1);
+  });
+
+  $('del').addEventListener('click', function(){
+    if (sel < 0) return;
+    if (!confirm('¿Borrar "' + (projects[sel].title || 'sin titulo') + '"?')) return;
+    projects.splice(sel, 1);
+    markDirty();
+    select(Math.min(sel, projects.length - 1));
+    if (!projects.length) $('form').classList.add('hidden');
+  });
+
+  /* =========================================================
+     Abrir y guardar
+     ========================================================= */
+  $('open').addEventListener('click', function(){
+    if (hasFS) openFolder();
+    else openFallback();
+  });
+
+  async function openFolder(){
+    try{
+      dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+    } catch(err){ return; }               // el usuario cancelo
+
+    try{
+      var fh = await dirHandle.getFileHandle('index.html');
+      htmlText = await (await fh.getFile()).text();
+    } catch(err){
+      note('En esa carpeta no hay un <b>index.html</b>. Elegí la carpeta <b>Portfolio</b>.');
+      dirHandle = null;
+      return;
+    }
+
+    var block = htmlText.match(/<script type="text\/plain" id="projects-data">([\s\S]*?)<\/script>/);
+    if (!block){
+      note('El <b>index.html</b> no tiene el bloque de proyectos. ¿Es el archivo correcto?');
+      dirHandle = null;
+      return;
+    }
+
+    projects = parse(block[1]);
+    note('');
+    setStatus(dirHandle.name + ' — ' + projects.length + ' proyectos', true);
+    $('save').disabled = true;
+    $('save').textContent = 'Guardar';
+    dirty = false;
+    renderList();
+    select(projects.length ? 0 : -1);
+  }
+
+  $('save').addEventListener('click', function(){
+    if (hasFS && dirHandle) saveToFolder();
+    else saveFallback();
+  });
+
+  async function saveToFolder(){
+    $('save').disabled = true;
+    $('save').textContent = 'Guardando...';
+    try{
+      /* 1) copiar las imagenes nuevas a img/ */
+      var imgDir = await dirHandle.getDirectoryHandle('img', { create:true });
+      for (var i = 0; i < projects.length; i++){
+        var p = projects[i];
+        if (!p.file) continue;
+        var name = p.image.replace(/^img\//, '');
+        var fh = await imgDir.getFileHandle(name, { create:true });
+        var w  = await fh.createWritable();
+        await w.write(p.file);
+        await w.close();
+        p.file = null;
+      }
+
+      /* 2) reescribir el bloque dentro de index.html */
+      var nuevo = htmlText.replace(
+        /(<script type="text\/plain" id="projects-data">)[\s\S]*?(<\/script>)/,
+        function(_, a, b){ return a + generate() + b; }
+      );
+
+      var ih = await dirHandle.getFileHandle('index.html', { create:false });
+      var iw = await ih.createWritable();
+      await iw.write(nuevo);
+      await iw.close();
+      htmlText = nuevo;
+
+      dirty = false;
+      $('save').textContent = 'Guardar';
+      setStatus('guardado — ' + projects.length + ' proyectos', true);
+      note('Guardado. Para que se vea online, corré el push:<br>' +
+           '<b>git -C "C:\\Users\\MXD\\Documents\\Portfolio" add . ; ' +
+           'git -C "C:\\Users\\MXD\\Documents\\Portfolio" commit -m "proyectos" ; ' +
+           'git -C "C:\\Users\\MXD\\Documents\\Portfolio" push</b>');
+      renderList();
+    } catch(err){
+      note('No se pudo guardar: ' + err.message);
+      $('save').disabled = false;
+      $('save').textContent = 'Guardar *';
+    }
+  }
+
+  /* ---------- Plan B: navegadores sin File System Access ---------- */
+  var fallbackInput = null;
+
+  function openFallback(){
+    if (!fallbackInput){
+      fallbackInput = document.createElement('input');
+      fallbackInput.type = 'file';
+      fallbackInput.accept = '.html';
+      fallbackInput.addEventListener('change', function(){
+        var f = this.files[0];
+        if (!f) return;
+        var r = new FileReader();
+        r.onload = function(){
+          htmlText = r.result;
+          var block = htmlText.match(/<script type="text\/plain" id="projects-data">([\s\S]*?)<\/script>/);
+          if (!block){ note('Ese archivo no tiene el bloque de proyectos.'); return; }
+          projects = parse(block[1]);
+          setStatus(f.name + ' — ' + projects.length + ' proyectos', true);
+          renderList();
+          select(projects.length ? 0 : -1);
+        };
+        r.readAsText(f);
+      });
+    }
+    note('Tu navegador no permite guardar directo en la carpeta. Vas a poder ' +
+         'editar igual y descargar el <b>index.html</b> terminado para reemplazarlo a mano. ' +
+         'Con <b>Chrome</b> o <b>Edge</b> se guarda solo.');
+    fallbackInput.click();
+  }
+
+  function saveFallback(){
+    var nuevo = htmlText.replace(
+      /(<script type="text\/plain" id="projects-data">)[\s\S]*?(<\/script>)/,
+      function(_, a, b){ return a + generate() + b; }
+    );
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([nuevo], { type:'text/html' }));
+    a.download = 'index.html';
+    a.click();
+    note('Descargado. Reemplazá el <b>index.html</b> de la carpeta Portfolio con este, ' +
+         'y copiá las imágenes que hayas elegido dentro de la carpeta <b>img</b>.');
+  }
+
+  /* ---------- Avisos ---------- */
+  window.addEventListener('beforeunload', function(e){
+    if (dirty){ e.preventDefault(); e.returnValue = ''; }
+  });
+
+  if (!hasFS){
+    note('Para la mejor experiencia abrí este editor con <b>Chrome</b> o <b>Edge</b>: ' +
+         'ahí guarda directo en la carpeta, sin descargar nada.');
+  }
+
+  renderList();
+})();
+</script>
+
+</body>
+</html>
