@@ -290,8 +290,25 @@
   }
 
   /* ---------- About ---------- */
-  .about p{max-width:62ch;color:var(--muted)}
-  .about strong{color:var(--accent);font-weight:600}
+  .about p{max-width:64ch;color:var(--muted);margin:0 0 16px}
+  .about strong{color:var(--text);font-weight:600}
+
+  .about-sub{
+    font-family:var(--mono);font-size:.72rem;text-transform:uppercase;
+    letter-spacing:.18em;color:var(--dim);font-weight:600;
+    margin:30px 0 14px;
+  }
+  .tools{
+    list-style:none;margin:0;padding:0;
+    display:flex;flex-wrap:wrap;gap:8px;
+  }
+  .tools li{
+    font-family:var(--mono);font-size:.75rem;color:var(--muted);
+    border:1px solid var(--border-hi);background:#0d1411;
+    padding:5px 12px;border-radius:5px;
+    transition:color .2s,border-color .2s;
+  }
+  .tools li:hover{color:var(--accent);border-color:var(--accent-dim)}
 
   footer{
     padding:52px 0;border-top:1px solid var(--border);
@@ -387,9 +404,28 @@ One or two lines about what it is and what you did on it.
   <div class="wrap">
     <h2>About</h2>
     <p>
-      Two or three sentences: what you like building, what you work with, what
-      you are looking for. Short and direct — people hiring don't read much.
+      Ten years making games, and doing most of what a game needs along the
+      way: <strong>pixel art</strong>, 2D and 3D <strong>animation</strong>,
+      modeling, rigging, UVs, texturing and <strong>shader work</strong> —
+      plus the gameplay code that ties it all together.
     </p>
+    <p>
+      On a team I try to be the person others actually enjoy working with:
+      friendly, easy to talk to, and straight with people. I take ownership
+      of what I build, and I deliver on time.
+    </p>
+
+    <h3 class="about-sub">Tools</h3>
+    <ul class="tools">
+      <li>Unity</li>
+      <li>Godot</li>
+      <li>Blender</li>
+      <li>Visual Studio</li>
+      <li>Aseprite</li>
+      <li>Animate CC</li>
+      <li>Krita</li>
+      <li>Clip Studio Paint</li>
+    </ul>
   </div>
 </section>
 
