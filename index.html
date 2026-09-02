@@ -782,6 +782,25 @@ Models maded for a prototype of a chef game
     cats.appendChild(boton);
   });
 
+  /* Lleva un elemento al borde superior util, descontando la altura
+     real de la barra fija (que en el telefono puede ser de dos filas).
+     Se usa offsetTop y no getBoundingClientRect porque el titulo esta
+     animandose y su transform falsearia la medicion. */
+  function acomodarEn(el){
+    var y = 0, n = el;
+    while (n){ y += n.offsetTop; n = n.offsetParent; }
+
+    var barra = document.querySelector('.topbar');
+    var alto  = barra ? barra.getBoundingClientRect().height : 0;
+    var meta  = Math.max(0, y - alto - 14);
+
+    if (window.scrollTo.length === 1 || 'scrollBehavior' in document.documentElement.style){
+      window.scrollTo({ top:meta, behavior:'smooth' });
+    } else {
+      window.scrollTo(0, meta);
+    }
+  }
+
   /* --- Seleccion: los botones no se mueven; el texto baja y se
          convierte en el titulo de la seccion, y las tarjetas
          entran una por una como una ola. --- */
