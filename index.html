@@ -62,10 +62,10 @@
 
   /* ---------- Hero ---------- */
   /* el padding de arriba deja libre la barra fija */
-  header{padding:118px 0 60px;border-bottom:1px solid var(--border)}
+  header{padding:88px 0 38px;border-bottom:1px solid var(--border)}
   .prompt{
-    font-family:var(--mono);font-size:.85rem;color:var(--accent);
-    margin:0 0 18px;letter-spacing:.02em;
+    font-family:var(--mono);font-size:.82rem;color:var(--accent);
+    margin:0 0 10px;letter-spacing:.02em;
   }
   .prompt::before{content:"> ";color:var(--accent-dim)}
   .caret{
@@ -75,35 +75,37 @@
   @keyframes blink{50%{opacity:0}}
 
   h1{
-    font-size:clamp(2.6rem,7vw,4.4rem);line-height:1.02;margin:0 0 20px;
+    font-size:clamp(2.2rem,5.4vw,3.4rem);line-height:1.02;margin:0 0 12px;
     letter-spacing:-.03em;font-weight:700;
   }
   h1 .dot{color:var(--accent);text-shadow:0 0 24px var(--glow)}
 
   .role{
-    font-family:var(--mono);font-size:1rem;color:var(--accent);
-    margin:-8px 0 20px;letter-spacing:.04em;
+    font-family:var(--mono);font-size:.94rem;color:var(--accent);
+    margin:-4px 0 12px;letter-spacing:.04em;
   }
-  .tagline{font-size:1.13rem;color:var(--muted);max-width:54ch;margin:0 0 26px}
+  .tagline{font-size:1.04rem;color:var(--muted);max-width:56ch;margin:0 0 16px}
 
   /* Disciplinas: una fila de etiquetas separadas por barra */
   .disciplines{
-    list-style:none;margin:0 0 34px;padding:0;
+    list-style:none;margin:0;padding:0;
     display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;
     font-family:var(--mono);font-size:.83rem;color:var(--muted);
   }
   .disciplines li{display:flex;align-items:center;gap:14px}
   .disciplines li:not(:last-child)::after{content:"/";color:var(--border-hi)}
 
-  /* Boton para repetir la intro */
+  /* Boton para repetir la intro: escondido en la esquina */
   .replay{
-    font-family:var(--mono);font-size:.75rem;color:var(--dim);
-    background:none;border:1px solid var(--border);border-radius:5px;
-    padding:6px 13px;cursor:pointer;
-    transition:color .2s,border-color .2s;
+    position:fixed;right:14px;bottom:14px;z-index:90;
+    font-family:var(--mono);font-size:.7rem;color:var(--dim);
+    background:rgba(10,14,12,.6);backdrop-filter:blur(6px);
+    border:1px solid var(--border);border-radius:5px;
+    padding:6px 11px;cursor:pointer;opacity:.22;
+    transition:color .2s,border-color .2s,opacity .2s;
   }
-  .replay::before{content:"\21BB  "}
-  .replay:hover{color:var(--accent);border-color:var(--accent-dim)}
+  .replay::before{content:"\21BB"}
+  .replay:hover{opacity:1;color:var(--accent);border-color:var(--accent-dim)}
 
   /* Mientras corre la intro, lo que todavia no se escribio no se ve */
   body.intro .dot,
@@ -140,10 +142,10 @@
   }
 
   /* ---------- Secciones ---------- */
-  section{padding:84px 0}
+  section{padding:52px 0 72px}
   h2{
     font-family:var(--mono);font-size:.78rem;text-transform:uppercase;
-    letter-spacing:.22em;color:var(--dim);margin:0 0 36px;font-weight:600;
+    letter-spacing:.22em;color:var(--dim);margin:0 0 28px;font-weight:600;
     display:flex;align-items:center;gap:16px;
   }
   h2::before{content:"//";color:var(--accent-dim)}
@@ -260,7 +262,7 @@ One or two lines about what it is and what you did on it.
       <li>Pixel Art</li>
       <li>Gameplay Programming</li>
     </ul>
-    <button class="replay" id="replay" type="button">replay intro</button>
+    <button class="replay" id="replay" type="button" title="Replay intro" aria-label="Replay intro"></button>
   </div>
 </header>
 
