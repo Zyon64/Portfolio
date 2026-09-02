@@ -344,7 +344,7 @@
   }, { passive:true });
 
   /* Dibuja la banda de luz de un borde, con disolucion de pixeles */
-  var CELL = 9;   // tamaño del pixel de la disolucion
+  var CELL = 5;   // tamaño del pixel de la disolucion
   function drawEdge(side, v, now){
     if (v <= 0.004) return;
 
@@ -381,10 +381,11 @@
         n = n - Math.floor(n);
         if (n > prob) continue;
         ctx.globalAlpha = (0.35 + n * 0.5) * v;
+        // sin restarle nada: los pixeles se tocan y no queda rejilla
         ctx.fillRect(
           cx * CELL,
           (top ? cy * CELL : H - band + (rows - 1 - cy) * CELL),
-          CELL - 1, CELL - 1
+          CELL, CELL
         );
       }
     }
