@@ -95,12 +95,8 @@ function Subir($ruta, $nombre, $i, $total){
         $rel = (& gh api "repos/$REPO/releases/tags/$TAG" --jq '.id') 2>$null
     }
 
-    # si ya existe uno con ese nombre, se reemplaza
-    $viejo = (& gh api "repos/$REPO/releases/$rel/assets" --jq "[.[] | select(.name==`"$nombre`")][0].id") 2>$null
-    if ($viejo -and $viejo -ne 'null'){
-        & gh api -X DELETE "repos/$REPO/releases/assets/$viejo" | Out-Null
-    }
-
+    # No se borra el asset viejo por adelantado: eso deja la URL rota
+    # mientras dura la subida. `gh ... --clobber` ya lo reemplaza.
     $medidor = Join-Path $BANDEJA '_curl.txt'
     $url = "https://uploads.github.com/repos/$REPO/releases/$rel/assets?name=$nombre"
 
@@ -166,7 +162,7 @@ while ($true){
     $archivos  = @()
     if (Test-Path $BANDEJA){
         $archivos = Get-ChildItem $BANDEJA -File |
-                    Where-Object { $_.Name -notlike '_*' -and $_.Name -notlike '*.opt.mp4' }
+                    Where-Object { $_.Name -notlike '_*' }
     }
     $sueltos = (& git status --porcelain) -ne $null
 
