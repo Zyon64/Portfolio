@@ -168,18 +168,51 @@
   }
   .note b{color:var(--accent)}
   .note.hidden{display:none}
+
+  /* Estado de subida de los videos */
+  .estado{
+    padding:11px 16px;background:#0d1411;
+    border-bottom:1px solid var(--border);flex-shrink:0;
+  }
+  .estado.hidden{display:none}
+  .estado-cab{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:.77rem}
+  .estado-cab strong{flex:1;font-weight:400;color:var(--muted)}
+  .estado-cab button{padding:5px 11px;font-size:.72rem}
+  .estado-bar{height:4px;background:var(--border);border-radius:2px;margin-top:9px;overflow:hidden}
+  #estado-fill{height:100%;width:0;background:var(--accent);transition:width .4s}
+  .estado-lista{
+    list-style:none;margin:10px 0 0;padding:0;max-height:150px;overflow-y:auto;
+    font-family:var(--mono);font-size:.72rem;
+  }
+  .estado-lista.hidden{display:none}
+  .estado-lista li{display:flex;gap:8px;padding:3px 0;color:var(--dim)}
+  .estado-lista .ok::before   {content:"\2713";color:var(--accent)}
+  .estado-lista .pend::before {content:"\21BB";color:#e0a852}
+  .estado-lista .nog::before  {content:"\2022";color:var(--dim)}
+  .estado-lista .arch{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
 </style>
 </head>
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v2 · galería</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v3 · multi + estado</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
 </div>
 
 <p class="note hidden" id="note"></p>
+
+<!-- Estado de los videos alojados en Releases -->
+<div class="estado hidden" id="estado">
+  <div class="estado-cab">
+    <strong id="estado-txt">—</strong>
+    <button class="ghost" id="estado-ver" type="button">Ver detalle</button>
+    <button class="ghost" id="estado-refresh" type="button">Actualizar</button>
+  </div>
+  <div class="estado-bar"><div id="estado-fill"></div></div>
+  <ul class="estado-lista hidden" id="estado-lista"></ul>
+</div>
 
 <div class="body">
 
@@ -216,7 +249,7 @@
       <div class="galeria" id="galeria"></div>
 
       <div class="drop" id="drop">
-        <div class="ph" id="drop-ph">Arrastrá acá una imagen o video, o hacé click para elegirlo</div>
+        <div class="ph" id="drop-ph">Arrastrá acá imágenes o videos (podés soltar varios juntos), o hacé click para elegirlos</div>
       </div>
 
       <!-- Vista y ajustes del medio seleccionado -->
@@ -272,7 +305,7 @@
 
 </div>
 
-<input type="file" id="picker" accept="image/*,video/mp4,video/webm" hidden>
+<input type="file" id="picker" accept="image/*,video/*" multiple hidden>
 
 <script>
 (function(){
@@ -843,7 +876,15 @@
   }
 
   $('drop').addEventListener('click', function(){ $('picker').click(); });
-  $('picker').addEventListener('change', function(){ attachFile(this.files[0]); this.value = ''; });
+  /* Acepta varios de una: se agregan todos en el orden elegido */
+  function attachVarios(lista){
+    Array.prototype.slice.call(lista || []).forEach(attachFile);
+  }
+
+  $('picker').addEventListener('change', function(){
+    attachVarios(this.files);
+    this.value = '';
+  });
 
   ['dragenter','dragover'].forEach(function(t){
     $('drop').addEventListener(t, function(e){ e.preventDefault(); this.classList.add('over'); });
@@ -852,7 +893,7 @@
     $('drop').addEventListener(t, function(e){ e.preventDefault(); this.classList.remove('over'); });
   });
   $('drop').addEventListener('drop', function(e){
-    if (e.dataTransfer.files.length) attachFile(e.dataTransfer.files[0]);
+    attachVarios(e.dataTransfer.files);
   });
 
   $('imgclear').addEventListener('click', function(){
@@ -860,6 +901,98 @@
     if (!p || !p.medios[medioSel]) return;
     p.medios.splice(medioSel, 1);
     renderGaleria(); renderList(); markDirty();
+  });
+
+  /* =========================================================
+     Estado de los videos que viven en Releases.
+     No hay API que consultar sin credenciales: se comprueba
+     intentando cargar cada uno. Si carga, ya esta publicado.
+     ========================================================= */
+  var revisando = false;
+
+  function mediosRemotos(){
+    var out = [];
+    projects.forEach(function(p){
+      p.medios.forEach(function(m){
+        if (/releases\/download/.test(m.src || '')){
+          out.push({ medio:m, proyecto:p.title || '(sin titulo)' });
+        }
+      });
+    });
+    return out;
+  }
+
+  function estaPublicado(src){
+    return new Promise(function(res){
+      var v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      var cerrar = function(ok){
+        v.removeAttribute('src');
+        v.load();
+        res(ok);
+      };
+      v.addEventListener('loadedmetadata', function(){ cerrar(true); });
+      v.addEventListener('error',          function(){ cerrar(false); });
+      setTimeout(function(){ cerrar(false); }, 15000);
+      v.src = src;
+    });
+  }
+
+  async function revisarEstado(){
+    if (revisando) return;
+    var lista = mediosRemotos();
+    var caja  = $('estado');
+
+    if (!lista.length){ caja.classList.add('hidden'); return; }
+    caja.classList.remove('hidden');
+
+    revisando = true;
+    $('estado-txt').textContent = 'Comprobando ' + lista.length + ' video(s)...';
+    $('estado-fill').style.width = '0%';
+
+    var ul = $('estado-lista');
+    ul.innerHTML = '';
+
+    var listos = 0;
+    for (var i = 0; i < lista.length; i++){
+      var it     = lista[i];
+      var nombre = it.medio.src.split('/').pop();
+      var estado;
+
+      if (it.medio.file)              estado = 'nog';   // ni siquiera se guardo
+      else if (await estaPublicado(it.medio.src)) { estado = 'ok'; listos++; }
+      else                            estado = 'pend';
+
+      var li = document.createElement('li');
+      li.className = estado;
+      var a = document.createElement('span');
+      a.className = 'arch';
+      a.textContent = nombre;
+      li.appendChild(a);
+      var q = document.createElement('span');
+      q.textContent = estado === 'ok'   ? 'publicado'
+                    : estado === 'pend' ? 'esperando subida'
+                    :                     'sin guardar';
+      li.appendChild(q);
+      ul.appendChild(li);
+
+      $('estado-fill').style.width = Math.round(((i + 1) / lista.length) * 100) + '%';
+    }
+
+    $('estado-fill').style.width = Math.round((listos / lista.length) * 100) + '%';
+    $('estado-txt').textContent =
+      listos === lista.length
+        ? 'Los ' + lista.length + ' videos están publicados.'
+        : listos + ' de ' + lista.length + ' publicados — el resto sube con PUBLICAR.bat';
+
+    revisando = false;
+  }
+
+  $('estado-refresh').addEventListener('click', revisarEstado);
+  $('estado-ver').addEventListener('click', function(){
+    $('estado-lista').classList.toggle('hidden');
+    this.textContent = $('estado-lista').classList.contains('hidden') ? 'Ver detalle' : 'Ocultar';
   });
 
   /* ---------- Alta y baja ---------- */
@@ -926,6 +1059,7 @@
 
     projects = parse(block[1]);
     await cargarExistentes();
+    revisarEstado();
     note('');
     setStatus(dirHandle.name + ' — ' + projects.length + ' proyectos', true);
     $('save').disabled = true;
@@ -992,6 +1126,7 @@
       note('Guardado. Si tenés abierta la ventana de <b>PUBLICACION-AUTOMATICA.bat</b>, ' +
            'se sube solo en menos de un minuto. Si no, hacé doble click en <b>PUBLICAR.bat</b>.');
       await cargarExistentes();
+      revisarEstado();
       renderList();
     } catch(err){
       note('No se pudo guardar: ' + err.message);
