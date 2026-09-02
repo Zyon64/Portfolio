@@ -369,6 +369,37 @@
     ''
   ].join('\n');
 
+  /* ---------------------------------------------------------
+     Categorias. Viven en la linea "@cats a, b, c" del bloque de
+     datos, asi se pueden crear nuevas y ninguna se pierde aunque
+     se quede sin proyectos.
+     --------------------------------------------------------- */
+  var ETIQUETAS  = { 'dev':'Dev', '3d':'3D Modeling', 'pixelart':'Pixel Art' };
+  var categorias = ['dev', '3d', 'pixelart'];
+
+  function nombreCat(id){ return ETIQUETAS[id] || id; }
+
+  function anotarCat(id){
+    id = (id || '').trim();
+    if (id && categorias.indexOf(id) < 0) categorias.push(id);
+    return id;
+  }
+
+  function llenarSelectCat(){
+    var sel = $('f-cat');
+    sel.innerHTML = '';
+    categorias.forEach(function(id){
+      var o = document.createElement('option');
+      o.value = id;
+      o.textContent = nombreCat(id);
+      sel.appendChild(o);
+    });
+    var nueva = document.createElement('option');
+    nueva.value = '__nueva__';
+    nueva.textContent = '+ Nueva categoria...';
+    sel.appendChild(nueva);
+  }
+
   function parse(txt){
     var out = [], cur = null;
     txt.split(/\r?\n/).forEach(function(rawLine){
@@ -391,11 +422,16 @@
       }
       cur.desc += (cur.desc ? ' ' : '') + line;
     });
+
+    out.forEach(function(p){ p.cat = anotarCat(p.cat) || 'dev'; });
+    if (!categorias.length) categorias = ['dev'];
     return out;
   }
 
   function generate(){
-    var s = HEADER;
+    var s = HEADER + '@cats ' + categorias.join(', ') + '
+
+';
     projects.forEach(function(p){
       s += '== ' + clean(p.title) + '\n';
       /* el primero es la portada; el resto van como `media` */
