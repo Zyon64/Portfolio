@@ -138,6 +138,7 @@
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
     overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s,background .25s;
   }
+  a.card{text-decoration:none;color:inherit;display:block}
   .card:hover{
     transform:translateY(-5px);border-color:var(--accent-dim);background:var(--surface-hi);
     box-shadow:0 12px 32px -12px var(--glow);
@@ -174,6 +175,54 @@
 </head>
 <body>
 
+<!-- ##########################################################################
+     ###                                                                    ###
+     ###   ACA VAN TUS PROYECTOS.  Escribí normal, sin codigo.              ###
+     ###                                                                    ###
+     ###   Para agregar uno, copiá un bloque entero y cambiale los datos.   ###
+     ###   El orden en que los escribas es el orden en que se muestran.     ###
+     ###                                                                    ###
+     ########################################################################## -->
+<script type="text/plain" id="projects-data">
+
+# --------------------------------------------------------------------------
+#  COMO SE ESCRIBE CADA PROYECTO
+#
+#    ==  titulo del proyecto        <- empieza siempre con dos iguales
+#    image:  img/loquesea.jpg       <- opcional. Tambien acepta .mp4 y .webm
+#    tags:   Unity, C#, Shaders     <- opcional. Separados por coma
+#    link:   https://...            <- opcional. Hace la tarjeta clickeable
+#
+#  Todo lo que escribas debajo de esas lineas es la descripcion.
+#  Podes usar varios renglones.
+#
+#  Las lineas que empiezan con # son notas para vos, no se ven en la pagina.
+#  Las imagenes van en la carpeta  img  al lado de este archivo.
+# --------------------------------------------------------------------------
+
+
+== Project name
+image:
+tags: Unity, C#
+link:
+One or two lines about what it is and what you did on it.
+
+
+== Project name
+image:
+tags: Unity, Shaders
+link:
+One or two lines about what it is and what you did on it.
+
+
+== Project name
+image:
+tags: Tools
+link:
+One or two lines about what it is and what you did on it.
+
+</script>
+
 <canvas id="trail"></canvas>
 
 <!-- Redes: siempre arriba y centradas. Agregá acá ArtStation, itch.io, LinkedIn -->
@@ -203,40 +252,7 @@
 <section>
   <div class="wrap">
     <h2>Projects</h2>
-    <div class="grid">
-
-      <!-- ===== Duplicá este bloque por cada proyecto ===== -->
-      <article class="card">
-        <div class="thumb">
-          <!-- Reemplazá por: <img src="img/proyecto.jpg" alt="Nombre del proyecto"> -->
-          16:9 image
-        </div>
-        <div class="card-body">
-          <h3>Project name</h3>
-          <p>One or two lines about what it is and what you did on it.</p>
-          <div class="tags"><span>Unity</span><span>C#</span></div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="thumb">16:9 image</div>
-        <div class="card-body">
-          <h3>Project name</h3>
-          <p>One or two lines about what it is and what you did on it.</p>
-          <div class="tags"><span>Unity</span><span>Shaders</span></div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="thumb">16:9 image</div>
-        <div class="card-body">
-          <h3>Project name</h3>
-          <p>One or two lines about what it is and what you did on it.</p>
-          <div class="tags"><span>Herramientas</span></div>
-        </div>
-      </article>
-
-    </div>
+    <div class="grid" id="grid"></div>
   </div>
 </section>
 
@@ -253,6 +269,94 @@
 <footer>
   <div class="wrap">© 2026 Zyon64</div>
 </footer>
+
+<script>
+/* ---------------------------------------------------------
+   Lee el bloque de texto de arriba y arma las tarjetas.
+   El texto se trata siempre como texto: no se interpreta
+   como HTML, asi que se puede escribir cualquier cosa.
+   --------------------------------------------------------- */
+(function(){
+  var raw  = document.getElementById('projects-data').textContent;
+  var grid = document.getElementById('grid');
+  if (!raw || !grid) return;
+
+  /* --- Parseo --- */
+  var items = [], cur = null;
+  raw.split(/\r?\n/).forEach(function(rawLine){
+    var line = rawLine.trim();
+    if (!line || line.charAt(0) === '#') return;          // vacia o nota
+
+    if (line.slice(0, 2) === '=='){                        // arranca un proyecto
+      cur = { title:line.slice(2).trim(), image:'', tags:'', link:'', desc:[] };
+      items.push(cur);
+      return;
+    }
+    if (!cur) return;
+
+    var m = line.match(/^(image|tags|link)\s*:\s*(.*)$/i);
+    if (m){ cur[m[1].toLowerCase()] = m[2].trim(); return; }
+
+    cur.desc.push(line);                                   // el resto es descripcion
+  });
+
+  /* --- Armado de las tarjetas --- */
+  items.forEach(function(p){
+    var card = document.createElement(p.link ? 'a' : 'article');
+    card.className = 'card';
+    if (p.link){ card.href = p.link; card.target = '_blank'; card.rel = 'noopener'; }
+
+    var thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    if (p.image){
+      var media;
+      if (/\.(mp4|webm)$/i.test(p.image)){                 // acepta video igual que imagen
+        media = document.createElement('video');
+        media.src = p.image;
+        media.autoplay = media.muted = media.loop = media.playsInline = true;
+      } else {
+        media = document.createElement('img');
+        media.src = p.image;
+        media.alt = p.title;
+        media.loading = 'lazy';
+      }
+      thumb.appendChild(media);
+    } else {
+      thumb.textContent = '16:9 image';
+    }
+    card.appendChild(thumb);
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
+
+    var h3 = document.createElement('h3');
+    h3.textContent = p.title || 'Untitled';
+    body.appendChild(h3);
+
+    if (p.desc.length){
+      var d = document.createElement('p');
+      d.textContent = p.desc.join(' ');
+      body.appendChild(d);
+    }
+
+    if (p.tags){
+      var tags = document.createElement('div');
+      tags.className = 'tags';
+      p.tags.split(',').forEach(function(t){
+        t = t.trim();
+        if (!t) return;
+        var s = document.createElement('span');
+        s.textContent = t;
+        tags.appendChild(s);
+      });
+      body.appendChild(tags);
+    }
+
+    card.appendChild(body);
+    grid.appendChild(card);
+  });
+})();
+</script>
 
 <script>
 /* ---------------------------------------------------------

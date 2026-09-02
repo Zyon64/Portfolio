@@ -1,0 +1,2 @@
+Poné acá las imágenes y videos de tus proyectos.
+Después referencialas en index.html como:  image: img/nombre.jpg
