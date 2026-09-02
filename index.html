@@ -125,9 +125,10 @@
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
     border-bottom:1px solid var(--border);
   }
+  /* --brand lo define cada boton: es el color de su red */
   .topbar a,.topbar .copiar{
     font-family:var(--mono);font-size:.84rem;
-    color:var(--muted);text-decoration:none;
+    color:var(--brand,var(--muted));text-decoration:none;
     border:1px solid var(--border);background:var(--surface);
     padding:9px 20px;border-radius:6px;display:inline-block;
     cursor:pointer;line-height:1.5;
@@ -135,8 +136,8 @@
   }
   .topbar .copiar.ok{color:var(--accent);border-color:var(--accent)}
   .topbar a:hover,.topbar .copiar:hover{
-    border-color:var(--accent);color:var(--accent);background:var(--surface-hi);
-    box-shadow:0 0 18px -4px var(--glow);
+    border-color:currentColor;background:var(--surface-hi);
+    box-shadow:0 0 18px -4px currentColor;   /* el brillo toma el color de la red */
   }
   @media (max-width:520px){
     .topbar{gap:8px;padding:11px 10px;flex-wrap:wrap}
@@ -301,12 +302,13 @@ One or two lines about what it is and what you did on it.
 
 <!-- Redes: siempre arriba y centradas. Agregá acá ArtStation, itch.io, LinkedIn -->
 <nav class="topbar">
-  <a href="https://www.artstation.com/mxd64" target="_blank" rel="noopener">ArtStation</a>
-  <a href="https://github.com/Zyon64" target="_blank" rel="noopener">GitHub</a>
+  <a style="--brand:#13AFF0" href="https://www.artstation.com/mxd64" target="_blank" rel="noopener">ArtStation</a>
+  <a style="--brand:#E6EDF3" href="https://github.com/Zyon64" target="_blank" rel="noopener">GitHub</a>
   <!-- Discord no tiene link de perfil publico: se copia el usuario -->
-  <button class="copiar" data-copiar="mxd64" type="button">Discord</button>
-  <a href="https://t.me/Zyon64" target="_blank" rel="noopener">Telegram</a>
-  <a href="mailto:mxd64@outlook.com">Email</a>
+  <button style="--brand:#5865F2" class="copiar" data-copiar="mxd64" type="button">Discord</button>
+  <a style="--brand:#2AABEE" href="https://t.me/Zyon64" target="_blank" rel="noopener">Telegram</a>
+  <a style="--brand:#FF4500" href="https://www.reddit.com/user/PsychologicalAide531/" target="_blank" rel="noopener">Reddit</a>
+  <a style="--brand:#28A8EA" href="mailto:mxd64@outlook.com">Email</a>
 </nav>
 
 <header>
