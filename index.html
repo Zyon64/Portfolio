@@ -1782,5 +1782,145 @@ Designs i did in various projects and jobs
 })();
 </script>
 
+<script>
+/* ---------------------------------------------------------
+   Contador de visitas y ventana secreta.
+
+   El sitio son archivos estaticos: no puede guardar nada por
+   si mismo. Los numeros viven en un contador anonimo publico
+   (abacus), sin cuenta ni claves.
+   --------------------------------------------------------- */
+(function(){
+  var BASE  = 'https://abacus.jasoncameron.dev';
+  var ESPACIO = 'zyon64-pf-9k3x';          // el "cajon" donde se guardan
+  var SECRETO = 'zyon';                     // como se abre el panel
+
+  /* Nombre de clave seguro para la URL */
+  function clave(t){
+    return String(t).toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,45) || 'sin-nombre';
+  }
+
+  function apagado(){
+    try { return localStorage.getItem('pf-no-contar') === '1'; } catch(e){ return false; }
+  }
+
+  /* Suma uno. Nunca rompe la pagina si el servicio no responde. */
+  window.contar = function(que){
+    if (apagado()) return;
+    var k = clave(que);
+    try{
+      /* una vez por sesion y por clave: recargar no infla el numero */
+      var visto = sessionStorage.getItem('pf-' + k);
+      if (visto) return;
+      sessionStorage.setItem('pf-' + k, '1');
+    } catch(e){}
+    fetch(BASE + '/hit/' + ESPACIO + '/' + k, { mode:'cors' }).catch(function(){});
+  };
+
+  function leer(k){
+    return fetch(BASE + '/get/' + ESPACIO + '/' + clave(k), { mode:'cors' })
+      .then(function(r){ return r.ok ? r.json() : { value:0 }; })
+      .then(function(j){ return j.value || 0; })
+      .catch(function(){ return 0; });
+  }
+
+  /* --- la visita en si --- */
+  window.contar('visitas');
+
+  /* --- el panel --- */
+  var caja = document.getElementById('secreto');
+  if (!caja) return;
+
+  function fila(nombre, n, tope){
+    var d = document.createElement('div');
+    d.className = 's-fila';
+    var a = document.createElement('span'); a.className = 's-nombre'; a.textContent = nombre;
+    var b = document.createElement('span'); b.className = 's-barra';
+    var i = document.createElement('i');
+    i.style.width = (tope ? Math.round(n / tope * 100) : 0) + '%';
+    b.appendChild(i);
+    var c = document.createElement('span'); c.className = 's-num'; c.textContent = n;
+    d.appendChild(a); d.appendChild(b); d.appendChild(c);
+    return d;
+  }
+
+  function seccion(cont, titulo, filas){
+    if (!filas.length) return;
+    var h = document.createElement('div');
+    h.className = 's-titulo'; h.textContent = titulo;
+    cont.appendChild(h);
+    var tope = Math.max.apply(null, filas.map(function(f){ return f.n; })) || 1;
+    filas.sort(function(a,b){ return b.n - a.n; })
+         .forEach(function(f){ cont.appendChild(fila(f.nombre, f.n, tope)); });
+  }
+
+  async function pintar(){
+    var cuerpo = document.getElementById('s-cuerpo');
+    cuerpo.textContent = 'cargando...';
+
+    var datos = window.PF || { cats:[], items:[] };
+    var total = await leer('visitas');
+
+    var cats = await Promise.all(datos.cats.map(async function(c){
+      return { nombre:c.label, n:await leer('c-' + c.id) };
+    }));
+    var proys = await Promise.all(datos.items.map(async function(p){
+      return { nombre:p.title || '(sin titulo)', n:await leer('p-' + p.title) };
+    }));
+
+    cuerpo.innerHTML = '';
+    var t = document.createElement('div');
+    t.className = 's-total'; t.textContent = total;
+    cuerpo.appendChild(t);
+    var sub = document.createElement('div');
+    sub.className = 's-sub'; sub.textContent = 'visitas al portafolio';
+    cuerpo.appendChild(sub);
+
+    seccion(cuerpo, 'Categorias abiertas', cats);
+    seccion(cuerpo, 'Proyectos abiertos', proys);
+
+    var nota = document.createElement('div');
+    nota.className = 's-nota';
+    nota.innerHTML = 'Se cuenta una vez por visita, no por recarga.<br>' +
+      (apagado() ? '<b>Tus visitas NO se estan contando.</b>'
+                 : 'Tus propias visitas SI se estan contando.');
+    cuerpo.appendChild(nota);
+  }
+
+  function abrir(){ caja.hidden = false; pintar(); }
+  function cerrar(){ caja.hidden = true; }
+
+  document.getElementById('s-cerrar').addEventListener('click', cerrar);
+  document.getElementById('s-nocontar').addEventListener('click', function(){
+    try{
+      var ya = apagado();
+      localStorage.setItem('pf-no-contar', ya ? '0' : '1');
+      this.textContent = ya ? 'No contar las mias' : 'Volver a contarme';
+    } catch(e){}
+    pintar();
+  });
+  caja.addEventListener('click', function(e){ if (e.target === caja) cerrar(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !caja.hidden) cerrar();
+  });
+
+  /* Se abre con #zyon en la URL (util en el telefono)... */
+  if (location.hash.toLowerCase() === '#' + SECRETO) abrir();
+  window.addEventListener('hashchange', function(){
+    if (location.hash.toLowerCase() === '#' + SECRETO) abrir();
+  });
+
+  /* ...o tecleando la palabra secreta en cualquier parte */
+  var buffer = '';
+  document.addEventListener('keydown', function(e){
+    if (e.key.length !== 1) return;
+    buffer = (buffer + e.key.toLowerCase()).slice(-SECRETO.length);
+    if (buffer === SECRETO) abrir();
+  });
+})();
+</script>
+
 </body>
 </html>
