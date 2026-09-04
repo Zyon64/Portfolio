@@ -383,6 +383,50 @@
 
   .card{cursor:pointer}
 
+
+  /* ---------- Ventana secreta de estadisticas ---------- */
+  .secreto{
+    position:fixed;inset:0;z-index:200;
+    background:rgba(4,6,5,.86);backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;padding:22px;
+  }
+  .secreto[hidden]{display:none}
+  .secreto-caja{
+    width:min(560px,100%);max-height:82vh;overflow:auto;
+    background:var(--surface);border:1px solid var(--accent-dim);
+    border-radius:12px;padding:20px 22px;
+    box-shadow:0 24px 70px -20px var(--glow);
+  }
+  .secreto-cab{
+    display:flex;align-items:center;gap:9px;margin-bottom:16px;
+    font-family:var(--mono);font-size:.9rem;color:var(--accent);
+  }
+  .secreto-cab strong{flex:1;font-weight:700;letter-spacing:.04em}
+  .s-btn{
+    font-family:var(--mono);font-size:.7rem;color:var(--muted);
+    background:none;border:1px solid var(--border);border-radius:5px;
+    padding:5px 10px;cursor:pointer;
+  }
+  .s-btn:hover{color:var(--accent);border-color:var(--accent-dim)}
+  .s-total{
+    font-family:var(--mono);font-size:2.4rem;color:var(--accent);
+    line-height:1;margin-bottom:2px;
+  }
+  .s-sub{font-family:var(--mono);font-size:.72rem;color:var(--dim);margin-bottom:20px}
+  .s-titulo{
+    font-family:var(--mono);font-size:.68rem;text-transform:uppercase;
+    letter-spacing:.18em;color:var(--dim);margin:18px 0 8px;
+  }
+  .s-fila{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:.78rem;padding:4px 0;
+  }
+  .s-nombre{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .s-barra{width:110px;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+  .s-barra i{display:block;height:100%;background:var(--accent)}
+  .s-num{color:var(--text);min-width:32px;text-align:right}
+  .s-nota{font-family:var(--mono);font-size:.66rem;color:var(--dim);margin-top:18px;line-height:1.7}
+
   /* ---------- About ---------- */
   .about p{max-width:64ch;color:var(--muted);margin:0 0 16px}
   .about strong{color:var(--text);font-weight:600}
@@ -732,6 +776,20 @@ Designs i did in various projects and jobs
     <p class="detalle-desc" id="detalle-desc"></p>
     <a class="detalle-link" id="detalle-link" target="_blank" rel="noopener" hidden>Open project</a>
     <div class="detalle-media" id="detalle-media"></div>
+  </div>
+</div>
+
+
+<!-- Ventana secreta de estadisticas. Se abre escribiendo "zyon" o
+     entrando con #zyon al final de la URL. -->
+<div class="secreto" id="secreto" hidden>
+  <div class="secreto-caja">
+    <div class="secreto-cab">
+      <strong>Visitas</strong>
+      <button class="s-btn" id="s-nocontar" type="button">No contar las mias</button>
+      <button class="s-btn" id="s-cerrar" type="button">Cerrar</button>
+    </div>
+    <div class="secreto-cuerpo" id="s-cuerpo">cargando...</div>
   </div>
 </div>
 
