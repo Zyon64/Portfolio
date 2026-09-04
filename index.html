@@ -1789,31 +1789,37 @@ Designs i did in various projects and jobs
    El sitio son archivos estaticos: no puede guardar nada por
    si mismo. Los numeros viven en un contador anonimo publico
    (abacus), sin cuenta ni claves.
+
+   El servicio guarda UN numero por clave, asi que las fechas
+   se consiguen con una clave por dia: d-2026-09-04.
    --------------------------------------------------------- */
 (function(){
-  var BASE  = 'https://abacus.jasoncameron.dev';
-  var ESPACIO = 'zyon64-pf-9k3x';          // el "cajon" donde se guardan
-  var SECRETO = 'zyon';                     // como se abre el panel
+  var BASE    = 'https://abacus.jasoncameron.dev';
+  var ESPACIO = 'zyon64-pf-9k3x';
+  var SECRETO = '649964';
+  var DIAS    = 14;                     // dias que muestra el panel
 
-  /* Nombre de clave seguro para la URL */
   function clave(t){
     return String(t).toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,45) || 'sin-nombre';
+  }
+
+  function fechaDe(d){
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
   }
 
   function apagado(){
     try { return localStorage.getItem('pf-no-contar') === '1'; } catch(e){ return false; }
   }
 
-  /* Suma uno. Nunca rompe la pagina si el servicio no responde. */
   window.contar = function(que){
     if (apagado()) return;
     var k = clave(que);
     try{
-      /* una vez por sesion y por clave: recargar no infla el numero */
-      var visto = sessionStorage.getItem('pf-' + k);
-      if (visto) return;
+      if (sessionStorage.getItem('pf-' + k)) return;   // una vez por sesion
       sessionStorage.setItem('pf-' + k, '1');
     } catch(e){}
     fetch(BASE + '/hit/' + ESPACIO + '/' + k, { mode:'cors' }).catch(function(){});
@@ -1826,34 +1832,33 @@ Designs i did in various projects and jobs
       .catch(function(){ return 0; });
   }
 
-  /* --- la visita en si --- */
+  /* --- la visita: total y dia --- */
   window.contar('visitas');
+  window.contar('d-' + fechaDe(new Date()));
 
   /* --- el panel --- */
   var caja = document.getElementById('secreto');
   if (!caja) return;
 
-  function fila(nombre, n, tope){
-    var d = document.createElement('div');
-    d.className = 's-fila';
-    var a = document.createElement('span'); a.className = 's-nombre'; a.textContent = nombre;
-    var b = document.createElement('span'); b.className = 's-barra';
-    var i = document.createElement('i');
-    i.style.width = (tope ? Math.round(n / tope * 100) : 0) + '%';
-    b.appendChild(i);
-    var c = document.createElement('span'); c.className = 's-num'; c.textContent = n;
-    d.appendChild(a); d.appendChild(b); d.appendChild(c);
-    return d;
-  }
-
-  function seccion(cont, titulo, filas){
-    if (!filas.length) return;
+  function lista(cont, titulo, filas){
+    filas = filas.filter(function(f){ return f.n > 0; });
     var h = document.createElement('div');
-    h.className = 's-titulo'; h.textContent = titulo;
+    h.className = 's-titulo';
+    h.textContent = titulo + (filas.length ? '' : ' \u2014 sin datos aun');
     cont.appendChild(h);
+    if (!filas.length) return;
+
     var tope = Math.max.apply(null, filas.map(function(f){ return f.n; })) || 1;
-    filas.sort(function(a,b){ return b.n - a.n; })
-         .forEach(function(f){ cont.appendChild(fila(f.nombre, f.n, tope)); });
+    filas.sort(function(a,b){ return b.n - a.n; }).forEach(function(f){
+      var d = document.createElement('div'); d.className = 's-fila';
+      var a = document.createElement('span'); a.className = 's-nombre'; a.textContent = f.nombre;
+      var b = document.createElement('span'); b.className = 's-barra';
+      var i = document.createElement('i'); i.style.width = Math.round(f.n / tope * 100) + '%';
+      b.appendChild(i);
+      var c = document.createElement('span'); c.className = 's-num'; c.textContent = f.n;
+      d.appendChild(a); d.appendChild(b); d.appendChild(c);
+      cont.appendChild(d);
+    });
   }
 
   async function pintar(){
@@ -1861,31 +1866,67 @@ Designs i did in various projects and jobs
     cuerpo.textContent = 'cargando...';
 
     var datos = window.PF || { cats:[], items:[] };
-    var total = await leer('visitas');
 
-    var cats = await Promise.all(datos.cats.map(async function(c){
-      return { nombre:c.label, n:await leer('c-' + c.id) };
-    }));
-    var proys = await Promise.all(datos.items.map(async function(p){
-      return { nombre:p.title || '(sin titulo)', n:await leer('p-' + p.title) };
-    }));
+    var fechas = [];
+    for (var i = DIAS - 1; i >= 0; i--){
+      var d = new Date(); d.setDate(d.getDate() - i);
+      fechas.push(fechaDe(d));
+    }
+
+    var res = await Promise.all([
+      leer('visitas'),
+      Promise.all(fechas.map(function(f){ return leer('d-' + f); })),
+      Promise.all(datos.cats.map(function(c){ return leer('c-' + c.id); })),
+      Promise.all(datos.items.map(function(p){ return leer('p-' + p.title); }))
+    ]);
+
+    var total = res[0], porDia = res[1];
+    var hoy   = porDia[porDia.length - 1] || 0;
+    var siete = porDia.slice(-7).reduce(function(a,b){ return a + b; }, 0);
 
     cuerpo.innerHTML = '';
-    var t = document.createElement('div');
-    t.className = 's-total'; t.textContent = total;
-    cuerpo.appendChild(t);
-    var sub = document.createElement('div');
-    sub.className = 's-sub'; sub.textContent = 'visitas al portafolio';
-    cuerpo.appendChild(sub);
 
-    seccion(cuerpo, 'Categorias abiertas', cats);
-    seccion(cuerpo, 'Proyectos abiertos', proys);
+    var cifras = document.createElement('div');
+    cifras.className = 's-cifras';
+    [[total,'total'],[siete,'7 dias'],[hoy,'hoy']].forEach(function(x){
+      var b = document.createElement('div'); b.className = 's-cifra';
+      var n = document.createElement('b'); n.textContent = x[0];
+      var t = document.createElement('span'); t.textContent = x[1];
+      b.appendChild(n); b.appendChild(t); cifras.appendChild(b);
+    });
+    cuerpo.appendChild(cifras);
+
+    var ht = document.createElement('div');
+    ht.className = 's-titulo'; ht.textContent = 'Ultimos ' + DIAS + ' dias';
+    cuerpo.appendChild(ht);
+
+    var graf = document.createElement('div'); graf.className = 's-graf';
+    var topeD = Math.max.apply(null, porDia) || 1;
+    porDia.forEach(function(n, k){
+      var col = document.createElement('div');
+      col.className = 's-col' + (k === porDia.length - 1 ? ' hoy' : '');
+      col.title = fechas[k] + ': ' + n;
+      var bar = document.createElement('i');
+      bar.style.height = Math.max(2, Math.round(n / topeD * 100)) + '%';
+      col.appendChild(bar);
+      var et = document.createElement('span');
+      et.textContent = fechas[k].slice(8);
+      col.appendChild(et);
+      graf.appendChild(col);
+    });
+    cuerpo.appendChild(graf);
+
+    lista(cuerpo, 'Categorias', datos.cats.map(function(c, k){
+      return { nombre:c.label, n:res[2][k] };
+    }));
+    lista(cuerpo, 'Proyectos', datos.items.map(function(p, k){
+      return { nombre:p.title || '(sin titulo)', n:res[3][k] };
+    }));
 
     var nota = document.createElement('div');
     nota.className = 's-nota';
-    nota.innerHTML = 'Se cuenta una vez por visita, no por recarga.<br>' +
-      (apagado() ? '<b>Tus visitas NO se estan contando.</b>'
-                 : 'Tus propias visitas SI se estan contando.');
+    nota.innerHTML = 'Una vez por visita, no por recarga. ' +
+      (apagado() ? '<b>Tus visitas no se cuentan.</b>' : 'Tus visitas SI se cuentan.');
     cuerpo.appendChild(nota);
   }
 
@@ -1897,7 +1938,7 @@ Designs i did in various projects and jobs
     try{
       var ya = apagado();
       localStorage.setItem('pf-no-contar', ya ? '0' : '1');
-      this.textContent = ya ? 'No contar las mias' : 'Volver a contarme';
+      this.textContent = ya ? 'No contarme' : 'Contarme';
     } catch(e){}
     pintar();
   });
@@ -1906,17 +1947,15 @@ Designs i did in various projects and jobs
     if (e.key === 'Escape' && !caja.hidden) cerrar();
   });
 
-  /* Se abre con #zyon en la URL (util en el telefono)... */
-  if (location.hash.toLowerCase() === '#' + SECRETO) abrir();
+  if (location.hash === '#' + SECRETO) abrir();
   window.addEventListener('hashchange', function(){
-    if (location.hash.toLowerCase() === '#' + SECRETO) abrir();
+    if (location.hash === '#' + SECRETO) abrir();
   });
 
-  /* ...o tecleando la palabra secreta en cualquier parte */
   var buffer = '';
   document.addEventListener('keydown', function(e){
     if (e.key.length !== 1) return;
-    buffer = (buffer + e.key.toLowerCase()).slice(-SECRETO.length);
+    buffer = (buffer + e.key).slice(-SECRETO.length);
     if (buffer === SECRETO) abrir();
   });
 })();
