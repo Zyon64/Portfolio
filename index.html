@@ -957,6 +957,9 @@ Designs i did in various projects and jobs
     return { id:id, label:ETIQUETAS[id] || id };
   });
 
+  /* El panel secreto necesita saber que categorias y proyectos hay */
+  window.PF = { cats:CATS, items:items };
+
   /* --- Una columna por categoria, desplegable --- */
   var columnas = [];
 
@@ -1031,7 +1034,10 @@ Designs i did in various projects and jobs
     /* Acomoda la pagina para que el titulo de la categoria quede
        arriba de todo, justo por debajo de la barra de redes. Asi el
        visitante arranca a leer desde el principio de la seccion. */
-    if (!sinAnimar) acomodarEn(titulo);
+    if (!sinAnimar){
+      acomodarEn(titulo);
+      if (window.contar) window.contar('c-' + id);
+    }
 
     if (desde && titulo.animate){
       var hasta = titulo.getBoundingClientRect();
@@ -1187,6 +1193,7 @@ Designs i did in various projects and jobs
   var abierto  = false;
 
   function abrirDetalle(p){
+    if (window.contar) window.contar('p-' + p.title);
     document.getElementById('detalle-titulo').textContent = p.title || 'Untitled';
     document.getElementById('detalle-desc').textContent   = p.desc.join(' ');
 
