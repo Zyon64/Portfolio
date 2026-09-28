@@ -49,6 +49,47 @@ function Estado($archivo, $fase, $pct, $i, $total){
 function LimpiarEstado(){ if (Test-Path $ESTADO) { Remove-Item $ESTADO -Force -EA SilentlyContinue } }
 
 # ---------------------------------------------------------------------
+#  "Ya esta en linea": GitHub Pages tarda en reconstruir el sitio
+#  despues de cada push. Se consulta la pagina publicada (saltando la
+#  cache) hasta que tenga el mismo bloque de proyectos que el disco.
+#  El editor lee subir\_online.txt para avisar.
+# ---------------------------------------------------------------------
+$ONLINE = Join-Path $BANDEJA '_online.txt'
+function Online($estado){
+    if (-not (Test-Path $BANDEJA)) { return }
+    try { [IO.File]::WriteAllText($ONLINE, "estado=$estado`nhora=$(Get-Date -Format HH:mm:ss)`n") } catch {}
+}
+function BloqueProyectos($html){
+    $m = [regex]::Match($html, '<script type="text/plain" id="projects-data">([\s\S]*?)</script>')
+    if ($m.Success) { return ($m.Groups[1].Value -replace '\s+', ' ').Trim() }
+    return ''
+}
+$script:SITIO = $null
+function EsperarWeb(){
+    if (-not $script:SITIO){
+        $script:SITIO = (& gh api "repos/$REPO/pages" --jq '.html_url') 2>$null
+        if (-not $script:SITIO){ Online 'desconocido'; return }
+    }
+    $local = BloqueProyectos ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'index.html')))
+    Log 'Esperando a que GitHub Pages muestre los cambios...'
+    $limite = (Get-Date).AddMinutes(12)
+    while ((Get-Date) -lt $limite){
+        try{
+            $r = Invoke-WebRequest -UseBasicParsing -Headers @{ 'Cache-Control'='no-cache' } `
+                 -Uri ($script:SITIO.TrimEnd('/') + '/?nc=' + [guid]::NewGuid().ToString('N'))
+            if ((BloqueProyectos $r.Content) -eq $local){
+                Online 'online'
+                Log 'YA ESTA EN LINEA.'
+                return
+            }
+        } catch {}
+        Start-Sleep -Seconds 10
+    }
+    Online 'tarde'
+    Log 'GitHub Pages sigue sin mostrar los cambios (12 min). Revisa la pestaña Actions del repo.'
+}
+
+# ---------------------------------------------------------------------
 #  Optimizar: 720p, tope de 2 Mbps y el indice al principio del archivo
 # ---------------------------------------------------------------------
 function Optimizar($ruta, $nombre, $i, $total){
