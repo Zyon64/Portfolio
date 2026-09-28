@@ -1626,7 +1626,7 @@ some sprites i did for a pixel game about farm, job
   /* --- Armado de una tarjeta --- */
   function tarjeta(p){
     var card = document.createElement('article');
-    card.className = 'card';
+    card.className = 'card' + (esPixel(p) ? ' pixel' : '');
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
 
