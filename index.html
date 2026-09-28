@@ -383,6 +383,19 @@
 
   .card{cursor:pointer}
 
+  /* Pixel art: sin suavizado al escalar, asi los sprites se ven
+     con los bordes duros y no borrosos. */
+  .pixel img,.pixel video{image-rendering:pixelated;image-rendering:crisp-edges}
+  .pixel img{image-rendering:pixelated}
+
+  /* Boton para copiar el link directo del proyecto */
+  .copiar-link{
+    font-family:var(--mono);font-size:.8rem;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    padding:9px 16px;cursor:pointer;margin:0 0 26px 10px;
+  }
+  .copiar-link:hover,.copiar-link.ok{color:var(--accent);border-color:var(--accent-dim)}
+
 
   /* ---------- Ventana secreta de estadisticas ---------- */
   .secreto{
@@ -858,7 +871,7 @@ some sprites i did for a pixel game about farm, job
      asi la barra de redes de arriba nunca se recarga. -->
 <div class="detalle" id="detalle" hidden>
   <div class="detalle-caja wrap">
-    <button class="volver" id="volver" type="button">Back</button>
+    <button class="volver" id="volver" type="button">Back</button><button class="copiar-link" id="copiar-link" type="button">Copy link</button>
     <h2 class="detalle-titulo" id="detalle-titulo"></h2>
     <div class="tags detalle-tags" id="detalle-tags"></div>
     <p class="detalle-desc" id="detalle-desc"></p>
