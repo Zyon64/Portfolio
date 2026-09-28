@@ -385,8 +385,7 @@
 
   /* Pixel art: sin suavizado al escalar, asi los sprites se ven
      con los bordes duros y no borrosos. */
-  .pixel img,.pixel video{image-rendering:pixelated;image-rendering:crisp-edges}
-  .pixel img{image-rendering:pixelated}
+  .pixel img,.pixel video{image-rendering:pixelated}
 
   /* Boton para copiar el link directo del proyecto */
   .copiar-link{
@@ -1351,8 +1350,24 @@ some sprites i did for a pixel game about farm, job
   var cerrarBt = document.getElementById('volver');
   var abierto  = false;
 
-  function abrirDetalle(p){
+  /* --- Links directos: #/nombre-del-proyecto abre ese proyecto --- */
+  function slug(t){
+    return String(t || '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+  function proyectoDelHash(){
+    var m = location.hash.match(/^#\/(.+)$/);
+    if (!m) return null;
+    var s = decodeURIComponent(m[1]);
+    for (var i = 0; i < items.length; i++) if (slug(items[i].title) === s) return items[i];
+    return null;
+  }
+  var entroPorLink = false;   // abierto desde un link: "Back" no debe salir del sitio
+
+  function abrirDetalle(p, sinHistoria){
     if (window.contar) window.contar('p-' + p.title);
+    panelDet.classList.toggle('pixel', esPixel(p));
     document.getElementById('detalle-titulo').textContent = p.title || 'Untitled';
     document.getElementById('detalle-desc').textContent   = p.desc.join(' ');
 
