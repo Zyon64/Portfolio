@@ -627,6 +627,104 @@
 
   var arrProy = -1;   // proyecto que se esta arrastrando
 
+  /* =========================================================
+     Verificacion REAL contra la pagina publicada.
+     Se descarga el index.html de GitHub Pages (sin cache) y se
+     compara proyecto por proyecto; ademas se comprueba que cada
+     imagen responda y que cada video exista en Releases.
+     Solo si todo coincide se pone el ✓.
+     ========================================================= */
+  var SITIO = 'https://zyon64.github.io/Portfolio/';
+  var estadoVivo = new Map(), vivoMotivo = new Map();
+  var mediosOk = {};                 // src -> true, ya confirmados
+  var assetsRel = null, assetsHora = 0;
+  var chequeo = null, chequeando = false;
+
+  function firma(p, pos){
+    return JSON.stringify([clean(p.title), p.medios.map(function(m){ return clean(m.src); }),
+      clean(p.tags), clean(p.link), clean(p.cat || 'dev'), clean(p.desc), pos]);
+  }
+  function firmas(lista){
+    var cuenta = {}, out = {};
+    lista.forEach(function(p){
+      var c = p.cat || 'dev';
+      cuenta[c] = (cuenta[c] || 0);
+      out[clean(p.title)] = firma(p, cuenta[c]++);
+    });
+    return out;
+  }
+
+  async function assetsRelease(){
+    if (assetsRel && Date.now() - assetsHora < 60000) return assetsRel;
+    try{
+      var r = await fetch('https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG, { cache:'no-store' });
+      if (r.ok){
+        var j = await r.json();
+        assetsRel = {};
+        (j.assets || []).forEach(function(a){ if (a.state === 'uploaded') assetsRel[a.name] = true; });
+        assetsHora = Date.now();
+      }
+    } catch(e){}
+    return assetsRel;
+  }
+
+  async function medioVisible(src){
+    if (!src) return true;
+    if (mediosOk[src]) return true;
+    var ok = false;
+    if (/releases\/download\//.test(src)){
+      var a = await assetsRelease();
+      ok = !!(a && a[src.split('/').pop()]);
+    } else {
+      var url = /^https?:/i.test(src) ? src : SITIO + src;
+      try{
+        var r = await fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 'nc=' + Date.now(),
+                            { method:'HEAD', cache:'no-store' });
+        ok = r.ok;
+      } catch(e){ ok = false; }
+    }
+    if (ok) mediosOk[src] = true;
+    return ok;
+  }
+
+  async function verificarWeb(){
+    if (chequeando || !projects.length) return;
+    chequeando = true;
+    try{
+      var r = await fetch(SITIO + '?nc=' + Date.now(), { cache:'no-store' });
+      var html = await r.text();
+      var b = html.match(/<script type="text\/plain" id="projects-data">([\s\S]*?)<\/script>/);
+      var copia = categorias.slice();
+      var publicados = b ? parse(b[1]) : [];
+      categorias = copia;                       // parse() no debe tocar las del editor
+      var enWeb = firmas(publicados), local = firmas(projects);
+
+      var pendientes = 0;
+      for (var i = 0; i < projects.length; i++){
+        var p = projects[i], t = clean(p.title), motivo = '';
+        if (enWeb[t] === undefined)        motivo = 'Todavía no aparece en la página publicada';
+        else if (enWeb[t] !== local[t])    motivo = 'La página publicada todavía muestra la versión anterior';
+        else {
+          for (var k = 0; k < p.medios.length; k++){
+            if (!(await medioVisible(p.medios[k].src))){
+              motivo = 'Falta subir/mostrarse: ' + p.medios[k].src.split('/').pop();
+              break;
+            }
+          }
+        }
+        estadoVivo.set(p, motivo ? 'pend' : 'ok');
+        vivoMotivo.set(p, motivo);
+        if (motivo) pendientes++;
+      }
+      renderList();
+
+      /* mientras falte algo se sigue mirando; si todo esta, se para */
+      if (pendientes && !chequeo) chequeo = setInterval(verificarWeb, 20000);
+      if (!pendientes && chequeo){ clearInterval(chequeo); chequeo = null; }
+    } catch(e){ /* sin internet: no se muestra nada inventado */ }
+    chequeando = false;
+  }
+
   /* Saca el proyecto `desde` y lo pone antes/despues de `ref`,
      tomando la categoria del lugar donde cae. */
   function moverProyecto(desde, ref, despues, catId){
