@@ -1401,8 +1401,30 @@ some sprites i did for a pixel game about farm, job
 
     disolver(panelDet, 0, true);              // aparece con el ruido de pixeles
 
-    try { history.pushState({ detalle:true }, ''); } catch(e){}
+    if (!sinHistoria){
+      try { history.pushState({ detalle:true }, '', '#/' + slug(p.title)); } catch(e){}
+    }
   }
+
+  function esPixel(p){
+    if (/^pixel\s*art$/i.test(p.cat || '') || p.cat === 'pixelart') return true;
+    return (p.tags || '').split(',').some(function(t){
+      return /^pixel\s*art(ist)?$/i.test(t.trim());
+    });
+  }
+
+  var btCopiar = document.getElementById('copiar-link');
+  btCopiar.addEventListener('click', function(){
+    var url = location.href;
+    var ok = function(){
+      btCopiar.textContent = 'Copied!';
+      btCopiar.classList.add('ok');
+      setTimeout(function(){ btCopiar.textContent = 'Copy link'; btCopiar.classList.remove('ok'); }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(ok, function(){ prompt('Link:', url); });
+    } else prompt('Link:', url);
+  });
 
   /* Galerias ya construidas, por proyecto. Se guardan aunque el
      panel este cerrado: asi conservan lo que ya descargaron. */
@@ -1457,7 +1479,15 @@ some sprites i did for a pixel game about farm, job
       function(v){ try { v.pause(); } catch(e){} }
     );
     document.body.style.overflow = '';
-    if (!porHistoria){ try { history.back(); } catch(e){} }
+    if (!porHistoria){
+      if (entroPorLink){
+        /* llego directo al proyecto: no hay "atras" dentro del sitio */
+        entroPorLink = false;
+        try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+      } else {
+        try { history.back(); } catch(e){}
+      }
+    }
   }
 
   cerrarBt.addEventListener('click', function(){ cerrarDetalle(false); });
@@ -1467,10 +1497,20 @@ some sprites i did for a pixel game about farm, job
   });
 
   /* El boton "atras" del navegador tambien cierra */
-  window.addEventListener('popstate', function(){ cerrarDetalle(true); });
+  window.addEventListener('popstate', function(){
+    var p = proyectoDelHash();
+    if (p){ if (!abierto) abrirDetalle(p, true); }
+    else cerrarDetalle(true);
+  });
 
-  /* Arranca con Dev al centro y abierta */
-  seleccionar(CATS[0].id, true);
+  /* Arranca con Dev al centro y abierta. Si la URL trae un proyecto
+     (#/nombre), se abre su categoria y el proyecto directamente. */
+  var inicial = proyectoDelHash();
+  seleccionar(inicial ? inicial.cat : CATS[0].id, true);
+  if (inicial){
+    entroPorLink = true;
+    abrirDetalle(inicial, true);
+  }
 
   /* --- Medios: sirve igual para la portada y para la galeria --- */
   function esVideo(src){ return /\.(mp4|webm)$/i.test(src || ''); }
