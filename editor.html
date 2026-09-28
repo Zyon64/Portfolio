@@ -501,6 +501,8 @@
 
   function markDirty(){
     dirty = true;
+    /* con cambios sin guardar, ningun ✓ puede ser cierto: se borran */
+    if (typeof estadoVivo !== 'undefined' && estadoVivo.size){ estadoVivo.clear(); vivoMotivo.clear(); }
     $('save').disabled = false;
     $('save').textContent = 'Guardar *';
   }
@@ -1379,6 +1381,7 @@
     dirty = false;
     renderList();
     select(projects.length ? 0 : -1);
+    verificarWeb();
   }
 
   $('save').addEventListener('click', function(){
@@ -1484,7 +1487,8 @@
       note('Guardado. Publicando...');
       vigilarSubidas();
       await cargarExistentes();
-        renderList();
+      renderList();
+      verificarWeb();
     } catch(err){
       note('No se pudo guardar: ' + err.message);
       $('save').disabled = false;
