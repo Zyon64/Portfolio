@@ -141,6 +141,10 @@
   }
   .medio:hover{border-color:var(--border-hi)}
   .medio.sel{border-color:var(--accent)}
+  .medio{cursor:grab}
+  .medio.arrastrando{opacity:.3}
+  .medio.antes{box-shadow:-4px 0 0 var(--accent)}
+  .medio.despues{box-shadow:4px 0 0 var(--accent)}
   .medio .vis{
     width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#0d1411;
   }
@@ -303,7 +307,7 @@
 
       <p class="hint">
         El <b>primero</b> de la lista es la portada que se ve en la cuadrícula; los demás
-        aparecen al abrir el proyecto. Usá las flechas para reordenarlos.
+        aparecen al abrir el proyecto. <b>Arrastrá</b> las miniaturas para reordenarlas.
         Los <b>videos</b> van solos a Releases (sin límite de peso) y las <b>imágenes</b> a la
         carpeta <b>img</b>.
       </p>
