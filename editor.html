@@ -607,42 +607,39 @@
         cuerpo.appendChild(row);
       });
 
+      /* soltar en el grupo (fuera de una fila): va al final de esa categoria */
+      grupo.addEventListener('dragover', function(e){ if (arrProy >= 0) e.preventDefault(); });
+      grupo.addEventListener('drop', function(e){
+        if (arrProy < 0) return;
+        e.preventDefault();
+        moverProyecto(arrProy, idx.length ? idx[idx.length - 1] : -1, true, catId);
+      });
+
       grupo.appendChild(cuerpo);
       box.appendChild(grupo);
     });
   }
 
-  /* Intercambia dos proyectos de la misma categoria */
-  function mover(etiqueta, idx, pos, dir){
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = etiqueta;
-    b.disabled = (pos + dir < 0 || pos + dir >= idx.length);
-    b.addEventListener('click', function(ev){
-      ev.stopPropagation();
-      var a = idx[pos], c = idx[pos + dir];
-      if (a === undefined || c === undefined) return;
-      var tmp = projects[a]; projects[a] = projects[c]; projects[c] = tmp;
-      if (sel === a) sel = c; else if (sel === c) sel = a;
-      markDirty(); renderList();
-    });
-    return b;
-  }
+  var arrProy = -1;   // proyecto que se esta arrastrando
 
-
-  function orderBtn(label, i, dir){
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = label;
-    b.addEventListener('click', function(ev){
-      ev.stopPropagation();
-      var j = i + dir;
-      if (j < 0 || j >= projects.length) return;
-      var tmp = projects[i]; projects[i] = projects[j]; projects[j] = tmp;
-      if (sel === i) sel = j; else if (sel === j) sel = i;
-      markDirty(); renderList();
-    });
-    return b;
+  /* Saca el proyecto `desde` y lo pone antes/despues de `ref`,
+     tomando la categoria del lugar donde cae. */
+  function moverProyecto(desde, ref, despues, catId){
+    arrProy = -1;
+    if (desde === ref){ renderList(); return; }
+    var elegido = sel >= 0 ? projects[sel] : null;
+    var p = projects.splice(desde, 1)[0];
+    var destino;
+    if (ref < 0) destino = projects.length;
+    else {
+      if (ref > desde) ref--;
+      destino = ref + (despues ? 1 : 0);
+    }
+    projects.splice(destino, 0, p);
+    p.cat = catId;
+    sel = elegido ? projects.indexOf(elegido) : -1;
+    if (elegido === p){ llenarSelectCat(); $('f-cat').value = catId; }
+    markDirty(); renderList();
   }
 
   function isVideo(name){ return /\.(mp4|webm|mov|avi|mkv)$/i.test(name || ''); }
