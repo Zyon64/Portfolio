@@ -227,7 +227,7 @@
 <body>
 
 <div class="bar">
-  <h1>portfolio <span>editor</span> <em id="ver">v11 · limpia cola</em></h1>
+  <h1>portfolio <span>editor</span> <em id="ver">v12 · arrastrar + en línea</em></h1>
   <span id="status">sin carpeta abierta</span>
   <button id="open">Abrir carpeta del portafolio</button>
   <button id="save" class="primary" disabled>Guardar</button>
@@ -1096,6 +1096,16 @@
     } catch(err){ return { faltan:[], actual:'', fase:'', pct:0 }; }
   }
 
+  /* Lo escribe el publicador: esperando | online | tarde */
+  async function estadoWeb(){
+    try{
+      var dir = await dirHandle.getDirectoryHandle('subir', { create:false });
+      var txt = await (await (await dir.getFileHandle('_online.txt')).getFile()).text();
+      var m = txt.match(/^estado=(.*)$/m);
+      return m ? m[1].trim() : '';
+    } catch(e){ return ''; }
+  }
+
   async function vigilarSubidas(){
     var est = await pendientes();
     if (!est) return;
@@ -1335,6 +1345,11 @@
         var fw      = await flag.createWritable();
         await fw.write(new Date().toISOString());
         await fw.close();
+        /* desde ya se muestra "esperando"; el publicador lo pasa a "online" */
+        var onl = await bandeja.getFileHandle('_online.txt', { create:true });
+        var ow  = await onl.createWritable();
+        await ow.write('estado=esperando\n');
+        await ow.close();
       } catch(e){ /* si falla, el publicador lo detecta igual por los cambios */ }
 
       note('Guardado. Publicando...');
