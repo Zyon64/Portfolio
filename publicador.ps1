@@ -230,6 +230,8 @@ while ($true){
     if (-not $pedido -and $archivos.Count -eq 0 -and -not $sueltos){ continue }
     if ($pedido){ Remove-Item $flag -Force -EA SilentlyContinue }
 
+    $publicoPagina = $false
+
     # --- 1) LA PAGINA PRIMERO ---
     # Los textos y el orden se ven enseguida; los videos van llegando.
     & git add . | Out-Null
@@ -246,7 +248,11 @@ while ($true){
             Log 'Publicando la pagina...'
             & git commit -q -m 'Actualizacion del portafolio'
             & git push -q
-            if ($LASTEXITCODE -eq 0){ Log 'Pagina publicada. Ahora van los videos.' }
+            if ($LASTEXITCODE -eq 0){
+                Log 'Pagina publicada. Ahora van los videos.'
+                $publicoPagina = $true
+                Online 'esperando'
+            }
         }
     }
 
@@ -265,6 +271,10 @@ while ($true){
     }
     LimpiarEstado
 
-    LimpiarEstado
+    if ($publicoPagina){ EsperarWeb }
+    elseif ($pedido -and (Test-Path $ONLINE) -and ((Get-Content $ONLINE -Raw) -match 'estado=esperando')){
+        # se guardo sin cambios: no hay nada que esperar
+        Online 'online'
+    }
     Log "Todo al dia."
 }
