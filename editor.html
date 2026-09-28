@@ -1101,9 +1101,31 @@
     if (!est) return;
 
     if (!est.faltan.length){
-      if (vigia){ clearInterval(vigia); vigia = null; }
       totalTanda = 0;
-      $('estado').classList.add('hidden');
+      $('estado-fill').classList.remove('indeterminado');
+      var web = await estadoWeb();
+
+      if (web === 'esperando'){
+        $('estado').classList.remove('hidden');
+        $('estado-fill').style.width = '100%';
+        $('estado-fill').classList.add('indeterminado');
+        $('estado-txt').textContent =
+          'Subido. Esperando a que GitHub Pages actualice la página (suele tardar 1–5 min)...';
+        if (!vigia) vigia = setInterval(vigilarSubidas, 2000);
+        return;
+      }
+      if (vigia){ clearInterval(vigia); vigia = null; }
+
+      if (web === 'online' || web === 'tarde'){
+        $('estado').classList.remove('hidden');
+        $('estado-fill').style.width = '100%';
+        $('estado-txt').innerHTML = web === 'online'
+          ? '<span style="color:var(--accent)">&#10003; Ya está en línea.</span> Si no lo ves, recargá con Ctrl+F5.'
+          : 'GitHub Pages está tardando más de lo normal (12 min). Revisá la pestaña Actions del repo.';
+        setTimeout(function(){ if (!vigia) $('estado').classList.add('hidden'); }, 60000);
+      } else {
+        $('estado').classList.add('hidden');
+      }
       return;
     }
 
