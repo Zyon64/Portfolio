@@ -69,8 +69,13 @@
     border:1px solid var(--border);object-fit:cover;display:block;
   }
   .item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem}
-  .item .ord{display:flex;flex-direction:column;gap:2px}
-  .item .ord button{padding:0 5px;font-size:.6rem;line-height:1.35;background:none;border-color:var(--border)}
+  .item{cursor:grab}
+  .item.arrastrando{opacity:.3}
+  .item.antes{box-shadow:0 -3px 0 var(--accent)}
+  .item.despues{box-shadow:0 3px 0 var(--accent)}
+  .vivo{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
+  .vivo.ok{color:var(--accent)}
+  .vivo.pend{color:#e0a852;animation:latir 1.1s ease-in-out infinite}
 
   .empty{color:var(--dim);font-family:var(--mono);font-size:.78rem;text-align:center;padding:30px 10px}
 
