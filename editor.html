@@ -680,10 +680,48 @@
         caja.appendChild(rel);
       }
 
+      /* Reordenar arrastrando la miniatura a su nuevo lugar */
+      caja.draggable = true;
+      vis.draggable = false;
+      caja.addEventListener('dragstart', function(e){
+        arrastrando = i;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/x-medio', String(i));
+        setTimeout(function(){ caja.classList.add('arrastrando'); }, 0);
+      });
+      caja.addEventListener('dragend', function(){
+        arrastrando = -1;
+        caja.classList.remove('arrastrando');
+        Array.prototype.forEach.call(g.querySelectorAll('.antes,.despues'), function(el){
+          el.classList.remove('antes', 'despues');
+        });
+      });
+      caja.addEventListener('dragover', function(e){
+        if (arrastrando < 0) return;
+        e.preventDefault();
+        var r = caja.getBoundingClientRect();
+        var despues = e.clientX > r.left + r.width / 2;
+        caja.classList.toggle('despues', despues);
+        caja.classList.toggle('antes', !despues);
+      });
+      caja.addEventListener('dragleave', function(){ caja.classList.remove('antes', 'despues'); });
+      caja.addEventListener('drop', function(e){
+        if (arrastrando < 0) return;
+        e.preventDefault(); e.stopPropagation();
+        var r = caja.getBoundingClientRect();
+        var destino = i + (e.clientX > r.left + r.width / 2 ? 1 : 0);
+        var desde = arrastrando;
+        if (destino > desde) destino--;
+        if (destino === desde) return;
+        var movido = p.medios.splice(desde, 1)[0];
+        p.medios.splice(destino, 0, movido);
+        medioSel = destino;
+        arrastrando = -1;
+        markDirty(); renderGaleria(); renderList();
+      });
+
       var pie = document.createElement('div');
       pie.className = 'pie';
-      pie.appendChild(botonMedio('◀', i, -1));
-      pie.appendChild(botonMedio('▶', i,  1));
 
       var x = document.createElement('button');
       x.type = 'button'; x.className = 'quitar'; x.textContent = '✕';
@@ -703,23 +741,7 @@
     renderMedioSel();
   }
 
-  function botonMedio(etiqueta, i, dir){
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = etiqueta;
-    var p = projects[sel];
-    b.disabled = (i + dir < 0 || i + dir >= p.medios.length);
-    b.title = dir < 0 ? 'Mover antes' : 'Mover después';
-    b.addEventListener('click', function(ev){
-      ev.stopPropagation();
-      var j = i + dir;
-      if (j < 0 || j >= p.medios.length) return;
-      var t = p.medios[i]; p.medios[i] = p.medios[j]; p.medios[j] = t;
-      medioSel = j;
-      markDirty(); renderGaleria(); renderList();
-    });
-    return b;
-  }
+  var arrastrando = -1;   // indice del medio que se esta arrastrando
 
   /* --- Vista y campos del medio seleccionado --- */
   function renderMedioSel(){
