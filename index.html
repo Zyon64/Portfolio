@@ -1195,6 +1195,8 @@ some sprites i did for a pixel game about farm, job
     if (!sinAnimar){
       acomodarEn(titulo);
       if (window.contar) window.contar('c-' + id);
+      /* la URL queda apuntando a la categoria: se puede compartir */
+      try { history.replaceState(null, '', '#cat/' + slug(id)); } catch(e){}
     }
 
     if (desde && titulo.animate){
