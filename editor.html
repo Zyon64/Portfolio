@@ -574,11 +574,11 @@
 
         /* ¿ya se ve asi en la pagina publicada? */
         var vivo = document.createElement('span');
-        var est = estadoVivo[i] || '';
+        var est = estadoVivo.get(p) || '';
         vivo.className = 'vivo ' + est;
         vivo.textContent = est === 'ok' ? '✓' : est === 'pend' ? '↻' : '';
         vivo.title = est === 'ok'   ? 'Visible en la página publicada, igual que acá'
-                   : est === 'pend' ? (vivoMotivo[i] || 'Todavía no se ve así en la página publicada')
+                   : est === 'pend' ? (vivoMotivo.get(p) || 'Todavía no se ve así en la página publicada')
                    : '';
         row.appendChild(vivo);
 
