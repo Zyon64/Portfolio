@@ -567,12 +567,41 @@
         t.textContent = p.title || '(sin titulo)';
         row.appendChild(t);
 
-        /* las flechas mueven dentro de la categoria, no en toda la lista */
-        var ord = document.createElement('div');
-        ord.className = 'ord';
-        ord.appendChild(mover('▲', idx, pos, -1));
-        ord.appendChild(mover('▼', idx, pos,  1));
-        row.appendChild(ord);
+        /* ¿ya se ve asi en la pagina publicada? */
+        var vivo = document.createElement('span');
+        var est = estadoVivo[i] || '';
+        vivo.className = 'vivo ' + est;
+        vivo.textContent = est === 'ok' ? '✓' : est === 'pend' ? '↻' : '';
+        vivo.title = est === 'ok'   ? 'Visible en la página publicada, igual que acá'
+                   : est === 'pend' ? (vivoMotivo[i] || 'Todavía no se ve así en la página publicada')
+                   : '';
+        row.appendChild(vivo);
+
+        /* arrastrar para reordenar (tambien a otra categoria) */
+        row.draggable = true;
+        mini.draggable = false;
+        row.addEventListener('dragstart', function(e){
+          arrProy = i;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/x-proyecto', String(i));
+          setTimeout(function(){ row.classList.add('arrastrando'); }, 0);
+        });
+        row.addEventListener('dragend', function(){ arrProy = -1; renderList(); });
+        row.addEventListener('dragover', function(e){
+          if (arrProy < 0) return;
+          e.preventDefault(); e.stopPropagation();
+          var r = row.getBoundingClientRect();
+          var abajo = e.clientY > r.top + r.height / 2;
+          row.classList.toggle('despues', abajo);
+          row.classList.toggle('antes', !abajo);
+        });
+        row.addEventListener('dragleave', function(){ row.classList.remove('antes', 'despues'); });
+        row.addEventListener('drop', function(e){
+          if (arrProy < 0) return;
+          e.preventDefault(); e.stopPropagation();
+          var r = row.getBoundingClientRect();
+          moverProyecto(arrProy, i, e.clientY > r.top + r.height / 2, catId);
+        });
 
         row.addEventListener('click', function(){ select(i); });
         cuerpo.appendChild(row);
