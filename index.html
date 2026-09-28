@@ -1508,10 +1508,21 @@ some sprites i did for a pixel game about farm, job
   /* Arranca con Dev al centro y abierta. Si la URL trae un proyecto
      (#/nombre), se abre su categoria y el proyecto directamente. */
   var inicial = proyectoDelHash();
-  seleccionar(inicial ? inicial.cat : CATS[0].id, true);
+
+  /* Link a una categoria: #cat/pixelart, #cat/dev, #cat/3d... */
+  var catLink = null, mc = location.hash.match(/^#cat\/(.+)$/);
+  if (mc){
+    var sc = decodeURIComponent(mc[1]);
+    CATS.forEach(function(c){ if (slug(c.id) === sc || slug(c.label) === sc) catLink = c.id; });
+  }
+
+  seleccionar(inicial ? inicial.cat : (catLink || CATS[0].id), true);
   if (inicial){
     entroPorLink = true;
     abrirDetalle(inicial, true);
+  } else if (catLink){
+    /* bajar directo a la seccion, despues de que la pagina se acomode */
+    setTimeout(function(){ acomodarEn(titulo); }, 250);
   }
 
   /* --- Medios: sirve igual para la portada y para la galeria --- */
