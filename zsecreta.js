@@ -12,7 +12,7 @@
 (function(){
   var reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var MOVIL = window.matchMedia('(hover: none), (pointer: coarse)').matches;
-  var TAM = 46;
+  var TAM = 30;
 
   var SVG = function(px){
     return '<svg viewBox="0 0 7 7" width="' + px + '" height="' + px + '" shape-rendering="crispEdges">' +
@@ -29,6 +29,9 @@
     '  filter:drop-shadow(0 0 7px rgba(61,220,132,.75));transition:opacity .8s}' +
     '.z-secreta.visible{opacity:.9;pointer-events:auto}' +
     '.z-secreta svg,.z-pie svg{display:block}' +
+    '.z-estela{position:fixed;left:0;top:0;width:' + TAM + 'px;height:' + TAM + 'px;z-index:0;opacity:0;' +
+    '  pointer-events:none;will-change:transform,opacity;filter:drop-shadow(0 0 4px rgba(61,220,132,.5))}' +
+    '.z-estela svg{display:block}' +
     '.z-pie{position:absolute;right:20px;top:50%;margin-top:-14px;width:28px;height:28px;padding:0;border:0;' +
     '  background:transparent;opacity:.55;z-index:6;-webkit-tap-highlight-color:transparent;' +
     '  filter:drop-shadow(0 0 5px rgba(61,220,132,.6));transition:transform .15s,opacity .2s}' +
@@ -55,7 +58,8 @@
     document.body.appendChild(c);
     var a = c.animate([{ transform:'scale(0)' }, { transform:'scale(1)' }],
                       { duration:1000, easing:'cubic-bezier(.65,0,.35,1)', fill:'forwards' });
-    a.finished.then(function(){
+    var listoJuego = cargarJuego();                       // se baja mientras crece el circulo
+    Promise.all([a.finished, listoJuego]).then(function(){
       document.body.style.overflow = 'hidden';
       (window.Juego && window.Juego.abrir ? window.Juego.abrir : pantallaProvisoria)(function salir(){
         document.body.style.overflow = '';
@@ -63,6 +67,16 @@
                           { duration:700, easing:'cubic-bezier(.65,0,.35,1)', fill:'forwards' });
         b.finished.then(function(){ c.remove(); entrando = false; if (alSalir) alSalir(); });
       });
+    });
+  }
+
+  /* juego.js solo se descarga cuando alguien llega hasta aqui: el resto de visitantes no paga su peso */
+  function cargarJuego(){
+    if (window.Juego) return Promise.resolve();
+    return new Promise(function(res){
+      var s = document.createElement('script');
+      s.src = 'juego.js'; s.onload = res; s.onerror = res;     // si falla, queda la pantalla provisoria
+      document.head.appendChild(s);
     });
   }
 
@@ -114,11 +128,28 @@
   document.body.appendChild(el);
 
   var activo = false, raf = 0, t0 = 0, dur = 0, p = null;
+  /* estela: copias mas chicas y tenues de la Z que siguen su trayectoria reciente */
+  var N_ESTELA = 6, hist = [], fant = [];
+  for (var q = 0; q < N_ESTELA; q++){
+    var g = document.createElement('div'); g.className = 'z-estela'; g.innerHTML = SVG(TAM);
+    document.body.appendChild(g); fant.push(g);
+  }
+  function pintarEstela(){
+    for (var i = 0; i < N_ESTELA; i++){
+      var h = hist[hist.length - 1 - (i + 1) * 4], g2 = fant[i];
+      if (!h){ g2.style.opacity = 0; continue; }
+      var esc = 1 - (i + 1) * 0.1;
+      g2.style.opacity = (0.34 * (1 - i / N_ESTELA)).toFixed(2);
+      g2.style.transform = 'translate(' + (h[0] - TAM / 2) + 'px,' + (h[1] - TAM / 2) + 'px) rotate(' + h[2].toFixed(1) + 'deg) scale(' + esc.toFixed(2) + ')';
+    }
+  }
+  function limpiarEstela(){ hist = []; fant.forEach(function(g2){ g2.style.opacity = 0; }); }
 
   /* Recorrido: entra por un borde al azar y cruza lento hacia el lado opuesto, con una
      ondulacion suave; sale por el otro lado. */
   function empezar(){
-    if (activo || entrando || document.hidden) return;
+    if (activo || entrando) return;
+    if (document.hidden){ programar(4000); return; }         // pestaña en segundo plano: reintenta
     activo = true;
     var lado = (Math.random() * 4) | 0, m = TAM + 10;
     var a, b;
@@ -142,10 +173,13 @@
     x += (-dy / L) * o; y += (dx / L) * o;
     var giro = Math.sin(k * 9 + p.ph) * 8;
     el.style.transform = 'translate(' + (x - TAM / 2) + 'px,' + (y - TAM / 2) + 'px) rotate(' + giro.toFixed(1) + 'deg)';
+    hist.push([x, y, giro]); if (hist.length > 40) hist.shift();
+    pintarEstela();
     raf = requestAnimationFrame(mover);
   }
   function terminar(){
     cancelAnimationFrame(raf);
+    limpiarEstela();
     el.classList.remove('visible');
     activo = false;
     programar(35000 + Math.random() * 45000);
@@ -158,6 +192,7 @@
     e.stopPropagation();
     if (!activo) return;
     var r = el.getBoundingClientRect();
+    limpiarEstela();
     cancelAnimationFrame(raf);
     el.classList.remove('visible');
     activo = false;

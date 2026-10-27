@@ -9,7 +9,7 @@
   if (!window.matchMedia('(pointer: fine)').matches) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  var CELDA = 6;            // tamaño de cada pixel en pantalla
+  var CELDA = 3;            // tamaño de cada pixel en pantalla
   var RETENER = 1000;       // ms que la linea se mantiene entera
   var DESVANECER = 450;     // ms que tarda cada pixel en apagarse
   var DISPERSION = 450;     // el momento en que empieza a apagarse varia hasta este tanto
@@ -31,8 +31,34 @@
 
   var celdas = new Map(), ultimo = null, corre = false;
 
+  /* Zonas donde NO se dibuja: todo lo que tiene una accion al hacer click, y las imagenes y
+     videos (para verlos bien). Se guardan sus rectangulos (en celdas) y se refrescan cada
+     ~120 ms, asi no se pregunta al DOM en cada movimiento del mouse. */
+  var NO = 'a[href], button, [role="button"], .card, .cat, select, input, textarea, label, summary, ' +
+           'img, video, .visor, .thumb, .vc-bar, .z-secreta, .z-pie, .musica, .replay';
+  var zonas = [], tZonas = -1e9;
+  function refrescar(ahora){
+    if (ahora - tZonas < 120) return;
+    tZonas = ahora; zonas = [];
+    var det = document.getElementById('detalle');
+    var raiz = (det && !det.hidden) ? det : document;       // con el detalle abierto, lo de atras no cuenta
+    Array.prototype.forEach.call(raiz.querySelectorAll(NO), function(el){
+      var r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > window.innerHeight) return;
+      zonas.push([r.left / CELDA, r.top / CELDA, r.right / CELDA, r.bottom / CELDA]);
+    });
+  }
+  function bloqueada(x, y){
+    for (var i = 0; i < zonas.length; i++){
+      var z = zonas[i];
+      if (x >= z[0] - 0.5 && x <= z[2] + 0.5 && y >= z[1] - 0.5 && y <= z[3] + 0.5) return true;
+    }
+    return false;
+  }
+
   function poner(x, y, tono, ahora){
     if (x < 0 || y < 0 || x >= W || y >= H) return;
+    if (bloqueada(x, y)) return;
     celdas.set(y * W + x, { x:x, y:y, b:ahora, h:tono, j:Math.random() });
   }
   function unir(x0, y0, x1, y1, tono, ahora){
@@ -42,6 +68,7 @@
 
   window.addEventListener('mousemove', function(e){
     var ahora = performance.now();
+    refrescar(ahora);
     var cx = Math.floor(e.clientX / CELDA), cy = Math.floor(e.clientY / CELDA);
     var tono = 240 + 90 * Math.sin(ahora / 520);          // el degradado de color recorre el trazo
     if (ultimo) unir(ultimo[0], ultimo[1], cx, cy, tono, ahora); else poner(cx, cy, tono, ahora);
