@@ -47,10 +47,19 @@
   window.addEventListener('resize', function(){ W = window.innerWidth; H = window.innerHeight; });
   var entrando = false;
 
+  /* Recuerda que ya encontraste el juego: desde entonces la Z tambien vive en el pie. */
+  var DESBLOQUEADO = false;
+  try { DESBLOQUEADO = localStorage.getItem('zJuego') === '1'; } catch(e){}
+  function desbloquear(){
+    DESBLOQUEADO = true;
+    try { localStorage.setItem('zJuego', '1'); } catch(e){}
+  }
+
   /* ---------- Circulo negro que tapa todo y luego el juego ---------- */
   function entrar(cx, cy, alSalir){
     if (entrando) return;
     entrando = true;
+    desbloquear();
     var R = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 20;
     var c = document.createElement('div');
     c.className = 'z-circulo';
@@ -95,30 +104,36 @@
     s.addEventListener('click', cerrar);
   }
 
-  /* =====================  MOVIL: Z en el pie de pagina  ===================== */
-  if (MOVIL){
+  /* =====================  Z en el pie de pagina  =====================
+     Movil: es la unica puerta (5 toques seguidos). PC: aparece ahi tambien una vez que ya
+     entraste al juego una vez, ademas de seguir flotando en el fondo (2 lugares). Una vez
+     desbloqueado el juego, basta un toque o click. */
+  var zPie = null;
+  function crearZPie(){
+    if (zPie) return;
     var pie = document.querySelector('footer .wrap');
     if (!pie) return;
-    var z = document.createElement('button');
-    z.type = 'button'; z.className = 'z-pie'; z.setAttribute('aria-hidden', 'true'); z.tabIndex = -1;
-    z.innerHTML = SVG(28);
-    pie.appendChild(z);
+    zPie = document.createElement('button');
+    zPie.type = 'button'; zPie.className = 'z-pie'; zPie.setAttribute('aria-hidden', 'true'); zPie.tabIndex = -1;
+    zPie.innerHTML = SVG(28);
+    pie.appendChild(zPie);
 
     var toques = 0, reinicio = 0;
-    z.addEventListener('click', function(e){
+    zPie.addEventListener('click', function(e){
       e.stopPropagation();
       toques++;
       clearTimeout(reinicio);
       reinicio = setTimeout(function(){ toques = 0; }, 1400);        // hay que tocar seguido
-      z.classList.add('toque'); setTimeout(function(){ z.classList.remove('toque'); }, 120);
-      if (toques >= 5){
+      zPie.classList.add('toque'); setTimeout(function(){ zPie.classList.remove('toque'); }, 120);
+      if (DESBLOQUEADO || toques >= 5){
         toques = 0;
-        var r = z.getBoundingClientRect();
+        var r = zPie.getBoundingClientRect();
         entrar(r.left + r.width / 2, r.top + r.height / 2);
       }
     });
-    return;
   }
+  if (MOVIL || DESBLOQUEADO) crearZPie();
+  if (MOVIL) return;
 
   /* =====================  PC: Z flotante en el fondo  ===================== */
   var el = document.createElement('div');
@@ -196,6 +211,6 @@
     cancelAnimationFrame(raf);
     el.classList.remove('visible');
     activo = false;
-    entrar(r.left + r.width / 2, r.top + r.height / 2, function(){ programar(40000); });
+    entrar(r.left + r.width / 2, r.top + r.height / 2, function(){ crearZPie(); programar(40000); });
   });
 })();
