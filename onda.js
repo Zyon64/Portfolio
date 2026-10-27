@@ -66,7 +66,7 @@
     if (e.button !== 0) return;
     var t = e.target;
     if (!t.closest || !t.closest(CLICK)) return;
-    if (t.closest('.vc-bar')) return;                // nada de onda en los controles de video
+    if (t.closest('.vc-bar, .z-pie')) return;        // nada de onda en los controles de video ni en la Z
     gota(e.clientX, e.clientY);
   }, { passive:true });
 })();
