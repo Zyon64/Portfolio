@@ -164,7 +164,8 @@
     el('mejor').textContent = mejor.nivel;
 
     /* ---------- estado ---------- */
-    var P, cola, enemigos, balas, parts, curas, nivel, kills, tiempo, vida, inv, acum, spawnT, pausado, fin, raf, ultimo;
+    var rafaga = 0, rafagaT = 0;
+    var P, enemigos, balas, parts, curas, nivel, kills, tiempo, vida, inv, acum, spawnT, pausado, fin, raf, ultimo;
     var tactil = window.matchMedia('(pointer: coarse)').matches;
     var tx = 0, ty = 0;                                  // hacia donde apunta el cursor (unidades)
 
@@ -172,7 +173,7 @@
       nivel = 1; kills = 0; tiempo = 0; acum = 0; rafaga = 0; rafagaT = 0; spawnT = 0.6; inv = 0; pausado = false; fin = false;
       P = { x: W / 2, y: H / 2 };
       tx = P.x; ty = P.y;
-      enemigos = []; balas = []; parts = []; curas = []; cola = [];
+      enemigos = []; balas = []; parts = []; curas = [];
       vida = stats(1).vidaMax;
       modal.hidden = true; raiz.classList.remove('menu');
       hud();
@@ -290,20 +291,17 @@
     }
 
     /* Varias balas = una rafaga automatica: salen una tras otra, cada una apuntando al enemigo
-       mas cercano EN ESE MOMENTO, con un temblor minimo (no en abanico como una escopeta). */
-    function dispararA(obj, s){
-      var n = s.balas;
-      var sep = Math.min(0.08, 0.8 / s.cadencia / n);
-      for (var i = 0; i < n; i++) cola.push({ t: i * sep, s: s });
-    }
-    function balaAlMasCercano(s){
+       mas cercano EN ESE MOMENTO (no en abanico como una escopeta). */
+    function masCercano(){
       var cerca = null, dm = 1e9;
       for (var j = 0; j < enemigos.length; j++){
         var q = enemigos[j], dd = (q.x - P.x) * (q.x - P.x) + (q.y - P.y) * (q.y - P.y);
         if (dd < dm){ dm = dd; cerca = q; }
       }
-      if (!cerca) return;
-      var an = Math.atan2(cerca.y - P.y, cerca.x - P.x) + (Math.random() - 0.5) * 0.05;
+      return cerca;
+    }
+    function dispararA(obj, s){
+      var an = Math.atan2(obj.y - P.y, obj.x - P.x) + (Math.random() - 0.5) * 0.05;   // temblor minimo
       balas.push({ x:P.x, y:P.y, vx:Math.cos(an) * s.velBala, vy:Math.sin(an) * s.velBala,
                    d:s.dano, r:s.tam / 2, p:s.perfora, golpes:[], vida:2.2 });
     }
