@@ -23,8 +23,8 @@
 
     /* --- Texto --- */
     --text:#dbe7e0;
-    --muted:#7d968a;        /* verde gris */
-    --dim:#4a5c53;
+    --muted:#f2f7f4;
+    --dim:#c4d0c9;
 
     /* --- Acento --- */
     --accent:#3ddc84;       /* verde code */
@@ -64,7 +64,11 @@
   }
 
   /* Canvas del trail del cursor */
-  #trail{position:fixed;inset:0;z-index:9999;pointer-events:none}
+  #fondo,#bordes{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .detalle>canvas.bordes{position:fixed;inset:0;z-index:-1;pointer-events:none}
+  /* el panel de detalle tapa la pagina: lleva su propio fondo vivo */
+  .detalle{isolation:isolate}
+  .detalle>canvas.fondo{position:fixed;inset:0;z-index:-1;pointer-events:none}
 
   .wrap{max-width:1040px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
 
@@ -290,8 +294,6 @@
     overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s,background .25s;
   }
   .card{position:relative}
-  canvas.dissolve{position:absolute;inset:0;z-index:3;pointer-events:none}
-  canvas.dissolve.fija{position:fixed;z-index:10}
   .card:hover{
     transform:translateY(-5px);border-color:var(--accent-dim);background:var(--surface-hi);
     box-shadow:0 12px 32px -12px var(--glow);
@@ -317,7 +319,7 @@
     position:fixed;inset:0;z-index:95;
     background:var(--bg);
     overflow-y:auto;overscroll-behavior:contain;
-    padding:96px 0 80px;
+    padding:calc(var(--barra,70px) + 26px) 0 80px;
   }
   .detalle[hidden]{display:none}
 
@@ -488,6 +490,249 @@
     color:var(--dim);font-size:.85rem;font-family:var(--mono);
   }
 
+  /* ==========================================================
+     LIQUID GLASS (estilo iOS) - refraccion real.
+     backdrop-filter con un filtro SVG (feDisplacementMap): el mapa
+     empuja los pixeles de fondo en los bordes, como una lente, y
+     casi no hay relleno. Solo un rim light fino en esquinas opuestas
+     (arriba-izq / abajo-der). Sin brillos ni gradientes blancos.
+     Si el boton tiene color, el tinte es plano y muy suave.
+     ========================================================== */
+  .topbar a,.topbar .copiar,.cat,.replay,.volver,.copiar-link,.detalle-link,.s-btn{
+    --b:var(--tint,255,255,255);
+    --rim:color-mix(in srgb,currentColor 55%,rgba(255,255,255,.35));
+    position:relative;overflow:hidden;isolation:isolate;
+    border:0;border-radius:999px;
+    background:rgba(var(--b),.06);
+    backdrop-filter:url(#lg-refract) blur(1px) saturate(1.5) brightness(1.06);
+    -webkit-backdrop-filter:url(#lg-refract) blur(1px) saturate(1.5) brightness(1.06);
+    box-shadow:0 6px 18px -8px rgba(0,0,0,.45);
+    text-shadow:none;
+    transition:color .2s,background .3s,box-shadow .3s,opacity .2s,
+               scale .45s cubic-bezier(.3,1.5,.5,1);
+  }
+  /* Rim light: aro de 1.5px, brillante solo en dos esquinas diagonales */
+  .topbar a::after,.topbar .copiar::after,.cat::after,.replay::after,
+  .volver::after,.copiar-link::after,.detalle-link::after,.s-btn::after{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,
+      var(--rim) 0%,transparent 30%,
+      transparent 64%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+    mix-blend-mode:normal;image-rendering:auto;opacity:1;animation:none;
+    transition:opacity .3s;
+  }
+  .topbar a:hover,.topbar .copiar:hover,.cat:hover,.replay:hover,
+  .volver:hover,.copiar-link:hover,.detalle-link:hover,.s-btn:hover{
+    scale:1.05;z-index:2;
+    animation:burbuja 2.9s ease-in-out infinite,deriva 3.7s ease-in-out infinite,giro 4.3s ease-in-out infinite;
+    background:rgba(var(--b),.11);
+    /* mini blur de luz del color del boton en los bordes */
+    box-shadow:
+      inset 0 0 8px -1px color-mix(in srgb,currentColor 30%,transparent),
+      0 10px 24px -8px rgba(0,0,0,.5);
+  }
+  .topbar a:hover::after,.topbar .copiar:hover::after,.cat:hover::after,.replay:hover::after,
+  .volver:hover::after,.copiar-link:hover::after,.detalle-link:hover::after,.s-btn:hover::after{
+    opacity:1;animation:none;
+  }
+  .topbar a:active,.topbar .copiar:active,.cat:active,.replay:active,
+  .volver:active,.copiar-link:active,.detalle-link:active,.s-btn:active{scale:.95}
+
+  /* Tinted glass: tinte plano; el texto lleva el color */
+  .topbar a,.topbar .copiar{color:var(--brand,var(--text));padding:10px 22px;
+    background:color-mix(in srgb,var(--brand,#fff) 16%,transparent)}
+  .topbar a:hover,.topbar .copiar:hover{background:color-mix(in srgb,var(--brand,#fff) 26%,transparent)}
+  .topbar .copiar.ok{color:var(--accent);background:color-mix(in srgb,#3ddc84 24%,transparent)}
+  .cat{color:var(--text);border-radius:22px}
+  .cat.sel,.cat.sel:hover{color:var(--accent);background:color-mix(in srgb,#3ddc84 24%,transparent)}
+  .detalle-link{color:var(--accent);background:color-mix(in srgb,#3ddc84 20%,transparent);
+    display:inline-flex;align-items:center;gap:8px;padding:10px 20px}
+  .detalle-link::before{content:"\2197";order:2}
+  .copiar-link.ok{color:var(--accent);background:color-mix(in srgb,#3ddc84 20%,transparent)}
+  .volver,.copiar-link,.replay,.s-btn{color:var(--text)}
+  .replay{opacity:.55}
+  .replay:hover{opacity:1}
+  .cat-n{background:rgba(255,255,255,.08);border:0}
+
+  .topbar{
+    /* sin backdrop-filter propio: si no, los botones solo refractarian la barra y no la pagina */
+    isolation:isolate;border-bottom:1px solid var(--border);
+    background:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+  }
+
+  .topbar::before{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    background:rgba(10,14,12,.72);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  }
+
+  /* ---------- Liquid glass para contenedores ----------
+     Tarjetas, visores de video/preview, etiquetas, contadores y paneles:
+     vidrio casi transparente con rim light diagonal, igual que los botones. */
+  .card,.visor,.tags span,.tools li,.cuenta,.sello,.secreto-caja,.s-cifra,.cat-empty{
+    --rim:rgba(255,255,255,.5);
+    position:relative;
+    background:rgba(255,255,255,.035);
+    border:0;
+    backdrop-filter:url(#lg-refract) blur(1px) saturate(1.4) brightness(1.05);
+    -webkit-backdrop-filter:url(#lg-refract) blur(1px) saturate(1.4) brightness(1.05);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 14px 30px -18px rgba(0,0,0,.6);
+  }
+  .sello,.cuenta{position:absolute}
+  .card,.secreto-caja{border-radius:24px}
+  .visor{border-radius:18px;background:rgba(0,0,0,.25)}
+  .thumb{border-bottom:0}
+  .tags span,.tools li{border-radius:999px;color:color-mix(in srgb,var(--accent) 70%,#fff 0%)}
+  .cuenta,.sello{border-radius:999px}
+  .s-cifra{border-radius:16px}
+  .cat-empty{border-radius:20px}
+  .card::before,.visor::before,.tags span::before,.tools li::before,.cuenta::before,
+  .sello::before,.secreto-caja::before,.s-cifra::before,.cat-empty::before{
+    content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,var(--rim) 0%,transparent 28%,transparent 66%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+    transition:opacity .3s;
+  }
+  /* Burbuja: tres oscilaciones de periodos distintos (tamaño, deriva, giro)
+     que nunca se sincronizan, asi el movimiento se ve organico */
+  @keyframes burbuja{
+    0%,100%{transform:scale(1,1)}
+    22%{transform:scale(1.07,.93)}
+    48%{transform:scale(.95,1.07)}
+    74%{transform:scale(1.04,.97)}
+  }
+  @keyframes deriva{
+    0%,100%{translate:0 0}
+    30%{translate:1.5px -2px}
+    62%{translate:-1.5px 1.5px}
+  }
+  @keyframes giro{
+    0%,100%{rotate:0deg}
+    35%{rotate:.7deg}
+    70%{rotate:-.7deg}
+  }
+  .card:hover{
+    background:rgba(61,220,132,.06);
+    box-shadow:inset 0 0 18px -2px rgba(61,220,132,.28),0 14px 30px -18px rgba(0,0,0,.6);
+  }
+  .card:hover::before{--rim:rgba(150,255,200,.8)}
+  .secreto-caja{background:rgba(14,22,18,.55);box-shadow:0 30px 70px -24px rgba(0,0,0,.8)}
+
+  /* Contenedores: misma burbuja que los botones, mas sutil por su tamaño.
+     El levante pasa a `top` porque `transform` ahora lo anima la burbuja. */
+  .card{top:0;transition:top .4s cubic-bezier(.3,1.4,.5,1),background .25s,box-shadow .25s,scale .4s cubic-bezier(.3,1.4,.5,1)}
+  .card:hover{
+    transform:none;top:-5px;scale:1.012;
+    animation:burbujaG 3.4s ease-in-out infinite,deriva 4.1s ease-in-out infinite,giro 5.2s ease-in-out infinite;
+  }
+  @keyframes burbujaG{
+    0%,100%{transform:scale(1,1)}
+    25%{transform:scale(1.014,.99)}
+    55%{transform:scale(.993,1.012)}
+    80%{transform:scale(1.008,.996)}
+  }
+
+  /* ---------- POP de aparicion ---------- */
+  .pre{opacity:0}
+  .w{display:inline-block;white-space:nowrap}
+  .cp{display:inline-block;opacity:0}
+  .listo .cp{opacity:1}
+
+  /* El boton de replay es fijo: el bloque de vidrio le habia puesto relative */
+  .replay{position:fixed;top:14px;right:12px;bottom:auto;left:auto;z-index:101}
+  .topbar{padding-left:56px;padding-right:56px;flex-wrap:wrap}
+  .topbar a,.topbar .copiar{flex:0 0 auto}
+  @media (max-width:520px){.topbar{padding-left:46px;padding-right:46px}}
+
+  /* ---------- Secciones como paneles de vidrio ----------
+     El vidrio vive en ::before (y el aro en ::after) para que el panel
+     NO sea raiz de backdrop: asi las tarjetas de adentro siguen refractando
+     el fondo y no solo al panel. */
+  header{padding:calc(var(--barra,70px) + 22px) 0 14px;border-bottom:0}
+  section{padding:14px 0}
+  footer{padding:14px 0 44px;border-top:0}
+  header .wrap,section .wrap,footer .wrap,.detalle-caja{
+    --rim:rgba(255,255,255,.5);
+    width:calc(100% - 32px);max-width:1040px;
+    padding:34px 32px;border-radius:30px;
+    background:rgba(255,255,255,.025);
+    box-shadow:0 24px 60px -32px rgba(0,0,0,.75);
+  }
+  footer .wrap{padding:22px 32px}
+  header .wrap::before,section .wrap::before,footer .wrap::before,.detalle-caja::before{
+    content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+    backdrop-filter:var(--lgf,url(#lg-refract)) blur(1px) saturate(1.4) brightness(1.05);
+    -webkit-backdrop-filter:var(--lgf,url(#lg-refract)) blur(1px) saturate(1.4) brightness(1.05);
+  }
+  header .wrap::after,section .wrap::after,footer .wrap::after,.detalle-caja::after{
+    content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,var(--rim) 0%,transparent 28%,transparent 66%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  }
+  @media (max-width:600px){
+    header .wrap,section .wrap,footer .wrap{padding:24px 18px;width:calc(100% - 20px)}
+  }
+
+  /* ---------- Controles de video de vidrio ---------- */
+  .con-vc video{cursor:pointer}
+  .vc-bar{
+    --rim:rgba(255,255,255,.55);
+    position:absolute;left:14px;right:14px;bottom:14px;z-index:5;
+    display:flex;align-items:center;gap:10px;padding:7px 12px;
+    border-radius:999px;background:rgba(255,255,255,.05);
+    box-shadow:0 10px 26px -12px rgba(0,0,0,.7);
+    font-family:var(--mono);font-size:.74rem;color:#fff;
+    transition:opacity .35s,transform .35s;
+  }
+  .vc-bar::after{
+    content:"";position:absolute;inset:0;z-index:6;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,var(--rim) 0%,transparent 28%,transparent 66%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  }
+  .con-vc.vc-idle .vc-bar{opacity:0;transform:translateY(8px);pointer-events:none}
+  .con-vc.vc-idle{cursor:none}
+  .vc-btn{
+    flex:0 0 auto;width:30px;height:30px;padding:0;border:0;border-radius:50%;
+    background:transparent;color:#fff;cursor:pointer;display:grid;place-items:center;
+    transition:background .2s,scale .3s cubic-bezier(.3,1.5,.5,1);
+  }
+  .vc-btn:hover{background:rgba(255,255,255,.16);scale:1.1}
+  .vc-btn:active{scale:.92}
+  .vc-btn svg{width:18px;height:18px;fill:currentColor;display:block}
+  .vc-t{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .vc-track{
+    position:relative;flex:1;height:18px;cursor:pointer;touch-action:none;
+  }
+  .vc-track::before{
+    content:"";position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;
+    border-radius:4px;background:rgba(255,255,255,.28);
+  }
+  .vc-fill{
+    position:absolute;left:0;top:50%;height:4px;margin-top:-2px;border-radius:4px;
+    background:var(--accent);width:0;
+  }
+  .vc-dot{
+    position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;
+    background:#fff;box-shadow:0 0 0 3px rgba(61,220,132,.35);left:0;
+  }
+  @media (max-width:520px){
+    .vc-bar{left:8px;right:8px;bottom:8px;gap:6px;padding:5px 8px}
+    .vc-t{display:none}
+  }
+
   @media (prefers-reduced-motion:reduce){
     *{animation:none!important;transition:none!important}
     html{scroll-behavior:auto}
@@ -495,6 +740,13 @@
 </style>
 </head>
 <body>
+<!-- Filtro de refraccion del liquid glass: el mapa mueve los pixeles de fondo en los bordes como una lente -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="lg-refract" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feImage result="map" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='x' x1='0' x2='1' y1='0' y2='0'%3E%3Cstop offset='0' stop-color='%23ff0000'/%3E%3Cstop offset='.22' stop-color='%23800000'/%3E%3Cstop offset='.78' stop-color='%23800000'/%3E%3Cstop offset='1' stop-color='%23000000'/%3E%3C/linearGradient%3E%3ClinearGradient id='y' x1='0' x2='0' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%2300ff00'/%3E%3Cstop offset='.22' stop-color='%23008000'/%3E%3Cstop offset='.78' stop-color='%23008000'/%3E%3Cstop offset='1' stop-color='%23000000'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='black'/%3E%3Crect width='100' height='100' fill='url(%23x)'/%3E%3Crect width='100' height='100' fill='url(%23y)' style='mix-blend-mode:screen'/%3E%3C/svg%3E"/>
+    <feDisplacementMap in="SourceGraphic" in2="map" scale="30" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
 
 <!-- ##########################################################################
      ###                                                                    ###
@@ -807,7 +1059,144 @@ prototype of fnaf
 
 </script>
 
-<canvas id="trail"></canvas>
+<canvas class="fondo" id="fondo"></canvas>
+<!-- fuera de los paneles: va fijo en la esquina de arriba, por encima de la barra -->
+<button class="replay" id="replay" type="button" title="Replay intro" aria-label="Replay intro"></button>
+<canvas class="bordes" id="bordes"></canvas>
+<script>
+/* ---------------------------------------------------------
+   POP: todo lo que aparece lo hace como una burbuja que explota
+   (arranca diminuto, se pasa de tamaño y se asienta), y el texto
+   aparece caracter por caracter, en orden de lectura, con el mismo pop.
+   Expone window.popIn(el, demora) y window.textoPop(el, demora).
+   --------------------------------------------------------- */
+(function(){
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function puede(){ return !quieto && !document.hidden; }
+
+  window.popIn = function(el, demora){
+    el.classList.remove('pre');
+    if (!puede() || !el.animate) return;
+    el.animate([
+      { transform:'scale(.08)', opacity:0, filter:'blur(12px)', offset:0,   easing:'cubic-bezier(.2,.9,.3,1)' },
+      { transform:'scale(1.22)', opacity:1, filter:'blur(1px)',  offset:.42, easing:'cubic-bezier(.4,0,.3,1)' },
+      { transform:'scale(.94)',  opacity:1, filter:'blur(0px)',  offset:.72, easing:'ease-out' },
+      { transform:'scale(1)',    opacity:1, filter:'blur(0px)',  offset:1 }
+    ], { duration:520, delay:demora || 0, fill:'backwards' });
+  };
+
+  /* Parte el texto en palabras y caracteres (conserva <strong>, etc.) */
+  function partir(el){
+    if (el.__chars) return el.__chars;
+    var chars = [];
+    var tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var nodos = [], n;
+    while ((n = tw.nextNode())) if (n.nodeValue.trim()) nodos.push(n);
+    nodos.forEach(function(nodo){
+      var frag = document.createDocumentFragment();
+      nodo.nodeValue.split(/(\s+)/).forEach(function(parte){
+        if (!parte) return;
+        if (/^\s+$/.test(parte)){ frag.appendChild(document.createTextNode(parte)); return; }
+        var w = document.createElement('span'); w.className = 'w';
+        for (var i = 0; i < parte.length; i++){
+          var c = document.createElement('span'); c.className = 'cp'; c.textContent = parte[i];
+          w.appendChild(c); chars.push(c);
+        }
+        frag.appendChild(w);
+      });
+      nodo.parentNode.replaceChild(frag, nodo);
+    });
+    el.__chars = chars;
+    return chars;
+  }
+
+  window.textoPop = function(el, demora, ya){
+    if (el && el.__texto && !el.querySelector('.cp')){ el.__texto = false; el.__chars = null; el.classList.remove('listo'); }
+    if (!el || el.__texto) return;
+    if (!puede()) return;
+    el.__texto = true;
+    var chars = partir(el);
+    if (!chars.length) return;
+    var paso = Math.max(5, Math.min(24, 1100 / chars.length));
+    var ultima = null;
+    chars.forEach(function(c, i){
+      if (!c.animate) return;
+      ultima = c.animate([
+        { transform:'scale(.2)',  opacity:0, filter:'blur(5px)', offset:0,  easing:'cubic-bezier(.2,.9,.3,1)' },
+        { transform:'scale(1.35)', opacity:1, filter:'blur(0px)', offset:.5, easing:'ease-out' },
+        { transform:'scale(1)',   opacity:1, filter:'blur(0px)', offset:1 }
+      ], { duration:340, delay:(demora || 0) + i * paso, fill:'both' });
+    });
+    var listo = function(){ el.classList.add('listo'); };
+    if (ultima) ultima.finished.then(listo, listo); else listo();
+    setTimeout(listo, (demora || 0) + chars.length * paso + 1500);
+  };
+
+  /* Prepara (oculta) un texto para que no se vea antes de su turno */
+  function preparar(el){ if (puede()){ partir(el); } }
+
+  /* ---------- Aparicion por scroll de lo que esta fijo en el HTML ---------- */
+  var POP  = '.cat, .tools li';
+  var TXT  = 'h2, .about p, .about-sub, footer';
+  var visto = new WeakSet();
+  var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if (!e.isIntersecting) return;
+      var el = e.target; io.unobserve(el);
+      var k = el.__k || 0;
+      if (el.matches(TXT)) window.textoPop(el, 0);
+      else window.popIn(el, k * 60);
+    });
+  }, { threshold:0.15 }) : null;
+
+  function enganchar(el){
+    if (visto.has(el) || !puede() || !io) return;
+    visto.add(el);
+    if (el.matches(TXT)) preparar(el); else el.classList.add('pre');
+    /* escalonado entre hermanos: el pop va en orden */
+    var sib = el.parentNode ? Array.prototype.indexOf.call(el.parentNode.children, el) : 0;
+    el.__k = sib;
+    io.observe(el);
+  }
+  function barrer(raiz){
+    if (raiz.nodeType !== 1) return;
+    if (raiz.matches && raiz.matches(POP + ',' + TXT)) enganchar(raiz);
+    Array.prototype.forEach.call(raiz.querySelectorAll(POP + ',' + TXT), enganchar);
+  }
+
+  /* ---------- Barra de redes + replay: pop cuando termina la intro ---------- */
+  var TOP = '.topbar a, .topbar .copiar, .replay';
+  function popBarra(){
+    Array.prototype.forEach.call(document.querySelectorAll(TOP), function(b, i){ window.popIn(b, i * 70); });
+  }
+  function ocultarBarra(){
+    if (!puede()) return;
+    Array.prototype.forEach.call(document.querySelectorAll(TOP), function(b){ b.classList.add('pre'); });
+  }
+
+  function iniciar(){
+    ocultarBarra();
+    barrer(document.body);
+    new MutationObserver(function(ms){
+      ms.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, barrer); });
+    }).observe(document.body, { childList:true, subtree:true });
+
+    /* la intro quita la clase `intro` del body al terminar */
+    var hayIntro = document.body.classList.contains('intro');
+    if (!hayIntro) popBarra();
+    var tenia = hayIntro;
+    new MutationObserver(function(){
+      var tiene = document.body.classList.contains('intro');
+      if (tenia && !tiene){ ocultarBarra(); popBarra(); }
+      if (!tenia && tiene) ocultarBarra();
+      tenia = tiene;
+    }).observe(document.body, { attributes:true, attributeFilter:['class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+  else iniciar();
+})();
+</script>
 
 <!-- Redes: siempre arriba y centradas. Agregá acá ArtStation, itch.io, LinkedIn -->
 <nav class="topbar">
@@ -832,7 +1221,6 @@ prototype of fnaf
       <li>Pixel Art</li>
       <li>Gameplay Programming</li>
     </ul>
-    <button class="replay" id="replay" type="button" title="Replay intro" aria-label="Replay intro"></button>
   </div>
 </header>
 
@@ -877,6 +1265,8 @@ prototype of fnaf
 <!-- Panel de detalle de un proyecto. Vive dentro de la misma pagina,
      asi la barra de redes de arriba nunca se recarga. -->
 <div class="detalle" id="detalle" hidden>
+  <canvas class="fondo"></canvas>
+  <canvas class="bordes"></canvas>
   <div class="detalle-caja wrap">
     <button class="volver" id="volver" type="button">Back</button><button class="copiar-link" id="copiar-link" type="button">Copy link</button>
     <h2 class="detalle-titulo" id="detalle-titulo"></h2>
@@ -910,36 +1300,88 @@ prototype of fnaf
    Botones que copian un dato al portapapeles (Discord, que no
    tiene link de perfil publico).
    --------------------------------------------------------- */
-/* Al hacer click: pega un estiron y despues "cae" hacia el fondo
-   (se achica hasta su tamaño normal). Al tocar, suelta una onda
-   corta de pixeles con el color de su red. */
+/* Click en un boton: se estira y se aplasta arriba/abajo como una burbuja
+   al limite, explota (se agranda y se disuelve con blur) y RECIEN ahi
+   ocurre lo que hace el boton; despues reaparece rebotando. Sin pixeles. */
 (function(){
   var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (quieto) return;
 
   /* Todos los botones de la pagina. Los de categoria los crea el JS
-     mas tarde, asi que se escucha por delegacion en vez de engancharse
-     uno por uno al cargar. */
-  window.BOTONES = '.topbar a, .topbar .copiar, .cat, .replay';
+     mas tarde, asi que se escucha por delegacion. */
+  window.BOTONES = 'a[href], button, .card, [role="button"], .cat';
 
-  document.addEventListener('mousedown', function(e){
+  var ocupado = new WeakSet();
+
+  document.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest(window.BOTONES);
     if (!b || !b.animate) return;
+    if (b.closest('.vc-bar')) return;           // los controles de video responden al instante
+    if (b.__sigue){ b.__sigue = false; return; }   // el click re-lanzado pasa tal cual
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (ocupado.has(b)) return;
+    ocupado.add(b);
 
-    var caida = b.animate([
-      { scale:1.07, offset:0    },
-      { scale:1.20, offset:0.22 },   // el estiron
-      { scale:1.00, offset:1    }    // y la caida vista desde arriba
-    ], { duration:430, easing:'cubic-bezier(.35,0,.25,1)' });
+    // los elementos grandes (tarjetas) deforman menos, si no tapan toda la pantalla
+    var an = b.getBoundingClientRect().width;
+    var m  = an > 260 ? 0.22 : 1;
+    var S  = function(x, y){ return 'scale(' + (1 + (x - 1) * m) + ',' + (1 + (y - 1) * m) + ')'; };
+    var pop = b.animate([
+      { transform:S(1,1),       opacity:1, filter:'blur(0px)', offset:0,   easing:'cubic-bezier(.3,0,.2,1)' },
+      { transform:S(.72,1.55),  opacity:1, filter:'blur(0px)', offset:.26, easing:'cubic-bezier(.4,0,.3,1)' },
+      { transform:S(1.32,.58),  opacity:1, filter:'blur(0px)', offset:.48, easing:'cubic-bezier(.4,0,.3,1)' },
+      { transform:S(.82,1.72),  opacity:1, filter:'blur(1px)', offset:.68, easing:'cubic-bezier(.5,0,.8,.4)' },
+      { transform:S(1.9,2.2),   opacity:.85, filter:'blur(3px)', offset:.86 },
+      { transform:S(2.5,2.9),   opacity:0, filter:'blur(10px)', offset:1 }
+    ], { duration:380, fill:'forwards' });
 
-    caida.finished.then(function(){
-      var r = b.getBoundingClientRect();
-      window.dispatchEvent(new CustomEvent('pixelwave', { detail:{
-        x: r.left + r.width  / 2,
-        y: r.top  + r.height / 2,
-        color: getComputedStyle(b).color
-      }}));
-    }).catch(function(){});
+    pop.finished.then(function(){
+      /* ahora si: lo que hacia el boton */
+      b.__sigue = true;
+      b.click();
+      b.__sigue = false;
+
+      var vuelve = b.animate([
+        { transform:S(.55,.55), opacity:0, filter:'blur(6px)' },
+        { transform:S(1.08,.94), opacity:1, filter:'blur(0px)', offset:.6 },
+        { transform:'scale(1)', opacity:1, filter:'blur(0px)' }
+      ], { duration:340, easing:'cubic-bezier(.2,.9,.3,1.2)' });
+      pop.cancel();
+      return vuelve.finished;
+    }).catch(function(){}).then(function(){ ocupado.delete(b); });
+  }, true);
+
+  /* Al salir del hover la burbuja no se corta: parte de la forma en que
+     estaba y se asienta suave hasta quedar estatica. */
+  var BURBUJAS = '.topbar a, .card, .topbar .copiar, .cat, .replay, .volver, .copiar-link, .detalle-link, .s-btn';
+  // mientras hay hover se muestrea la forma actual: al salir, el estilo ya no
+  // tiene la animacion, asi que se parte de la ultima muestra
+  var muestra = new WeakMap(), vigilados = new Set();
+  function vigilar(){
+    vigilados.forEach(function(b){
+      var cs = getComputedStyle(b);
+      muestra.set(b, { transform:cs.transform, translate:cs.translate, rotate:cs.rotate });
+    });
+    if (vigilados.size) requestAnimationFrame(vigilar);
+  }
+  document.addEventListener('mouseover', function(e){
+    var b = e.target.closest && e.target.closest(BURBUJAS);
+    if (!b || vigilados.has(b)) return;
+    vigilados.add(b);
+    if (vigilados.size === 1) requestAnimationFrame(vigilar);
+  });
+  document.addEventListener('mouseout', function(e){
+    var b = e.target.closest && e.target.closest(BURBUJAS);
+    if (!b || !b.animate) return;
+    if (e.relatedTarget && b.contains(e.relatedTarget)) return;
+    vigilados.delete(b);
+    var desde = muestra.get(b);
+    if (!desde || ocupado.has(b)) return;
+    b.animate([
+      desde,
+      { transform:'none', translate:'0 0', rotate:'0deg' }
+    ], { duration:700, easing:'cubic-bezier(.2,.8,.2,1)' });
   });
 })();
 </script>
@@ -1009,7 +1451,15 @@ prototype of fnaf
         /* si se cancelo, se completa de golpe y sigue */
         if (cancelado){ step.el.textContent = step.text; done(); return; }
 
-        step.el.textContent = step.text.slice(0, ++i);
+        var ch = document.createElement('span');
+        ch.textContent = step.text[i++];
+        ch.style.cssText = 'display:inline-block;white-space:pre';
+        step.el.appendChild(ch);
+        if (ch.animate) ch.animate([
+          { transform:'scale(.2)',  opacity:0, filter:'blur(5px)', offset:0, easing:'cubic-bezier(.2,.9,.3,1)' },
+          { transform:'scale(1.4)', opacity:1, filter:'blur(0px)', offset:.5, easing:'ease-out' },
+          { transform:'scale(1)',   opacity:1, filter:'blur(0px)', offset:1 }
+        ], { duration:300 });
         if (i < step.text.length) setTimeout(tick, step.speed);
         else setTimeout(done, step.pause);
       })();
@@ -1251,106 +1701,11 @@ prototype of fnaf
       var col  = i % cols;
       var demora = (fila + col) * 110;
 
-      /* solo el movimiento: la aparicion la hace la mascara de pixeles */
-      card.animate(
-        [{ transform:'translateY(-34px)' },
-         { transform:'none' }],
-        { duration:620, delay:demora, easing:'cubic-bezier(.22,1,.36,1)', fill:'backwards' }
-      );
-
-      disolver(card, demora);
+      // cada tarjeta explota desde chica y su texto aparece letra por letra
+      window.popIn(card, demora);
+      window.textoPop(card.querySelector('h3'), demora + 260);
+      window.textoPop(card.querySelector('p'),  demora + 420);
     });
-  }
-
-  /* --- Mascara de pixeles: tapa la tarjeta con el color del fondo
-         y va abriendo huecos, asi el contenido aparece pixel por
-         pixel siguiendo el mismo ruido del brillo de los bordes. --- */
-  var COLOR_FONDO = (getComputedStyle(document.documentElement)
-                      .getPropertyValue('--bg') || '#0a0e0c').trim();
-
-  /* `fijo` = cubre toda la pantalla (para el panel de detalle) en vez
-     de solo la caja del elemento. */
-  function disolver(card, demora, fijo){
-    if (quieto || document.hidden) return;
-
-    var CELL  = 5,
-        DUR   = 760,
-        BORDE = 0.14,    // franja difusa del frente de avance
-        RUIDO = 0.45;    // 0 = barrido recto de arriba a abajo, 1 = puro ruido
-    var cv  = document.createElement('canvas');
-    cv.className = 'dissolve' + (fijo ? ' fija' : '');
-    card.appendChild(cv);
-    var ctx = cv.getContext('2d');
-
-    /* ruido estable por celda: define cuando se apaga cada pixel */
-    function ruido(x, y, sal){
-      var n = Math.sin(x * 12.9898 + y * 78.233 + sal * 43.1) * 43758.5453;
-      return n - Math.floor(n);
-    }
-
-    var quitar = setTimeout(function(){ if (cv.parentNode) cv.remove(); }, demora + DUR + 2000);
-
-    /* Se tapa YA, antes de que empiece su turno en la ola: si no,
-       la tarjeta asomaria un instante y despues se cubriria. */
-    var r = card.getBoundingClientRect();
-    var w = fijo ? window.innerWidth  : Math.max(1, Math.round(r.width));
-    var h = fijo ? window.innerHeight : Math.max(1, Math.round(r.height));
-    cv.width = w; cv.height = h;
-
-    var cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
-    ctx.fillStyle = COLOR_FONDO;
-    ctx.fillRect(0, 0, w, h);
-
-    /* Se dibuja en un lienzo de 1 pixel por celda y se amplia sin
-       suavizado. A pantalla completa serian ~43.000 rectangulos por
-       cuadro; asi es una sola imagen escalada. */
-    var buf  = document.createElement('canvas');
-    buf.width = cols; buf.height = rows;
-    var bctx   = buf.getContext('2d');
-    var imagen = bctx.createImageData(cols, rows);
-    var datos  = imagen.data;
-
-    /* el color de fondo a RGB, una sola vez */
-    var hex = COLOR_FONDO.replace('#', '');
-    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-    var R = parseInt(hex.slice(0,2),16) || 10,
-        G = parseInt(hex.slice(2,4),16) || 14,
-        B = parseInt(hex.slice(4,6),16) || 12;
-
-    ctx.imageSmoothingEnabled = false;
-
-    setTimeout(function(){
-      var inicio = performance.now();
-
-      (function frame(now){
-        var t = Math.min(1, (now - inicio) / DUR);
-        var flick = Math.floor(now / 70);          // parpadeo, como el edge glow
-        var i = 0;
-
-        for (var cy = 0; cy < rows; cy++){
-          /* El umbral mezcla la altura con el ruido: el frente baja
-             de arriba hacia abajo, pero con el borde deshilachado. */
-          var altura = (cy / rows) * (1 - RUIDO);
-
-          for (var cx = 0; cx < cols; cx++, i += 4){
-            var n = altura + ruido(cx, cy, 0) * RUIDO;
-
-            datos[i] = R; datos[i+1] = G; datos[i+2] = B;
-
-            if (n < t)              datos[i+3] = 0;      // abierto: se ve el contenido
-            else if (n < t + BORDE) datos[i+3] = (0.35 + ruido(cx, cy, flick) * 0.4) * 255;
-            else                    datos[i+3] = 255;    // todavia tapado
-          }
-        }
-
-        bctx.putImageData(imagen, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(buf, 0, 0, w, h);
-
-        if (t < 1) requestAnimationFrame(frame);
-        else { clearTimeout(quitar); cv.remove(); }
-      })(performance.now());
-    }, demora);
   }
 
   /* ==========================================================
@@ -1409,7 +1764,15 @@ prototype of fnaf
     document.body.style.overflow = 'hidden';
     abierto = true;
 
-    disolver(panelDet, 0, true);              // aparece con el ruido de pixeles
+    // el panel y cada pieza adentro aparecen con pop, en orden de lectura
+    if (panelDet.animate) panelDet.animate([{ opacity:0 },{ opacity:1 }], { duration:220, easing:'ease-out' });
+    var orden = ['volver','copiar-link'];
+    orden.forEach(function(id, i){ window.popIn(document.getElementById(id), 40 + i * 70); });
+    window.textoPop(document.getElementById('detalle-titulo'), 120);
+    Array.prototype.forEach.call(tags.children, function(s, i){ window.popIn(s, 260 + i * 60); });
+    window.textoPop(document.getElementById('detalle-desc'), 380);
+    if (!link.hidden) window.popIn(link, 520);
+    Array.prototype.forEach.call(panelDet.querySelectorAll('.visor'), function(v, i){ window.popIn(v, 600 + i * 110); });
 
     if (!sinHistoria){
       try { history.pushState({ detalle:true }, '', '#/' + slug(p.title)); } catch(e){}
@@ -1546,6 +1909,95 @@ prototype of fnaf
     return todo;
   }
 
+  /* Controles de video de vidrio (reemplazan a los nativos del navegador,
+     que no se pueden estilizar). Una barra-pastilla con refraccion. */
+  function ICOS(){ return {
+    play:  '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><path d="M7 5h3.4v14H7zM13.6 5H17v14h-3.4z"/></svg>',
+    vol:   '<svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.6L12 18.5v-13L7.6 9.5zM15 8.6a4.8 4.8 0 0 1 0 6.8M17.4 6.2a8.2 8.2 0 0 1 0 11.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    mute:  '<svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.6L12 18.5v-13L7.6 9.5z"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    full:  '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  }; }
+  function hms(s){
+    if (!isFinite(s)) s = 0;
+    var m = Math.floor(s / 60), r = Math.floor(s % 60);
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+  function controlesVidrio(cont, v){
+    var ICO = ICOS();   // funcion: asi existe aunque el detalle se abra al cargar desde un link
+    v.controls = false;
+    cont.classList.add('con-vc');
+    var bar = document.createElement('div');
+    bar.className = 'vc-bar';
+    bar.innerHTML =
+      '<button type="button" class="vc-btn vc-play" aria-label="Play / pause"></button>' +
+      '<span class="vc-t">0:00 / 0:00</span>' +
+      '<div class="vc-track"><i class="vc-fill"></i><b class="vc-dot"></b></div>' +
+      '<button type="button" class="vc-btn vc-mute" aria-label="Mute"></button>' +
+      '<button type="button" class="vc-btn vc-full" aria-label="Fullscreen"></button>';
+    cont.appendChild(bar);
+
+    var bPlay = bar.querySelector('.vc-play'), bMute = bar.querySelector('.vc-mute'),
+        bFull = bar.querySelector('.vc-full'), tT = bar.querySelector('.vc-t'),
+        track = bar.querySelector('.vc-track'), fill = bar.querySelector('.vc-fill'),
+        dot = bar.querySelector('.vc-dot');
+    bFull.innerHTML = ICO.full;
+
+    function pintar(){
+      bPlay.innerHTML = v.paused ? ICO.play : ICO.pause;
+      bMute.innerHTML = (v.muted || v.volume === 0) ? ICO.mute : ICO.vol;
+    }
+    function tiempo(){
+      var f = v.duration ? v.currentTime / v.duration : 0;
+      fill.style.width = (f * 100) + '%';
+      dot.style.left = (f * 100) + '%';
+      tT.textContent = hms(v.currentTime) + ' / ' + hms(v.duration);
+    }
+    pintar(); tiempo();
+    ['play','pause','volumechange'].forEach(function(e){ v.addEventListener(e, pintar); });
+    ['timeupdate','loadedmetadata','durationchange'].forEach(function(e){ v.addEventListener(e, tiempo); });
+
+    function alternar(){ if (v.paused) v.play(); else v.pause(); }
+    bPlay.addEventListener('click', function(e){ e.stopPropagation(); alternar(); });
+    v.addEventListener('click', alternar);
+    bMute.addEventListener('click', function(e){ e.stopPropagation(); v.muted = !v.muted; });
+    bFull.addEventListener('click', function(e){
+      e.stopPropagation();
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (cont.requestFullscreen) cont.requestFullscreen();
+      else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+    });
+
+    /* barra de progreso: click y arrastre */
+    function buscar(e){
+      var r = track.getBoundingClientRect();
+      var f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      if (v.duration) v.currentTime = f * v.duration;
+    }
+    track.addEventListener('pointerdown', function(e){
+      e.stopPropagation(); buscar(e);
+      track.setPointerCapture(e.pointerId);
+      var mover = function(ev){ buscar(ev); };
+      track.addEventListener('pointermove', mover);
+      track.addEventListener('pointerup', function fin(){
+        track.removeEventListener('pointermove', mover);
+        track.removeEventListener('pointerup', fin);
+      });
+    });
+
+    /* se esconde sola mientras reproduce y no hay movimiento */
+    var idle;
+    function despertar(){
+      cont.classList.remove('vc-idle');
+      clearTimeout(idle);
+      idle = setTimeout(function(){ if (!v.paused) cont.classList.add('vc-idle'); }, 2200);
+    }
+    cont.addEventListener('mousemove', despertar);
+    cont.addEventListener('touchstart', despertar, { passive:true });
+    v.addEventListener('pause', despertar);
+    despertar();
+  }
+
   function montarMedia(cont, src, alt, conSello){
     var video = esVideo(src), media;
 
@@ -1554,7 +2006,7 @@ prototype of fnaf
       media.src = src;
       media.autoplay = media.muted = media.loop = media.playsInline = true;
       media.preload = 'metadata';
-      media.controls = !conSello;                 // controles solo en el detalle
+      media.controls = false;                      // en el detalle van los controles de vidrio
 
       /* Un video tarda en arrancar: mostramos que esta cargando
          para que no parezca una imagen rota. */
@@ -1625,6 +2077,7 @@ prototype of fnaf
       media.loading = 'lazy';
     }
     cont.appendChild(media);
+    if (video && !conSello) controlesVidrio(cont, media);
 
     /* Sello en la esquina: dice de un vistazo si es video o imagen */
     if (conSello){
@@ -1706,258 +2159,6 @@ prototype of fnaf
 })();
 </script>
 
-<script>
-/* ---------------------------------------------------------
-   Efectos de cursor sobre un unico canvas:
-     1) trail  - estela que se afina y se apaga con la edad
-     2) burst  - explosion de pixeles al hacer click
-   --------------------------------------------------------- */
-(function(){
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var coarse = window.matchMedia('(pointer: coarse)').matches;
-  if (reduce) return;                    // el sistema pide menos movimiento: nada de esto
-
-  var canvas = document.getElementById('trail');
-  var ctx    = canvas.getContext('2d');
-
-  var LIFETIME = 420;   // ms que dura cada punto del trail
-  var MAX_W    = 3.2;   // grosor en la punta
-  var points   = [];
-  var particles= [];
-  var dpr      = 1;
-
-  /* Intensidad del brillo en cada borde (0 = apagado, 1 = tope) */
-  var edge = { top:0, bottom:0 };
-
-  /* Verdes de la paleta, del mas claro (chispa) al mas apagado */
-  var COLORS = ['#b9ffd6','#3ddc84','#3ddc84','#2a9e5f','#1f7a48'];
-
-  function resize(){
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width  = window.innerWidth  * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width  = window.innerWidth  + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  if (!coarse){
-    window.addEventListener('mousemove', function(e){
-      points.push({ x:e.clientX, y:e.clientY, t:performance.now() });
-      if (points.length > 90) points.shift();
-    }, { passive:true });
-  }
-
-  /* ---------- Explosion de pixeles ---------- */
-  function burst(x, y, big){
-    var count = big ? 46 : 14;
-    var maxSpeed = big ? 7.5 : 4;
-    var maxLife  = big ? 1100 : 700;
-    var sizes    = big ? [2,3,3,4,5] : [2,2,3,3];
-
-    for (var i = 0; i < count; i++){
-      var ang = Math.random() * Math.PI * 2;
-      var spd = (0.35 + Math.random() * 0.65) * maxSpeed;
-      particles.push({
-        x:x, y:y,
-        vx:Math.cos(ang) * spd,
-        vy:Math.sin(ang) * spd - (big ? 1.4 : 0.8),   // empujon hacia arriba
-        size:sizes[(Math.random() * sizes.length) | 0],
-        color:COLORS[(Math.random() * COLORS.length) | 0],
-        life:1,
-        g:0.13,
-        decay:1 / ((0.55 + Math.random() * 0.45) * maxLife / 16.7)
-      });
-    }
-    if (particles.length > 700) particles.splice(0, particles.length - 700);
-  }
-
-  /* Onda expansiva: un anillo corto y chico, casi sin gravedad.
-     La disparan los botones de la barra al "aterrizar". */
-  function onda(x, y, color){
-    var N = 22;
-    for (var i = 0; i < N; i++){
-      var ang = (i / N) * Math.PI * 2 + Math.random() * 0.18;
-      var spd = 2.4 + Math.random() * 1.1;
-      particles.push({
-        x:x, y:y,
-        vx:Math.cos(ang) * spd,
-        vy:Math.sin(ang) * spd * 0.55,     /* achatada: se ve desde arriba */
-        size:(Math.random() < 0.5 ? 2 : 3),
-        color:color || COLORS[1],
-        life:1,
-        g:0.012,                            /* casi no cae */
-        decay:1 / (26)                      /* ~430 ms */
-      });
-    }
-  }
-
-  /* Puente para que otras partes de la pagina la disparen */
-  window.addEventListener('pixelwave', function(e){
-    if (e.detail) onda(e.detail.x, e.detail.y, e.detail.color);
-  });
-
-  /* Chico en cualquier lado; grande sobre algo clickeable */
-  window.addEventListener('mousedown', function(e){
-    /* los botones tienen su propio efecto (estiron + onda al caer) */
-    if (e.target.closest && e.target.closest(window.BOTONES || '.topbar')) return;
-
-    var big = !!(e.target.closest && e.target.closest('a, button, .card'));
-    burst(e.clientX, e.clientY, big);
-  }, { passive:true });
-
-  /* ---------- Brillo en los bordes al pasarse del limite ---------- */
-  function atTop(){
-    return window.scrollY <= 0;
-  }
-  function atBottom(){
-    var doc = document.documentElement;
-    return window.scrollY + window.innerHeight >= doc.scrollHeight - 1;
-  }
-
-  /* Acumula: cuanto mas insistis contra el tope, mas crece */
-  function pushEdge(side, amount){
-    edge[side] = Math.min(1, edge[side] + Math.min(amount / 700, 0.22));
-  }
-
-  window.addEventListener('wheel', function(e){
-    if (e.deltaY < 0 && atTop())    pushEdge('top',    -e.deltaY);
-    if (e.deltaY > 0 && atBottom()) pushEdge('bottom',  e.deltaY);
-  }, { passive:true });
-
-  /* En movil: mismo efecto arrastrando el dedo contra el tope */
-  var lastTouchY = 0;
-  window.addEventListener('touchstart', function(e){
-    lastTouchY = e.touches[0].clientY;
-  }, { passive:true });
-
-  window.addEventListener('touchmove', function(e){
-    var y  = e.touches[0].clientY;
-    var dy = y - lastTouchY;          // positivo = el dedo baja = querer ver arriba
-    lastTouchY = y;
-    if (dy > 0 && atTop())    pushEdge('top',    dy * 4);
-    if (dy < 0 && atBottom()) pushEdge('bottom', -dy * 4);
-  }, { passive:true });
-
-  /* Dibuja la banda de luz de un borde, con disolucion de pixeles */
-  var CELL = 5;   // tamaño del pixel de la disolucion
-  function drawEdge(side, v, now){
-    if (v <= 0.004) return;
-
-    var W    = window.innerWidth;
-    var H    = window.innerHeight;
-    var band = 210 * (1 - Math.pow(1 - v, 2.2));   // mas insistencia = banda mas larga
-    var top  = (side === 'top');
-    var y0   = top ? 0 : H - band;
-
-    /* 1) Nucleo: degradado suave pegado al borde */
-    var g = ctx.createLinearGradient(0, top ? 0 : H, 0, top ? band : H - band);
-    g.addColorStop(0,   'rgba(61,220,132,' + (0.42 * v) + ')');
-    g.addColorStop(0.35,'rgba(61,220,132,' + (0.14 * v) + ')');
-    g.addColorStop(1,   'rgba(61,220,132,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, y0, W, band);
-
-    /* 2) Linea marcando el tope exacto */
-    ctx.fillStyle = 'rgba(185,255,214,' + (0.75 * v) + ')';
-    ctx.fillRect(0, top ? 0 : H - 2, W, 2);
-
-    /* 3) Disolucion: pixeles que parpadean, mas ralos cuanto mas lejos del borde */
-    var flick = Math.floor(now / 70);      // cambia el patron ~14 veces por segundo
-    var cols  = Math.ceil(W / CELL);
-    var rows  = Math.ceil(band / CELL);
-
-    ctx.fillStyle = '#3ddc84';
-    for (var cy = 0; cy < rows; cy++){
-      var depth = cy / rows;                       // 0 = pegado al borde
-      var prob  = (1 - depth) * (1 - depth) * v;   // se ralea hacia adentro
-      for (var cx = 0; cx < cols; cx++){
-        // ruido barato y estable por celda, que cambia con flick
-        var n = Math.sin((cx * 12.9898 + cy * 78.233 + flick * 43.1) ) * 43758.5453;
-        n = n - Math.floor(n);
-        if (n > prob) continue;
-        ctx.globalAlpha = (0.35 + n * 0.5) * v;
-        // sin restarle nada: los pixeles se tocan y no queda rejilla
-        ctx.fillRect(
-          cx * CELL,
-          (top ? cy * CELL : H - band + (rows - 1 - cy) * CELL),
-          CELL, CELL
-        );
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function frame(){
-    var now = performance.now();
-
-    // descartar los puntos ya apagados
-    while (points.length && now - points[0].t > LIFETIME) points.shift();
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (points.length > 1){
-      ctx.lineCap  = 'round';
-      ctx.lineJoin = 'round';
-
-      for (var i = 1; i < points.length; i++){
-        var p = points[i], prev = points[i-1];
-        var life = 1 - (now - p.t) / LIFETIME;   // 1 = recien hecho, 0 = muerto
-        if (life <= 0) continue;
-
-        var e = life * life;                     // cae mas rapido al final
-
-        ctx.strokeStyle = 'rgba(61,220,132,' + (e * 0.85) + ')';
-        ctx.lineWidth   = MAX_W * e;
-        ctx.shadowColor = 'rgba(61,220,132,' + (e * 0.6) + ')';
-        ctx.shadowBlur  = 12 * e;
-
-        ctx.beginPath();
-        ctx.moveTo(prev.x, prev.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
-    }
-
-    /* --- Particulas: se mueven, caen y se apagan --- */
-    for (var j = particles.length - 1; j >= 0; j--){
-      var q = particles[j];
-
-      q.x  += q.vx;
-      q.y  += q.vy;
-      q.vy += (q.g === undefined ? 0.13 : q.g);   // gravedad propia de cada particula
-      q.vx *= 0.985;     // roce
-      q.vy *= 0.985;
-      q.life -= q.decay;
-
-      if (q.life <= 0){ particles.splice(j, 1); continue; }
-
-      ctx.globalAlpha = q.life > .8 ? 1 : q.life / .8;
-      ctx.fillStyle   = q.color;
-      ctx.shadowColor = q.color;
-      ctx.shadowBlur  = 8 * q.life;
-      // redondeado a entero: los pixeles quedan nitidos, sin antialias
-      ctx.fillRect(q.x | 0, q.y | 0, q.size, q.size);
-    }
-    ctx.globalAlpha = 1;
-    ctx.shadowBlur  = 0;
-
-    /* --- Bordes: dibujar y dejar que se apaguen --- */
-    drawEdge('top',    edge.top,    now);
-    drawEdge('bottom', edge.bottom, now);
-    edge.top    *= 0.93;
-    edge.bottom *= 0.93;
-    if (edge.top    < 0.004) edge.top    = 0;
-    if (edge.bottom < 0.004) edge.bottom = 0;
-
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-})();
-</script>
 
 <script>
 /* ---------------------------------------------------------
@@ -2138,5 +2339,29 @@ prototype of fnaf
 })();
 </script>
 
+
+
+<script>
+/* alto real de la barra (puede ocupar 2 filas): el contenido arranca debajo */
+(function(){
+  var b = document.querySelector(".topbar");
+  if (!b) return;
+  function medir(){ document.documentElement.style.setProperty("--barra", b.offsetHeight + "px"); }
+  medir();
+  if (window.ResizeObserver) new ResizeObserver(medir).observe(b);
+  window.addEventListener("resize", medir);
+})();
+</script>
+<script>
+window.VIDRIO = {
+  sel:'.topbar a, .topbar .copiar, .cat, .replay, .volver, .copiar-link, .detalle-link, .s-btn, .card, .visor, .tags span, .tools li, .cuenta, .sello, .secreto-caja, .s-cifra, .cat-empty, .vc-bar',
+  panel:'header .wrap, section .wrap, footer .wrap, .detalle-caja'
+};
+</script>
+<script src="fondo.js"></script>
+<script src="bordes.js"></script>
+<script src="vidrio.js"></script>
+<script src="cursor.js"></script>
+<script src="onda.js"></script>
 </body>
 </html>

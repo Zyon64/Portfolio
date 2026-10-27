@@ -10,7 +10,7 @@
   :root{
     --bg:#0a0e0c; --surface:#111815; --surface-hi:#16201c;
     --border:#1f2b26; --border-hi:#2e4038;
-    --text:#dbe7e0; --muted:#7d968a; --dim:#4a5c53;
+    --text:#dbe7e0; --muted:#f2f7f4; --dim:#c4d0c9;
     --accent:#3ddc84; --accent-dim:#2a9e5f; --danger:#e05252;
     --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace;
   }
@@ -227,9 +227,116 @@
   .estado-lista .pend::before {content:"\21BB";color:#e0a852}
   .estado-lista .nog::before  {content:"\2022";color:var(--dim)}
   .estado-lista .arch{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  /* ==========================================================
+     Mismo sistema visual que el portafolio: fondo vivo, paneles de
+     vidrio, botones tipo pastilla, rim light diagonal, refraccion
+     con relieve (fondo.js / vidrio.js).
+     ========================================================== */
+  canvas.fondo,canvas.bordes{position:fixed;inset:0;z-index:0;pointer-events:none}
+  body{background:var(--bg);padding:12px;gap:12px;position:relative}
+  .bar,.note,.estado,.body{position:relative;z-index:1}
+
+  /* Paneles: el vidrio va en ::before y el aro en ::after, asi lo de adentro
+     sigue refractando el fondo y el scroll no arrastra el borde. */
+  .bar,.note:not(.hidden),.estado:not(.hidden),.pnl{
+    --rim:rgba(255,255,255,.5);
+    position:relative;border:0;border-radius:24px;
+    background:rgba(255,255,255,.025);
+    box-shadow:0 24px 60px -32px rgba(0,0,0,.75);
+  }
+  .bar::before,.note::before,.estado::before,.pnl::before{
+    content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+    backdrop-filter:var(--lgf,none) blur(1px) saturate(1.4) brightness(1.05);
+    -webkit-backdrop-filter:var(--lgf,none) blur(1px) saturate(1.4) brightness(1.05);
+  }
+  .bar::after,.note::after,.estado::after,.pnl::after{
+    content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,var(--rim) 0%,transparent 28%,transparent 66%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  }
+  .bar{padding:12px 20px;flex-wrap:wrap}
+  .bar button{flex:0 0 auto}
+  .note:not(.hidden){padding:12px 20px}
+  .estado:not(.hidden){padding:12px 20px}
+  .body{gap:12px}
+  .pnl{display:flex;min-width:0;min-height:0}
+  .pnl-list{width:290px;flex-shrink:0}
+  .pnl-form{flex:1}
+  .list{flex:1;border-right:0;background:none;border-radius:24px}
+  .form{border-radius:24px}
+  .form.hidden{display:none}
+  .list,.form{position:relative;z-index:1}
+
+  /* Botones: pastilla de vidrio (primary = tinte verde) */
+  .bar button,.estado button,.list .add,.foot button,.imgrow button,.crow button{
+    --rim:rgba(255,255,255,.5);
+    position:relative;overflow:hidden;isolation:isolate;border:0;border-radius:999px;
+    background:rgba(255,255,255,.06);color:var(--text);
+    box-shadow:0 6px 18px -8px rgba(0,0,0,.45);
+    transition:color .2s,background .3s,box-shadow .3s,scale .4s cubic-bezier(.3,1.5,.5,1);
+  }
+  .bar button::after,.estado button::after,.list .add::after,.foot button::after,.imgrow button::after,.crow button::after{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,var(--rim) 0%,transparent 28%,transparent 66%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  }
+  .bar button.primary{background:rgba(61,220,132,.28);color:var(--accent)}
+  .bar button.primary:hover:not(:disabled){background:rgba(61,220,132,.38);color:var(--accent)}
+  button.danger:hover{background:rgba(224,82,82,.18);color:var(--danger)}
+  .bar button:hover:not(:disabled),.estado button:hover:not(:disabled),.list .add:hover,
+  .foot button:hover:not(:disabled),.imgrow button:hover:not(:disabled),.crow button:hover:not(:disabled){
+    scale:1.04;background:rgba(255,255,255,.11);color:var(--accent);
+    box-shadow:inset 0 0 8px -1px color-mix(in srgb,currentColor 30%,transparent),0 10px 24px -8px rgba(0,0,0,.5);
+    animation:burbuja 2.9s ease-in-out infinite,deriva 3.7s ease-in-out infinite,giro 4.3s ease-in-out infinite;
+  }
+  button.ghost{background:rgba(255,255,255,.04)}
+  @keyframes burbuja{0%,100%{transform:scale(1,1)}22%{transform:scale(1.07,.93)}48%{transform:scale(.95,1.07)}74%{transform:scale(1.04,.97)}}
+  @keyframes deriva{0%,100%{translate:0 0}30%{translate:1.5px -2px}62%{translate:-1.5px 1.5px}}
+  @keyframes giro{0%,100%{rotate:0deg}35%{rotate:.7deg}70%{rotate:-.7deg}}
+
+  /* Piezas internas: vidrio liviano */
+  .item,.medio,.drop,.compress,.visor-sel{
+    --rim:rgba(255,255,255,.4);
+    position:relative;border:0;background:rgba(255,255,255,.04);
+    box-shadow:0 10px 24px -16px rgba(0,0,0,.6);
+  }
+  .item{border-radius:16px}
+  .item.sel{background:rgba(61,220,132,.14)}
+  .item:hover{background:rgba(255,255,255,.08)}
+  .medio,.drop,.compress,.visor-sel{border-radius:18px}
+  .drop:hover,.drop.over{background:rgba(61,220,132,.1)}
+  .item.antes{box-shadow:0 -3px 0 var(--accent)}
+  .item.despues{box-shadow:0 3px 0 var(--accent)}
+  .medio.antes{box-shadow:-4px 0 0 var(--accent)}
+  .medio.despues{box-shadow:4px 0 0 var(--accent)}
+  .medio.sel{outline:1.5px solid color-mix(in srgb,var(--accent) 60%,transparent);outline-offset:-1.5px}
+  .item::after,.medio::after,.drop::after,.compress::after,.visor-sel::after{
+    content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+    padding:1.25px;border-radius:inherit;
+    background:linear-gradient(135deg,var(--rim) 0%,transparent 28%,transparent 66%,var(--rim) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  }
+  input[type=text],textarea,select{
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;
+  }
+  input[type=text]:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+  .estado-bar,.cbar{background:rgba(255,255,255,.08)}
+  .foot{border-top:0}
+  .grupo-cab{border-bottom-color:rgba(255,255,255,.08)}
+
 </style>
 </head>
 <body>
+<canvas class="fondo"></canvas>
+<canvas class="bordes"></canvas>
 
 <div class="bar">
   <h1>portfolio <span>editor</span> <em id="ver">v13 · ✓ por proyecto</em></h1>
@@ -252,12 +359,12 @@
 
 <div class="body">
 
-  <div class="list" id="list">
+  <div class="pnl pnl-list"><div class="list" id="list">
     <button class="add" id="add">+ Nuevo proyecto</button>
     <div id="items"></div>
-  </div>
+  </div></div>
 
-  <div class="form hidden" id="form">
+  <div class="pnl pnl-form"><div class="form hidden" id="form">
     <div class="field">
       <label for="f-title">Título</label>
       <input type="text" id="f-title" placeholder="ShootDoom">
@@ -334,10 +441,23 @@
       <button class="ghost danger" id="del" type="button">Borrar este proyecto</button>
     </div>
   </div>
+  </div>
 
 </div>
 
 <input type="file" id="picker" accept="image/*,video/*" multiple hidden>
+
+<script>
+window.VIDRIO = {
+  sel:".bar button, .estado button, .list .add, .foot button, .imgrow button, .crow button, .item, .medio, .drop, .compress, .visor-sel",
+  panel:".bar, .note, .estado, .pnl"
+};
+</script>
+<script src="fondo.js"></script>
+<script src="bordes.js"></script>
+<script src="vidrio.js"></script>
+<script src="cursor.js"></script>
+<script src="onda.js"></script>
 
 <script>
 (function(){
