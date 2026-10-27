@@ -87,20 +87,21 @@
     var e = CW / W;                          // css px -> pixeles del lienzo
 
     /* 3 ondas apiladas: y = base + A1 sin(k1 x + w1 t) + A2 sin(k2 x - w2 t) */
+    var PROF = [0.05, 0.028, 0.04];      // opacidad por linea: unas mas lejanas que otras
     [0, 1, 2].forEach(function(i){
       var base = CH * (0.22 + i * 0.28), A1 = (34 + i * 10) * e, A2 = (18 + i * 6) * e;
       var k1 = 0.0042 + i * 0.0007, k2 = 0.0091 - i * 0.0008;
       curva(function(u){
         var x = u * CW, xc = x / e;
         return [x, base + A1 * Math.sin(k1 * xc + t * 0.21 + i) + A2 * Math.sin(k2 * xc - t * 0.34 + i * 2)];
-      }, CW * 2, function(u){ return tono(t, u, i); }, 0.09);
+      }, CW * 2, function(u){ return tono(t, u, i); }, PROF[i]);
     });
 
     /* 1 lissajous grande y lenta: x = A sin(a t + d), y = B sin(b t) */
     curva(function(u){
       var a = u * Math.PI * 2;
       return [CW * 0.5 + CW * 0.46 * Math.sin(3 * a + t * 0.05), CH * 0.5 + CH * 0.4 * Math.sin(2 * a)];
-    }, 700, function(u){ return tono(t, u, 5); }, 0.07);
+    }, 700, function(u){ return tono(t, u, 5); }, 0.022);
 
     /* 1 bezier cubica con puntos de control orbitando */
     var o = t * 0.1, y0 = CH * 0.5;
@@ -114,7 +115,7 @@
         v * v * v * P0[0] + 3 * v * v * u * P1[0] + 3 * v * u * u * P2[0] + u * u * u * P3[0],
         v * v * v * P0[1] + 3 * v * v * u * P1[1] + 3 * v * u * u * P2[1] + u * u * u * P3[1]
       ];
-    }, 500, function(u){ return tono(t, u, 8); }, 0.08);
+    }, 500, function(u){ return tono(t, u, 8); }, 0.035);
 
     ctx.restore();
   }
@@ -159,13 +160,19 @@
   var TONOS = [140, 170, 200, 260, 300, 330, 45];
   function nuevaEstrella(CW, CH){
     var rapida = Math.random() < 0.45;
-    var ang = (Math.random() < 0.5 ? 1 : -1) * (0.35 + Math.random() * 0.9);   // diagonal, hacia abajo
-    var sentido = Math.random() < 0.5 ? 1 : -1;
     var vel = rapida ? 150 + Math.random() * 110 : 45 + Math.random() * 40;       // pixeles de lienzo por segundo
-    var vx = Math.cos(ang) * vel * sentido, vy = Math.abs(Math.sin(ang)) * vel;
+    // nace fuera de la pantalla, por un borde al azar, y apunta hacia un punto cualquiera
+    // del interior: la direccion puede ser cualquiera (arriba, abajo, izquierda, derecha...)
+    var lado = (Math.random() * 4) | 0, x, y;
+    if (lado === 0){ x = Math.random() * CW; y = -4; }
+    else if (lado === 1){ x = CW + 4; y = Math.random() * CH; }
+    else if (lado === 2){ x = Math.random() * CW; y = CH + 4; }
+    else { x = -4; y = Math.random() * CH; }
+    var tx = CW * (0.1 + Math.random() * 0.8), ty = CH * (0.1 + Math.random() * 0.8);
+    var ang = Math.atan2(ty - y, tx - x) + (Math.random() - 0.5) * 0.5;
     return {
-      x: sentido > 0 ? -4 : CW + 4, y: Math.random() * CH * 0.65,
-      vx: vx, vy: vy,
+      x: x, y: y,
+      vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel,
       largo: rapida ? 10 + Math.floor(Math.random() * 12) : 4 + Math.floor(Math.random() * 6),
       h: TONOS[(Math.random() * TONOS.length) | 0],
       a: 0.55 + Math.random() * 0.4
@@ -179,7 +186,7 @@
       estrellas.push(nuevaEstrella(CW, CH)); ultimoSpawn = ms;
     }
     estrellas.forEach(function(s){ s.x += s.vx * dt; s.y += s.vy * dt; });
-    estrellas = estrellas.filter(function(s){ return s.x > -40 && s.x < CW + 40 && s.y < CH + 20; });
+    estrellas = estrellas.filter(function(s){ return s.x > -50 && s.x < CW + 50 && s.y > -50 && s.y < CH + 50; });
   }
   function dibujarEstrellas(){
     ctx.save();

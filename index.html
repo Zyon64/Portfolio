@@ -652,6 +652,10 @@
   .replay{position:fixed;top:14px;right:12px;bottom:auto;left:auto;z-index:101}
   /* el hover de los botones le bajaba el z-index a 2: quedaba debajo de la barra y no recibia el click */
   .replay:hover,.replay:active{z-index:101}
+  /* boton de musica: igual que el de replay pero en la esquina izquierda */
+  .musica{left:12px;right:auto}
+  .musica::before{content:"♪"}
+  .musica.off::before{opacity:.35}
   .topbar{padding-left:56px;padding-right:56px;flex-wrap:wrap}
   .topbar a,.topbar .copiar{flex:0 0 auto}
   @media (max-width:520px){.topbar{padding-left:46px;padding-right:46px}}
@@ -2439,6 +2443,7 @@ window.VIDRIO = {
 </script>
 <script src="fondo.js"></script>
 <script src="bordes.js"></script>
+<script src="musica.js"></script>
 <script src="vidrio.js"></script>
 <script src="onda.js"></script>
 </body>

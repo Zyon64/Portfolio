@@ -1,0 +1,7 @@
+Pon aqui la musica de fondo del portafolio con el nombre  musica.mp3
+(tambien se acepta musica.ogg o musica.wav). Si no hay archivo, la pagina
+simplemente no muestra el boton de musica.
+
+Recomendado: MP3 de ~3-6 MB (192 kbps). Un WAV pesa 10 veces mas y hace lenta la pagina.
+Usa solo musica con licencia que lo permita (p. ej. la Biblioteca de audio de YouTube
+Studio, Pixabay Music, Free Music Archive) y respeta la atribucion si la piden.
