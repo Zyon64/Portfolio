@@ -27,9 +27,9 @@
   /* Mejoras: cada una cuenta cuantas veces se eligio (m[clave]). Las curvas 1-exp(-n/k) suben rapido
      y se acercan a un tope, asi escalan a largo plazo sin romper el juego. */
   var MEJORAS = {
-    cad:      { nombre:'FIRE RATE',    desc:'Shoots faster',                tope:60 },
+    cad:      { nombre:'FIRE RATE',    desc:'+20% fire rate',               tope:12 },
     dano:     { nombre:'DAMAGE',       desc:'Bullets hit harder',           tope:999 },
-    tam:      { nombre:'BULLET SIZE',  desc:'Bigger bullets',               tope:40 },
+    tam:      { nombre:'BULLET SIZE',  desc:'Bigger bullets, bigger hitbox', tope:10 },
     balas:    { nombre:'EXTRA SHOT',   desc:'+1 bullet per burst',          tope:9 },
     lineas:   { nombre:'EXTRA LINE',   desc:'+1 parallel line of bullets',  tope:4 },
     perf:     { nombre:'PIERCE',       desc:'Bullets go through +1',        tope:10 },
@@ -58,9 +58,9 @@
   function stats(m){
     var k = function(n, c){ return 1 - Math.exp(-n / c); };
     return {
-      cad:    1.8 + 9 * k(m.cad, 9),                  // rafagas por segundo: 1.8 -> 10.8
+      cad:    Math.min(14, 1.8 * Math.pow(1.2, m.cad)),   // rafagas por segundo: +20% por mejora (tope 14)
       dano:   1 + 0.5 * m.dano,                       // sin tope
-      tam:    1 + 2.2 * k(m.tam, 8),                  // tamaño de bala (unidades): 1 -> 3.2
+      tam:    1 + 0.4 * m.tam,                        // tamaño de bala (unidades): +0.4 por mejora
       balas:  1 + m.balas,                            // balas por rafaga
       lineas: 1 + m.lineas,                           // lineas paralelas de balas
       perf:   m.perf,                                 // enemigos que atraviesa
@@ -801,25 +801,33 @@
         }
         sfx.oleada(); mostrarAviso('<b>WAVE</b> · ' + n + ' enemies from every side', true, 2400);
       } else if (tipo === 'enjambre'){
-        var grupos = 4 + ((nivel / 8) | 0);
+        // grupos repartidos por LOS CUATRO lados (arriba, derecha, abajo, izquierda), mas algunos extra al azar
+        var grupos = 4 + ((nivel / 8) | 0), lados = [[0, W], [W, H], [W + H, W], [2 * W + H, H]];
         for (var g = 0; g < grupos; g++){
-          var base = puntoBorde(Math.random() * per, 12);
+          var seg = lados[g % 4], base = puntoBorde(seg[0] + 2 + Math.random() * Math.max(1, seg[1] - 4), 12);
           for (var j = 0; j < 9; j++) crearEnemigo(base[0] + (Math.random() - 0.5) * 14, base[1] + (Math.random() - 0.5) * 14, 'orbital');
         }
         sfx.oleada(); mostrarAviso('<b>SWARM</b> · they circle and close in', true, 2400);
       } else {
-        var lado = (Math.random() * 4) | 0, horiz = lado % 2 === 0, largo = horiz ? W : H;
-        var cuantos = Math.floor(largo / 12), hueco = (Math.random() * (cuantos - 4)) | 0, v = 38;
-        for (var m2 = 0; m2 < cuantos; m2++){
-          if (m2 >= hueco && m2 < hueco + 4) continue;                    // el hueco para escapar
-          var pos = (m2 + 0.5) * largo / cuantos, wx, wy, vx = 0, vy = 0;
-          if (lado === 0){ wx = pos; wy = -10; vy = v; }
-          else if (lado === 2){ wx = pos; wy = H + 10; vy = -v; }
-          else if (lado === 1){ wx = W + 10; wy = pos; vx = -v; }
-          else { wx = -10; wy = pos; vx = v; }
-          crearEnemigo(wx, wy, 'muro').lin = { vx:vx, vy:vy };
-        }
-        sfx.oleada(); mostrarAviso('<b>WALL</b> · find the gap', true, 2400);
+        // dos muros a la vez, desde lados OPUESTOS, cada uno con su propio hueco
+        var lado0 = (Math.random() * 4) | 0;
+        muroDe(lado0); muroDe((lado0 + 2) % 4);
+        sfx.oleada(); mostrarAviso('<b>WALLS</b> · find the gaps', true, 2400);
+      }
+    }
+    /* Un muro de bloques que cruza la pantalla en linea recta, con un hueco de 4 para escapar.
+       lado: 0 arriba, 1 derecha, 2 abajo, 3 izquierda. */
+    function muroDe(lado){
+      var horiz = lado % 2 === 0, largo = horiz ? W : H, v = 38;
+      var cuantos = Math.floor(largo / 12), hueco = (Math.random() * (cuantos - 4)) | 0;
+      for (var m2 = 0; m2 < cuantos; m2++){
+        if (m2 >= hueco && m2 < hueco + 4) continue;
+        var pos = (m2 + 0.5) * largo / cuantos, wx, wy, vx = 0, vy = 0;
+        if (lado === 0){ wx = pos; wy = -10; vy = v; }
+        else if (lado === 2){ wx = pos; wy = H + 10; vy = -v; }
+        else if (lado === 1){ wx = W + 10; wy = pos; vx = -v; }
+        else { wx = -10; wy = pos; vx = v; }
+        crearEnemigo(wx, wy, 'muro').lin = { vx:vx, vy:vy };
       }
     }
     function disparoEnemigo(e, ux, uy){
@@ -932,7 +940,7 @@
       for (var li = 0; li < s.lineas; li++){
         var off = (li - (s.lineas - 1) / 2) * 3.4;
         balas.push({ x:P.x + nx * off, y:P.y + ny * off, vx:Math.cos(an) * s.vel, vy:Math.sin(an) * s.vel,
-                     d:s.dano, r:s.tam / 2, t:Math.max(1, Math.round(s.tam)), p:s.perf, golpes:[], vida:2.2 });
+                     d:s.dano, r:s.tam / 2 + 1.2, t:Math.max(1, Math.round(s.tam)), p:s.perf, golpes:[], vida:2.2 });
       }
     }
 
@@ -988,7 +996,7 @@
           break;
         }
         case 'bomba': {                                    // dano grande en una gran area
-          var R = 78, dmg = s.dano * 6 + nivel * 2;
+          var R = 78, dmg = s.dano * 5;                 // exactamente 5 veces tu dano actual
           sfx.bomba(); anillo(o.x, o.y, 60, R / 0.45, 0.45, '#ffa23d');
           anillo(o.x, o.y, 36, R / 0.7, 0.5, '#fff3c4');
           enemigos.slice().forEach(function(e){
@@ -997,7 +1005,7 @@
           mostrarAviso('<b>BOMB</b>');
           break;
         }
-        case 'tiempo':  sfx.tiempo(); efectos.tiempo = s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · enemies frozen'); break;
+        case 'tiempo':  sfx.tiempo(); ebalas = []; efectos.tiempo = s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · enemies frozen'); break;
         case 'burbuja': sfx.burbuja(); efectos.burbuja = s.dur; mostrarAviso('<b>SHIELD</b> · no damage'); break;
         case 'rayo':    sfx.rayoOn(); efectos.rayo = s.dur; rayoT = 0; mostrarAviso('<b>STORM</b> · lightning strikes'); break;
         case 'barrido': sfx.barrido(); barrido = { eje:(Math.random() < 0.5 ? 'x' : 'y'), pos:-4, vel:0 };
@@ -1089,10 +1097,13 @@
         rafagaT = 0;
       } else if (acum >= 1 && rafaga === 0) acum = 1;       // sin objetivo, queda lista
       if (rafaga > 0){
+        // la rafaga entera dura como maximo el 60% del periodo: asi subir la cadencia siempre acelera
+        // el disparo, aunque lleves muchas balas por rafaga (antes la rafaga limitaba la cadencia)
+        var esp = Math.min(0.09, 0.6 / (s.cad * s.balas));
         rafagaT -= dt;
-        if (rafagaT <= 0){
+        while (rafaga > 0 && rafagaT <= 0){
           var obj = masCercano();
-          if (obj){ dispararA(obj, s); rafaga--; rafagaT = 0.09; } else rafaga = 0;
+          if (obj){ dispararA(obj, s); rafaga--; rafagaT += esp; } else rafaga = 0;
         }
       }
 
