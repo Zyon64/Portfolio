@@ -31,12 +31,16 @@
 
   /* Zona con scroll bajo el cursor: el ancestro desplazable mas cercano */
   function zona(el){
+    if (!el || !el.closest) return null;
+    // un panel que tapa la pagina (detalle) es su propia zona aunque no tenga scroll:
+    // si no, se miraria el scroll de la pagina de atras y el brillo nunca saldria
+    var cubre = el.closest('.detalle');
     while (el && el !== document.body && el !== document.documentElement){
       var s = getComputedStyle(el);
       if (/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 1) return el;
       el = el.parentElement;
     }
-    return null;
+    return cubre;
   }
   function enTope(z){ return z ? z.scrollTop <= 0 : window.scrollY <= 0; }
   function enFondo(z){

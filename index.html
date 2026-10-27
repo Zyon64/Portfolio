@@ -2031,8 +2031,9 @@ prototype of fnaf
     es.forEach(function(e){
       var v = e.target;
       if (e.isIntersecting){
-        if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src;
-        if (!v.__manual){ var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+        // portada: solo carga hasta un cuadro fijo (#t=0.5) y espera al hover; detalle: reproduce
+        if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src + (v.dataset.cover ? '#t=0.5' : '');
+        if (!v.dataset.cover && !v.__manual){ var p = v.play(); if (p && p.catch) p.catch(function(){}); }
       } else if (!v.paused){ v.pause(); }
     });
   }, { rootMargin:'150px' }) : null;
@@ -2052,8 +2053,9 @@ prototype of fnaf
     if (video){
       media = document.createElement('video');
       media.muted = media.loop = media.playsInline = true;
-      media.preload = 'none';
+      media.preload = conSello ? 'metadata' : 'none';
       media.dataset.src = src;      // el src real se pone cuando entra a la vista
+      if (conSello) media.dataset.cover = '1';   // portada: cuadro fijo, se reproduce solo con el cursor encima
       media.controls = false;                      // en el detalle van los controles de vidrio
 
       /* Un video tarda en arrancar: mostramos que esta cargando
@@ -2172,6 +2174,23 @@ prototype of fnaf
     card.appendChild(thumb);
 
     card.addEventListener('click', function(){ abrirDetalle(p); });
+
+    /* La portada de video es un cuadro fijo; solo se reproduce con el cursor (o el foco) encima */
+    function videoDe(){ return thumb.querySelector('video'); }
+    function reproducir(){
+      var v = videoDe(); if (!v) return;
+      if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src + '#t=0.5';
+      var pr = v.play(); if (pr && pr.catch) pr.catch(function(){});
+    }
+    function detener(){
+      var v = videoDe(); if (!v) return;
+      v.pause();
+      try { if (v.readyState > 0) v.currentTime = 0.5; } catch(e){}
+    }
+    card.addEventListener('mouseenter', reproducir);
+    card.addEventListener('mouseleave', detener);
+    card.addEventListener('focus', reproducir);
+    card.addEventListener('blur', detener);
     card.addEventListener('keydown', function(e){
       if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); abrirDetalle(p); }
     });
