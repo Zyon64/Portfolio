@@ -530,7 +530,7 @@
   .topbar a:hover,.topbar .copiar:hover,.cat:hover,.replay:hover,
   .volver:hover,.copiar-link:hover,.detalle-link:hover,.s-btn:hover{
     scale:1.05;z-index:2;
-    animation:burbuja 2.9s ease-in-out infinite,deriva 3.7s ease-in-out infinite,giro 4.3s ease-in-out infinite;
+    animation:none;
     background:rgba(var(--b),.11);
     /* mini blur de luz del color del boton en los bordes */
     box-shadow:
@@ -632,7 +632,7 @@
   .card{top:0;transition:top .4s cubic-bezier(.3,1.4,.5,1),background .25s,box-shadow .25s,scale .4s cubic-bezier(.3,1.4,.5,1)}
   .card:hover{
     transform:none;top:-5px;scale:1.012;
-    animation:burbujaG 3.4s ease-in-out infinite,deriva 4.1s ease-in-out infinite,giro 5.2s ease-in-out infinite;
+    animation:none;
   }
   @keyframes burbujaG{
     0%,100%{transform:scale(1,1)}
@@ -645,10 +645,13 @@
   .pre{opacity:0}
   .w{display:inline-block;white-space:nowrap}
   .cp{display:inline-block;opacity:0}
-  .listo .cp{opacity:1}
+  .go .cp{animation:cpop .34s cubic-bezier(.2,.9,.3,1) both}
+  @keyframes cpop{0%{transform:scale(.2);opacity:0}50%{transform:scale(1.35);opacity:1}100%{transform:scale(1);opacity:1}}
 
   /* El boton de replay es fijo: el bloque de vidrio le habia puesto relative */
   .replay{position:fixed;top:14px;right:12px;bottom:auto;left:auto;z-index:101}
+  /* el hover de los botones le bajaba el z-index a 2: quedaba debajo de la barra y no recibia el click */
+  .replay:hover,.replay:active{z-index:101}
   .topbar{padding-left:56px;padding-right:56px;flex-wrap:wrap}
   .topbar a,.topbar .copiar{flex:0 0 auto}
   @media (max-width:520px){.topbar{padding-left:46px;padding-right:46px}}
@@ -1104,17 +1107,20 @@ prototype of fnaf
       return;
     }
     el.animate([
-      { transform:'scale(.08)', opacity:0, filter:'blur(12px)', offset:0,   easing:'cubic-bezier(.2,.9,.3,1)' },
-      { transform:'scale(1.22)', opacity:1, filter:'blur(1px)',  offset:.42, easing:'cubic-bezier(.4,0,.3,1)' },
-      { transform:'scale(.94)',  opacity:1, filter:'blur(0px)',  offset:.72, easing:'ease-out' },
-      { transform:'scale(1)',    opacity:1, filter:'blur(0px)',  offset:1 }
-    ], { duration:520, delay:demora || 0, fill:'backwards' });
+      { transform:'scale(.1)',  opacity:0, offset:0,   easing:'cubic-bezier(.2,.9,.3,1)' },
+      { transform:'scale(1.2)', opacity:1, offset:.42, easing:'cubic-bezier(.4,0,.3,1)' },
+      { transform:'scale(.95)', opacity:1, offset:.72, easing:'ease-out' },
+      { transform:'scale(1)',   opacity:1, offset:1 }
+    ], { duration:480, delay:demora || 0, fill:'backwards' });
   };
 
-  /* Parte el texto en palabras y caracteres (conserva <strong>, etc.) */
+  /* Parte el texto en unidades que hacen pop: caracteres en textos cortos, palabras
+     en textos largos (cientos de animaciones por caracter se pegaban al cargar). */
   function partir(el){
     if (el.__chars) return el.__chars;
-    var chars = [];
+    el.__orig = el.innerHTML;                       // para volver a texto normal al terminar
+    var porPalabra = el.textContent.length > 140;
+    var unidades = [];
     var tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
     var nodos = [], n;
     while ((n = tw.nextNode())) if (n.nodeValue.trim()) nodos.push(n);
@@ -1124,43 +1130,39 @@ prototype of fnaf
         if (!parte) return;
         if (/^\s+$/.test(parte)){ frag.appendChild(document.createTextNode(parte)); return; }
         var w = document.createElement('span'); w.className = 'w';
-        for (var i = 0; i < parte.length; i++){
-          var c = document.createElement('span'); c.className = 'cp'; c.textContent = parte[i];
-          w.appendChild(c); chars.push(c);
+        if (porPalabra){
+          w.className = 'w cp'; w.textContent = parte; unidades.push(w);
+        } else {
+          for (var i = 0; i < parte.length; i++){
+            var c = document.createElement('span'); c.className = 'cp'; c.textContent = parte[i];
+            w.appendChild(c); unidades.push(c);
+          }
         }
         frag.appendChild(w);
       });
       nodo.parentNode.replaceChild(frag, nodo);
     });
-    el.__chars = chars;
-    return chars;
+    el.__chars = unidades;
+    return unidades;
   }
 
-  window.textoPop = function(el, demora, ya){
-    if (el && el.__texto && !el.querySelector('.cp')){ el.__texto = false; el.__chars = null; el.classList.remove('listo'); }
+  /* El pop de cada unidad lo hace CSS (animation-delay escalonado): no se crea un
+     objeto de animacion por caracter. */
+  window.textoPop = function(el, demora){
+    if (el && el.__texto && !el.querySelector('.cp')){ el.__texto = false; el.__chars = null; el.classList.remove('listo', 'go'); }
     if (!el || el.__texto) return;
     if (!puede()) return;
     el.__texto = true;
-    el.__html = el.innerHTML;
-    var chars = partir(el);
-    if (!chars.length) return;
-    var paso = Math.max(5, Math.min(24, 1100 / chars.length));
-    var ultima = null;
-    chars.forEach(function(c, i){
-      if (!c.animate) return;
-      ultima = c.animate([
-        { transform:'scale(.2)',  opacity:0, filter:'blur(5px)', offset:0,  easing:'cubic-bezier(.2,.9,.3,1)' },
-        { transform:'scale(1.35)', opacity:1, filter:'blur(0px)', offset:.5, easing:'ease-out' },
-        { transform:'scale(1)',   opacity:1, filter:'blur(0px)', offset:1 }
-      ], { duration:340, delay:(demora || 0) + i * paso, fill:'both' });
-    });
-    var listo = function(){
-      if (el.__html === undefined) return;
-      el.innerHTML = el.__html; el.__html = undefined; el.__chars = null;   // vuelve a texto normal
-      el.classList.add('listo');
-    };
-    if (ultima) ultima.finished.then(listo, listo); else listo();
-    setTimeout(listo, (demora || 0) + chars.length * paso + 1500);
+    var unidades = partir(el);
+    if (!unidades.length) return;
+    var paso = Math.max(5, Math.min(24, 1100 / unidades.length));
+    unidades.forEach(function(c, i){ c.style.animationDelay = ((demora || 0) + i * paso) + 'ms'; });
+    el.classList.add('go');
+    setTimeout(function(){
+      if (el.__orig === undefined) return;
+      el.innerHTML = el.__orig; el.__orig = undefined; el.__chars = null;   // vuelve a texto normal
+      el.classList.remove('go'); el.classList.add('listo');
+    }, (demora || 0) + unidades.length * paso + 450);
   };
 
   /* Prepara (oculta) un texto para que no se vea antes de su turno */
@@ -1382,36 +1384,47 @@ prototype of fnaf
     }).catch(function(){}).then(function(){ ocupado.delete(b); });
   }, true);
 
-  /* Al salir del hover la burbuja no se corta: parte de la forma en que
-     estaba y se asienta suave hasta quedar estatica. */
+  /* Burbuja de hover controlada por JS: la oscilacion depende solo del TIEMPO y su
+     amplitud sube/baja suave segun haya hover o no. Asi entrar, salir y volver a
+     entrar rapido (incluso entre botones distintos) nunca corta ni reinicia nada:
+     la forma es siempre continua. */
   var BURBUJAS = '.topbar a, .card, .topbar .copiar, .cat, .replay, .volver, .copiar-link, .detalle-link, .s-btn';
-  // mientras hay hover se muestrea la forma actual: al salir, el estilo ya no
-  // tiene la animacion, asi que se parte de la ultima muestra
-  var muestra = new WeakMap(), vigilados = new Set();
-  function vigilar(){
-    vigilados.forEach(function(b){
-      var cs = getComputedStyle(b);
-      muestra.set(b, { transform:cs.transform, translate:cs.translate, rotate:cs.rotate });
+  var est = new Map(), corre = false;
+  function lazo(now){
+    var t = now / 1000;
+    est.forEach(function(s, el){
+      var obj = s.hover ? 1 : 0;
+      s.a += (obj - s.a) * (obj ? 0.12 : 0.06);          // sube rapido, se asienta despacio
+      if (!s.hover && s.a < 0.004){
+        el.style.transform = ''; el.style.translate = ''; el.style.rotate = '';
+        est.delete(el); return;
+      }
+      if (ocupado.has(el)) return;                        // el pop del click manda
+      var k = s.a * s.k, u = t + s.fase;
+      var sx = 1 + k * (0.055 * Math.sin(u * 2.2) + 0.03 * Math.sin(u * 3.3 + 1));
+      var sy = 1 + k * (-0.055 * Math.sin(u * 2.2) + 0.03 * Math.sin(u * 2.7 + 2));
+      el.style.transform = 'scale(' + sx.toFixed(4) + ',' + sy.toFixed(4) + ')';
+      el.style.translate = (1.6 * k * Math.sin(u * 1.7)).toFixed(2) + 'px ' + (2 * k * Math.sin(u * 1.3 + 1)).toFixed(2) + 'px';
+      el.style.rotate = (0.8 * k * Math.sin(u * 1.5)).toFixed(3) + 'deg';
     });
-    if (vigilados.size) requestAnimationFrame(vigilar);
+    if (est.size) requestAnimationFrame(lazo); else corre = false;
   }
+  function arrancarLazo(){ if (!corre){ corre = true; requestAnimationFrame(lazo); } }
+
   document.addEventListener('mouseover', function(e){
     var b = e.target.closest && e.target.closest(BURBUJAS);
-    if (!b || vigilados.has(b)) return;
-    vigilados.add(b);
-    if (vigilados.size === 1) requestAnimationFrame(vigilar);
+    if (!b) return;
+    var s = est.get(b);
+    if (!s){ s = { a:0, hover:true, fase:Math.random() * 6.28, k:b.classList.contains('card') ? 0.25 : 1 }; est.set(b, s); }
+    s.hover = true;
+    arrancarLazo();
   });
   document.addEventListener('mouseout', function(e){
     var b = e.target.closest && e.target.closest(BURBUJAS);
-    if (!b || !b.animate) return;
+    if (!b) return;
     if (e.relatedTarget && b.contains(e.relatedTarget)) return;
-    vigilados.delete(b);
-    var desde = muestra.get(b);
-    if (!desde || ocupado.has(b)) return;
-    b.animate([
-      desde,
-      { transform:'none', translate:'0 0', rotate:'0deg' }
-    ], { duration:700, easing:'cubic-bezier(.2,.8,.2,1)' });
+    var s = est.get(b);
+    if (s) s.hover = false;
   });
 })();
 </script>
