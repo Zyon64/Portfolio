@@ -36,6 +36,14 @@
     '  background:transparent;opacity:.55;z-index:6;-webkit-tap-highlight-color:transparent;' +
     '  filter:drop-shadow(0 0 5px rgba(61,220,132,.6));transition:transform .15s,opacity .2s}' +
     '.z-pie.toque{transform:scale(1.35);opacity:1}' +
+    /* llamar la atencion: la Z late y suelta un aro que se expande, para que la noten */
+    '@keyframes z-late{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}' +
+    '@keyframes z-aro{0%{transform:scale(.7);opacity:.75}100%{transform:scale(2.1);opacity:0}}' +
+    '.z-secreta svg,.z-pie svg{animation:z-late 1.5s ease-in-out infinite}' +
+    '.z-secreta::after,.z-pie::after{content:"";position:absolute;inset:-4px;border:2px solid rgba(61,220,132,.8);' +
+    '  border-radius:50%;pointer-events:none;animation:z-aro 1.8s ease-out infinite}' +
+    '.z-pie{opacity:.9!important}' +
+    '@media (prefers-reduced-motion:reduce){.z-secreta svg,.z-pie svg,.z-secreta::after,.z-pie::after{animation:none}}' +
     '.z-circulo{position:fixed;z-index:100002;border-radius:50%;background:#000;pointer-events:auto}' +
     '.z-juego{position:fixed;inset:0;z-index:100003;display:grid;place-items:center;text-align:center;' +
     '  color:#dbe7e0;font-family:"Cascadia Code","JetBrains Mono",Consolas,monospace}' +

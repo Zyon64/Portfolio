@@ -192,6 +192,17 @@
   '.jg-lista b{color:#fff;float:right}' +
   '.jg-modal-acciones{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}' +
   '.jg-modal-acciones .jg-btn{width:auto;height:auto;padding:10px 22px;border-radius:999px;font-size:.85rem;letter-spacing:.06em}' +
+  '.jg-rank{display:flex;flex-direction:column;gap:3px;margin:12px 0 0;min-width:min(78vw,300px)}' +
+  '.jg-fr{display:grid;grid-template-columns:44px 20px 1fr auto;gap:8px;align-items:center;padding:6px 12px;border-radius:14px;' +
+  '  font-size:.8rem;color:#b9c9c0;text-align:left}' +
+  '.jg-fr i{display:grid;place-items:center;color:#7d968a}.jg-fr em{font-style:normal}.jg-fr b{color:#fff}' +
+  '.jg-fr.me{background:rgba(61,220,132,.16);color:#fff}.jg-fr.me i{color:' + VERDE + '}' +
+  '.jg-puntos-r{color:#4a5c53;font-size:.8rem;line-height:1}' +
+  '.jg-nombre{display:block;margin:10px auto 0;width:150px;padding:10px 14px;border:0;border-radius:999px;text-align:center;' +
+  '  font:inherit;font-size:1rem;letter-spacing:.3em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.07);' +
+  '  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);outline:none;cursor:text}' +
+  '.jg-nombre:focus{box-shadow:inset 0 0 0 1px ' + VERDE + '}' +
+  '.jg-btn.off{opacity:.4}' +
   '.jg-cartas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:18px}' +
   '.jg-carta{pointer-events:auto;width:176px;border:0;border-radius:24px;padding:18px 14px;color:#eaf3ee;cursor:pointer;' +
   '  font:inherit;text-align:center;transition:background .2s,scale .3s cubic-bezier(.3,1.5,.5,1)}' +
@@ -222,6 +233,103 @@
   '  .jg-lista{grid-template-columns:1fr}' +
   '}';
 
+  /* ---------------------------  RANKING (jugadores inventados + los tuyos)  --------------------------- */
+  var NOMBRES = 'NOVA KIRO ZAP LUNA MIKO TEJO BYTE ORCA RIX DANI PIXEL JUNO KAI FERN TOMI ECHO SOL ARIA LUCA NEON RAVEN YUKI MAX ZEKE HERO CODY LILI BOLT ONYX PEPE VEGA SAM NICO ROCA TINA AXEL MOCHI DUKE FLUX IVY KOBE LEO MIA NOOK OTTO PIP QUIN RUBI STAN TAKO UMA VIK WILL XENO YAGO ZOE ALEX BRUNO CHEF DINO ELIO FIFI GOKU HANA INK JAKE KIKI LOLA MARC NANA OWEN PACO TOBY ELLA'.split(' ');
+  /* Puntajes "normalitos", fijos (generador con semilla): ni muy altos ni muy bajos. Un buen
+     intento puede llegar al podio. d: 'p' = PC, 'm' = movil. */
+  var FALSOS = (function(){
+    var seed = 20240611;
+    function rnd(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+    return NOMBRES.map(function(n, i){
+      return { id:'f' + i, n:n, s:Math.round((120 + 3250 * Math.pow(rnd(), 1.9)) / 5) * 5, d:(rnd() < 0.46 ? 'm' : 'p') };
+    });
+  })();
+  /* Puntaje de una partida: kills, nivel alcanzado y tiempo sobrevivido. */
+  function puntaje(nivel, kills, t){ return kills * 10 + nivel * 50 + Math.floor(t * 2); }
+  function propios(){ try { return JSON.parse(localStorage.getItem('juegoZ_rank') || '[]'); } catch(e){ return []; } }
+  function guardarPropio(e){
+    var l = propios(); l.push(e); l = l.slice(-40);
+    try { localStorage.setItem('juegoZ_rank', JSON.stringify(l)); } catch(x){}
+  }
+  var ICO_PC  = '<svg viewBox="0 0 12 10" width="14" height="12"><rect x="1" y="1" width="10" height="6" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4" y="8" width="4" height="1.3" fill="currentColor"/></svg>';
+  var ICO_MOV = '<svg viewBox="0 0 8 12" width="10" height="14"><rect x="1" y="1" width="6" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="9" width="2" height="1.1" fill="currentColor"/></svg>';
+  /* Tabla ordenada: jugadores inventados + tus entradas guardadas + (opcional) una temporal. */
+  function tabla(yo){
+    var l = FALSOS.slice();
+    propios().forEach(function(e){ l.push({ id:'o' + e.f, n:e.n, s:e.s, d:e.d, yo:true }); });
+    if (yo && yo.temp) l.push({ id:'yo', n:'YOU', s:yo.s, d:yo.d, yo:true });
+    l.sort(function(a, b){ return b.s - a.s || (b.yo ? 1 : 0) - (a.yo ? 1 : 0); });
+    return l;
+  }
+  /* "Estas en el puesto N del mundo" + las filas cercanas (el top 3 y tus vecinos). */
+  function htmlRanking(yo){
+    var l = tabla(yo), idx = -1;
+    for (var i = 0; i < l.length; i++) if (l[i].id === yo.id) idx = i;
+    if (idx < 0) idx = l.length - 1;
+    var mostrar = {};
+    [0, 1, 2].forEach(function(k){ mostrar[k] = 1; });
+    for (var k = idx - 2; k <= idx + 2; k++) if (k >= 0 && k < l.length) mostrar[k] = 1;
+    var h = '<div class="jg-rank">', prev = -1;
+    Object.keys(mostrar).map(Number).sort(function(a, b){ return a - b; }).forEach(function(i){
+      if (prev >= 0 && i > prev + 1) h += '<div class="jg-puntos-r">···</div>';
+      var e = l[i];
+      h += '<div class="jg-fr' + (i === idx ? ' me' : '') + '"><span>#' + (i + 1) + '</span><i>' + (e.d === 'm' ? ICO_MOV : ICO_PC) +
+           '</i><em>' + e.n + '</em><b>' + e.s + '</b></div>';
+      prev = i;
+    });
+    return { html:h + '</div>', pos:idx + 1, total:l.length };
+  }
+
+  /* ---------------------------  SONIDOS 8-bit (Web Audio, sin archivos)  --------------------------- */
+  var AC = null, NB = null, SFX_ON = true, ultimoSfx = {};
+  try { SFX_ON = localStorage.getItem('juegoZ_sfx') !== 'off'; } catch(e){}
+  function ac(){
+    if (!AC){
+      var C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      try { AC = new C(); } catch(e){ return null; }
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+  }
+  function lim(k, ms){ var n = performance.now(); if (n - (ultimoSfx[k] || 0) < ms) return false; ultimoSfx[k] = n; return true; }
+  function tono(f0, f1, dur, tipo, vol, delay){
+    if (!SFX_ON) return;
+    var a = ac(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = tipo || 'square';
+    o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function ruido(dur, vol, delay){
+    if (!SFX_ON) return;
+    var a = ac(); if (!a) return;
+    if (!NB){ NB = a.createBuffer(1, a.sampleRate, a.sampleRate); var d = NB.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    var t = a.currentTime + (delay || 0), s = a.createBufferSource(), g = a.createGain();
+    s.buffer = NB; g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(g); g.connect(a.destination); s.start(t); s.stop(t + dur + 0.02);
+  }
+  var sfx = {
+    disparo: function(){ if (lim('d', 55)) tono(780, 420, 0.05, 'square', 0.02); },
+    golpe:   function(){ if (lim('g', 45)) tono(220, 140, 0.04, 'square', 0.022); },
+    matar:   function(){ tono(300, 90, 0.12, 'square', 0.05); ruido(0.06, 0.03); },
+    dano:    function(){ tono(180, 60, 0.25, 'sawtooth', 0.07); ruido(0.18, 0.06); },
+    nivel:   function(){ [523, 659, 784, 1047].forEach(function(f, i){ tono(f, null, 0.1, 'square', 0.05, i * 0.08); }); },
+    elegir:  function(){ tono(660, 990, 0.1, 'triangle', 0.06); },
+    cura:    function(){ tono(523, null, 0.07, 'triangle', 0.06); tono(784, null, 0.12, 'triangle', 0.06, 0.07); },
+    bomba:   function(){ ruido(0.5, 0.12); tono(140, 40, 0.45, 'sawtooth', 0.09); },
+    tiempo:  function(){ tono(900, 200, 0.5, 'triangle', 0.07); },
+    burbuja: function(){ tono(400, 1000, 0.25, 'sine', 0.07); },
+    rayoOn:  function(){ tono(1200, 300, 0.2, 'sawtooth', 0.06); ruido(0.15, 0.05); },
+    zap:     function(){ if (lim('z', 90)){ ruido(0.08, 0.05); tono(1500, 200, 0.08, 'sawtooth', 0.04); } },
+    alarma:  function(){ tono(660, null, 0.15, 'square', 0.06); tono(440, null, 0.15, 'square', 0.06, 0.18); tono(660, null, 0.15, 'square', 0.06, 0.36); },
+    oleada:  function(){ tono(110, 70, 0.5, 'sawtooth', 0.08); },
+    click:   function(){ tono(520, null, 0.04, 'square', 0.04); },
+    fin:     function(){ [392, 330, 262, 196].forEach(function(f, i){ tono(f, f * 0.97, 0.22, 'square', 0.06, i * 0.2); }); }
+  };
+
   function fmt(t){ var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
 
   /* =====================================  JUEGO  ===================================== */
@@ -241,7 +349,8 @@
             '<div class="jg-efectos" data-n="efectos"></div>' +
           '</div>' +
           '<div class="jg-der">' +
-            '<div class="jg-fila"><button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' +
+            '<div class="jg-fila"><button class="jg-btn' + (SFX_ON ? '' : ' off') + '" data-a="sonido" aria-label="Sound">♪</button>' +
+            '<button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' +
             '<button class="jg-btn" data-a="salir" aria-label="Exit">X</button></div>' +
             '<div class="jg-stats">' +
               '<div class="jg-fila"><div class="jg-chip">RATE <b data-n="cad">1.8</b>/s</div>' +
@@ -286,13 +395,13 @@
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
     var P, enemigos, balas, parts, objetos, rayos, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
-        fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, lento, efectos, rayoT, efectosTxt, slotCerco;
+        fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
     var tactil = window.matchMedia('(pointer: coarse)').matches;
     var tx = 0, ty = 0;                                  // hacia donde apunta el cursor (unidades)
 
     function reiniciar(){
       m = { cad:0, dano:0, tam:0, balas:0, lineas:0, perf:0, vel:0, vida:0, reg:0, cura:0, suerte:0, duracion:0 };
-      nivel = 1; xp = 0; kills = 0; tiempo = 0; acum = 0; rafaga = 0; rafagaT = 0; spawnT = 0.6; inv = 0; lento = 0;
+      nivel = 1; xp = 0; kills = 0; tiempo = 0; acum = 0; rafaga = 0; rafagaT = 0; spawnT = 0.6; inv = 0; pulsoT = 1.2; pulsos = [];
       pausado = false; eligiendo = false; fin = false; pendientes = 0; ultimaMejora = null;
       oleadaT = OLEADA_PRIMERA; oleadaAvisada = false; rayoT = 0; efectosTxt = ''; slotCerco = 0;
       efectos = { tiempo:0, burbuja:0, rayo:0 };
@@ -339,6 +448,13 @@
         var c = caja.querySelectorAll('.jg-carta')[+e.key - 1]; if (c) c.click();
       }
     }
+    raiz.addEventListener('input', function(e){
+      if (e.target.classList && e.target.classList.contains('jg-nombre'))
+        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9_\-]/g, '').slice(0, 5);
+    });
+    raiz.addEventListener('keydown', function(e){
+      if (e.target.classList && e.target.classList.contains('jg-nombre') && e.key === 'Enter'){ e.preventDefault(); guardarNombre(); }
+    });
     document.addEventListener('keydown', tecla, true);
     function oculta(){ if (document.hidden && !fin && !pausado && !eligiendo) alternarPausa(); }
     document.addEventListener('visibilitychange', oculta);
@@ -348,18 +464,28 @@
       if (!b) return;
       e.stopPropagation();
       var a = b.getAttribute('data-a');
-      if (a === 'pausa') alternarPausa();
+      if (a !== 'mejora' && a !== 'sonido') sfx.click();
+      if (a === 'sonido'){
+        SFX_ON = !SFX_ON; b.classList.toggle('off', !SFX_ON);
+        try { localStorage.setItem('juegoZ_sfx', SFX_ON ? 'on' : 'off'); } catch(x){}
+        if (SFX_ON) sfx.click();
+      }
+      else if (a === 'guardar') guardarNombre();
+      else if (a === 'omitir') verRanking({ temp:true, s:puntos, d:tactil ? 'm' : 'p', id:'yo' }, 'fin');
+      else if (a === 'ranking') verRanking({ temp:true, s:puntaje(nivel, kills, tiempo), d:tactil ? 'm' : 'p', id:'yo' }, 'pausa');
+      else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
+      else if (a === 'pausa') alternarPausa();
       else if (a === 'seguir') alternarPausa();
       else if (a === 'reiniciar'){ reiniciar(); }
       else if (a === 'salir') cerrar();
       else if (a === 'mejora') elegir(b.getAttribute('data-k'));
     });
 
-    /* Al volver de un menu el jugador NO salta hacia el cursor (que esta sobre un boton): se
-       queda quieto, se mueve despacio un instante y es inmune un momento. */
+    /* Al volver de un menu el cursor esta sobre un boton: la Z espera donde estaba hasta que
+       muevas el mouse, y es inmune un momento para que el salto no te cueste vida. */
     function reanudar(){
       modal.hidden = true; raiz.classList.remove('menu'); ultimo = performance.now();
-      tx = P.x; ty = P.y; lento = 1.4; inv = Math.max(inv, 1.6);
+      tx = P.x; ty = P.y; inv = Math.max(inv, 1.6);
     }
 
     function listaStats(){
@@ -378,21 +504,45 @@
         caja.innerHTML = '<div class="jg-h">PAUSED</div><p>LV <b>' + nivel + '</b> · KILLS <b>' + kills + '</b> · <b>' + fmt(tiempo) + '</b></p>' +
           listaStats() +
           '<div class="jg-modal-acciones"><button class="jg-btn" data-a="seguir">RESUME</button>' +
-          '<button class="jg-btn" data-a="reiniciar">RESTART</button><button class="jg-btn" data-a="salir">EXIT</button></div>';
+          '<button class="jg-btn" data-a="ranking">RANKING</button><button class="jg-btn" data-a="reiniciar">RESTART</button>' +
+          '<button class="jg-btn" data-a="salir">EXIT</button></div>';
         modal.hidden = false;
       } else reanudar();
     }
 
+    var puntos = 0;
     function gameOver(){
-      fin = true;
+      fin = true; sfx.fin();
+      puntos = puntaje(nivel, kills, tiempo);
       var nuevo = nivel > mejor.nivel || (nivel === mejor.nivel && tiempo > mejor.tiempo);
       if (nuevo){ mejor = { nivel:nivel, tiempo:tiempo }; try { localStorage.setItem('juegoZ', JSON.stringify(mejor)); } catch(e){} }
       el('mejor').textContent = mejor.nivel;
       raiz.classList.add('menu');
-      caja.innerHTML = '<div class="jg-h">OVERRUN</div><p>LEVEL <b>' + nivel + '</b></p><p>KILLS <b>' + kills + '</b> · TIME <b>' + fmt(tiempo) + '</b></p>' +
-        '<p>BEST: LV <b>' + mejor.nivel + '</b> · <b>' + fmt(mejor.tiempo) + '</b>' + (nuevo ? ' · NEW!' : '') + '</p>' +
-        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="reiniciar">TRY AGAIN</button>' +
-        '<button class="jg-btn" data-a="salir">EXIT</button></div>';
+      var nombre = '';
+      try { nombre = localStorage.getItem('juegoZ_nombre') || ''; } catch(e){}
+      caja.innerHTML = '<div class="jg-h">OVERRUN</div><p>LEVEL <b>' + nivel + '</b> · KILLS <b>' + kills + '</b> · TIME <b>' + fmt(tiempo) + '</b></p>' +
+        '<p>SCORE <b>' + puntos + '</b></p><p>Name for the ranking (5 max)</p>' +
+        '<input class="jg-nombre" maxlength="5" value="' + nombre + '" placeholder="NAME" autocomplete="off" autocapitalize="characters" spellcheck="false">' +
+        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="guardar">SAVE</button><button class="jg-btn" data-a="omitir">SKIP</button></div>';
+      modal.hidden = false;
+      setTimeout(function(){ var i = caja.querySelector('.jg-nombre'); if (i) i.focus(); }, 60);
+    }
+    function guardarNombre(){
+      var i = caja.querySelector('.jg-nombre'), nombre = ((i && i.value) || '').trim() || 'ANON';
+      try { localStorage.setItem('juegoZ_nombre', nombre); } catch(e){}
+      var e = { n:nombre, s:puntos, d:tactil ? 'm' : 'p', f:Date.now() };
+      guardarPropio(e);
+      verRanking({ id:'o' + e.f, s:puntos }, 'fin');
+    }
+    /* Vista de ranking. modo 'fin': tras la partida. modo 'pausa': como vas ahora (sin guardar). */
+    function verRanking(yo, modo){
+      var r = htmlRanking(yo);
+      var txt = yo.temp ? (modo === 'pausa' ? 'At this pace you would be' : 'You would be') : "You're";
+      caja.innerHTML = '<div class="jg-h">RANKING</div><p>' + txt + ' <b>#' + r.pos + '</b> in the world · <b>' + yo.s + '</b> pts</p>' + r.html +
+        '<p style="font-size:.7rem;color:#5d7268">' + r.total + ' players</p>' +
+        '<div class="jg-modal-acciones">' + (modo === 'pausa'
+          ? '<button class="jg-btn" data-a="volverpausa">BACK</button>'
+          : '<button class="jg-btn" data-a="reiniciar">TRY AGAIN</button><button class="jg-btn" data-a="salir">EXIT</button>') + '</div>';
       modal.hidden = false;
     }
 
@@ -428,7 +578,7 @@
       return mezclar(res);
     }
     function ofrecer(){
-      eligiendo = true;
+      eligiendo = true; sfx.nivel();
       raiz.classList.add('menu');
       var elegidas = ofertas();
       var h = '<div class="jg-h">LEVEL ' + nivel + '</div><p>Choose an upgrade</p><div class="jg-cartas">';
@@ -442,7 +592,7 @@
     function elegir(k){
       if (!eligiendo || !MEJORAS[k]) return;
       var antes = stats(m).vida, txt = cambio(k, m);
-      m[k]++; ultimaMejora = k;
+      m[k]++; ultimaMejora = k; sfx.elegir();
       if (k === 'vida') hp += stats(m).vida - antes;               // +20 maximo tambien llena esos 20
       eligiendo = false;
       reanudar();
@@ -487,7 +637,7 @@
         else { x = -mg; y = H - (t - 2 * W - H); }
         crearEnemigo(x, y);
       }
-      mostrarAviso('<b>WAVE</b> · ' + n + ' enemies from every side', true, 2400);
+      sfx.oleada(); mostrarAviso('<b>WAVE</b> · ' + n + ' enemies from every side', true, 2400);
     }
 
     /* Hacia donde va cada enemigo segun su comportamiento (como los fantasmas de Pacman). */
@@ -548,6 +698,7 @@
     }
     /* Una bala por llamada y por linea: varias lineas = varios chorros paralelos (no abanico). */
     function dispararA(obj, s){
+      sfx.disparo();
       var an = Math.atan2(obj.y - P.y, obj.x - P.x) + (Math.random() - 0.5) * 0.03;
       var nx = -Math.sin(an), ny = Math.cos(an);
       for (var li = 0; li < s.lineas; li++){
@@ -566,7 +717,7 @@
 
     function herir(cant){
       if (inv > 0 || efectos.burbuja > 0) return;
-      hp -= cant; inv = 0.8;
+      hp -= cant; inv = 0.8; sfx.dano();
       rojo.classList.add('on'); setTimeout(function(){ rojo.classList.remove('on'); }, 60);
       hud();
       for (var i = 0; i < 14; i++){
@@ -579,7 +730,7 @@
     function matar(e){
       var idx = enemigos.indexOf(e); if (idx < 0) return;
       enemigos.splice(idx, 1);
-      kills++; xp++;
+      kills++; xp++; sfx.matar();
       for (var i = 0; i < 10; i++){
         var an = Math.random() * 6.2832, v = 20 + Math.random() * 50;
         parts.push({ x:e.x, y:e.y, vx:Math.cos(an) * v, vy:Math.sin(an) * v, t:0.35 + Math.random() * 0.2, c:ROJO });
@@ -601,12 +752,12 @@
         case 'cura': {
           var cura = Math.min(s.cura, s.vida - hp);
           if (cura > 0){ hp += cura; hud(); mostrarAviso('<b>+' + Math.round(cura) + ' HP</b>'); }
-          anillo(P.x, P.y, 14, 30, 0.35, '#ff8a8a');
+          anillo(P.x, P.y, 14, 30, 0.35, '#ff8a8a'); sfx.cura();
           break;
         }
         case 'bomba': {                                    // dano grande en una gran area
           var R = 78, dmg = s.dano * 6 + nivel * 2;
-          anillo(o.x, o.y, 60, R / 0.45, 0.45, '#ffa23d');
+          sfx.bomba(); anillo(o.x, o.y, 60, R / 0.45, 0.45, '#ffa23d');
           anillo(o.x, o.y, 36, R / 0.7, 0.5, '#fff3c4');
           enemigos.slice().forEach(function(e){
             if (Math.hypot(e.x - o.x, e.y - o.y) <= R){ e.hp -= dmg; e.flash = 0.1; if (e.hp <= 0) matar(e); }
@@ -614,9 +765,9 @@
           mostrarAviso('<b>BOMB</b>');
           break;
         }
-        case 'tiempo':  efectos.tiempo = s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · enemies frozen'); break;
-        case 'burbuja': efectos.burbuja = s.dur; mostrarAviso('<b>SHIELD</b> · no damage'); break;
-        case 'rayo':    efectos.rayo = s.dur; rayoT = 0; mostrarAviso('<b>STORM</b> · lightning strikes'); break;
+        case 'tiempo':  sfx.tiempo(); efectos.tiempo = s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · enemies frozen'); break;
+        case 'burbuja': sfx.burbuja(); efectos.burbuja = s.dur; mostrarAviso('<b>SHIELD</b> · no damage'); break;
+        case 'rayo':    sfx.rayoOn(); efectos.rayo = s.dur; rayoT = 0; mostrarAviso('<b>STORM</b> · lightning strikes'); break;
       }
     }
 
@@ -625,17 +776,12 @@
       var s = stats(m), d = dificultad(nivel);
       tiempo += dt;
       if (inv > 0) inv -= dt;
-      if (lento > 0) lento -= dt;
       if (s.reg > 0 && hp < s.vida){ hp = Math.min(s.vida, hp + s.reg * dt); }
       ['tiempo', 'burbuja', 'rayo'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });
 
-      // el jugador sigue al cursor con velocidad maxima (no se teletransporta) y no sale de la pantalla
-      var ox = P.x, oy = P.y, dx0 = tx - P.x, dy0 = ty - P.y, dist0 = Math.hypot(dx0, dy0);
-      if (dist0 > 0.01){
-        var vmax = lento > 0 ? 150 : 520, paso = Math.min(dist0 * (1 - Math.exp(-dt * 22)), vmax * dt);
-        P.x += dx0 / dist0 * paso; P.y += dy0 / dist0 * paso;
-      }
-      P.x = Math.max(4, Math.min(W - 4, P.x)); P.y = Math.max(4, Math.min(H - 4, P.y));
+      // el jugador esta SIEMPRE donde esta el cursor (sin suavizado ni limite de velocidad)
+      var ox = P.x, oy = P.y;
+      P.x = Math.max(4, Math.min(W - 4, tx)); P.y = Math.max(4, Math.min(H - 4, ty));
       var ks = 1 - Math.exp(-dt * 8);
       P.vx += ((P.x - ox) / dt - P.vx) * ks; P.vy += ((P.y - oy) / dt - P.vy) * ks;   // velocidad suavizada
 
@@ -649,9 +795,14 @@
         }
       }
 
+      // pulso semitransparente cada tanto: ayuda a no perder de vista a la Z
+      pulsoT -= dt;
+      if (pulsoT <= 0){ pulsoT = 2.8; pulsos.push({ t:0 }); }
+      for (var pi2 = pulsos.length - 1; pi2 >= 0; pi2--){ pulsos[pi2].t += dt; if (pulsos[pi2].t > 1) pulsos.splice(pi2, 1); }
+
       // oleadas periodicas
       oleadaT -= dt;
-      if (oleadaT <= 2.5 && !oleadaAvisada){ oleadaAvisada = true; mostrarAviso('<b>WAVE</b> incoming!', true, 2400); }
+      if (oleadaT <= 2.5 && !oleadaAvisada){ oleadaAvisada = true; sfx.alarma(); mostrarAviso('<b>WAVE</b> incoming!', true, 2400); }
       if (oleadaT <= 0){ oleada(); oleadaT = OLEADA_CADA; oleadaAvisada = false; }
 
       // enemigos: cada uno persigue a su manera; congelados no se mueven ni hacen dano
@@ -693,7 +844,7 @@
           rayoT = 0.28;
           var v = enemigos[(Math.random() * enemigos.length) | 0];
           v.hp -= s.dano * 3 + nivel; v.flash = 0.1;
-          rayos.push({ x:v.x, y:v.y, t:0.16 });
+          rayos.push({ x:v.x, y:v.y, t:0.16 }); sfx.zap();
           if (v.hp <= 0) matar(v);
         }
       }
@@ -709,7 +860,7 @@
             var en = enemigos[q];
             if (bl.golpes.indexOf(en) >= 0) continue;
             if (Math.abs(bl.x - en.x) < en.s / 2 + bl.r && Math.abs(bl.y - en.y) < en.s / 2 + bl.r){
-              en.hp -= bl.d; en.flash = 0.07; bl.golpes.push(en);
+              en.hp -= bl.d; en.flash = 0.07; bl.golpes.push(en); sfx.golpe();
               parts.push({ x:bl.x, y:bl.y, vx:(Math.random() - 0.5) * 40, vy:(Math.random() - 0.5) * 40, t:0.15, c:'#fff' });
               if (en.hp <= 0) matar(en);
               if (bl.golpes.length > bl.p){ fuera = true; break; }       // se acabo la perforacion
@@ -772,6 +923,16 @@
       }
     }
 
+    function dibujarPulsos(){
+      pulsos.forEach(function(pl){
+        var r = 5 + pl.t * 34, a = 0.38 * (1 - pl.t), n = Math.ceil(r * 6.2832 / 1.4);
+        ctx.fillStyle = 'rgba(61,220,132,' + a.toFixed(3) + ')';
+        for (var i = 0; i < n; i++){
+          var an = i / n * 6.2832;
+          ctx.fillRect(Math.round(P.x + Math.cos(an) * r), Math.round(P.y + Math.sin(an) * r), 1, 1);
+        }
+      });
+    }
     function dibujarZ(){
       var parpadeo = inv > 0 && efectos.burbuja <= 0 && Math.floor(inv * 14) % 2 === 0;
       var x0 = Math.round(P.x - 3), y0 = Math.round(P.y - 3);
@@ -813,7 +974,7 @@
         }
       });
       parts.forEach(function(p){ px(p.x, p.y, 1, 1, p.c); });
-      if (!fin) dibujarZ();
+      if (!fin){ dibujarPulsos(); dibujarZ(); }
     }
 
     /* ---------- bucle ---------- */
