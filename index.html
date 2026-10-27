@@ -10,12 +10,12 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0a0e0c">
+<meta name="theme-color" content="#000000">
 
 <style>
   :root{
     /* --- Fondos --- */
-    --bg:#0a0e0c;           /* negro con tinte verde */
+    --bg:#000;              /* negro puro: los cumulos y las lineas del fondo ponen el color */
     --surface:#111815;      /* tarjetas */
     --surface-hi:#16201c;   /* tarjeta en hover */
     --border:#1f2b26;       /* verde gris oscuro */
@@ -641,6 +641,12 @@
     80%{transform:scale(1.008,.996)}
   }
 
+  .cat-hint{
+    margin:-22px 0 30px;text-align:center;
+    font-family:var(--mono);font-size:.74rem;letter-spacing:.06em;color:var(--dim);
+  }
+  .cat-hint[hidden]{display:none}
+
   /* ---------- POP de aparicion ---------- */
   .pre{opacity:0}
   .w{display:inline-block;white-space:nowrap}
@@ -1255,6 +1261,7 @@ prototype of fnaf
     <h2>Projects</h2>
     <div class="cats" id="cats"></div>
     <h3 class="cat-title" id="cat-title"></h3>
+    <p class="cat-hint" id="cat-hint" hidden></p>
     <div class="grid" id="panel"></div>
   </div>
 </section>
@@ -1667,6 +1674,19 @@ prototype of fnaf
   var titulo = document.getElementById('cat-title');
   var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* Aviso corto bajo el titulo cuando la categoria tiene algun video de portada: dice como
+     verlo segun el dispositivo (cursor en PC, mantener presionado en movil). */
+  var TACTIL = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+  function mostrarAviso(items){
+    var aviso = document.getElementById('cat-hint');
+    if (!aviso) return;
+    var hay = items.some(function(p){ var m = mediosDe(p); return m.length && esVideo(m[0]); });
+    aviso.hidden = !hay;
+    if (!hay) return;
+    aviso.textContent = TACTIL ? 'Press and hold a card to preview videos' : 'Hover a card to preview videos';
+    if (aviso.animate) aviso.animate([{ opacity:0 }, { opacity:1 }], { duration:300, delay:250, fill:'backwards' });
+  }
+
   function seleccionar(id, sinAnimar){
     var elegidos = [], etiqueta = null, label = '';
 
@@ -1683,6 +1703,7 @@ prototype of fnaf
     var animar = !sinAnimar && !quieto && !document.hidden;
     var desde  = (etiqueta && animar) ? etiqueta.getBoundingClientRect() : null;
     titulo.textContent = label;
+    mostrarAviso(elegidos);
 
     /* Acomoda la pagina para que el titulo de la categoria quede
        arriba de todo, justo por debajo de la barra de redes. Asi el
@@ -2188,7 +2209,10 @@ prototype of fnaf
     }
     card.appendChild(thumb);
 
-    card.addEventListener('click', function(){ abrirDetalle(p); });
+    card.addEventListener('click', function(e){
+      if (retenido){ retenido = false; e.preventDefault(); e.stopImmediatePropagation(); return; }   // fue una pulsacion larga: no abre
+      abrirDetalle(p);
+    });
 
     /* La portada de video es un cuadro fijo; solo se reproduce con el cursor (o el foco) encima */
     function videoDe(){ return thumb.querySelector('video'); }
@@ -2202,6 +2226,17 @@ prototype of fnaf
       v.pause();
       try { if (v.readyState > 0) v.currentTime = 0.5; } catch(e){}
     }
+    var retenido = false, espera = null;
+    card.addEventListener('touchstart', function(){
+      retenido = false;
+      clearTimeout(espera);
+      espera = setTimeout(function(){ retenido = true; reproducir(); }, 350);
+    }, { passive:true });
+    function soltar(){ clearTimeout(espera); if (retenido) detener(); }
+    card.addEventListener('touchend', soltar);
+    card.addEventListener('touchcancel', soltar);
+    card.addEventListener('touchmove', function(){ clearTimeout(espera); }, { passive:true });
+    card.addEventListener('contextmenu', function(e){ if (TACTIL) e.preventDefault(); });
     card.addEventListener('mouseenter', reproducir);
     card.addEventListener('mouseleave', detener);
     card.addEventListener('focus', reproducir);
