@@ -340,61 +340,104 @@
     if (AC.state === 'suspended') AC.resume();
     return AC;
   }
-  /* Ruido filtrado: el filtro pasa-bajos baja (o sube) su frecuencia, dando golpes graves y cortos. */
-  function ruidoF(dur, vol, f0, f1, delay){
-    if (!SFX_ON) return;
-    var a = ac(); if (!a) return;
-    if (!NB){ NB = a.createBuffer(1, a.sampleRate, a.sampleRate); var d = NB.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-    var t = a.currentTime + (delay || 0), s = a.createBufferSource(), fl = a.createBiquadFilter(), g = a.createGain();
-    s.buffer = NB; s.loop = true;
-    fl.type = 'lowpass'; fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(fl); fl.connect(g); g.connect(a.destination); s.start(t); s.stop(t + dur + 0.05);
+  /* ===== Sonido estilo NES (2A03) =====
+     - Canal de RUIDO: registro de desplazamiento de 15 bits (LFSR) con los periodos reales de la
+       consola, envolvente de volumen de 4 bits que baja por pasos a 60 cuadros/s. Es el sonido
+       de las explosiones de Battle City / Tank 1990 y de los truenos.
+     - Canales de PULSO: ondas cuadradas con ciclo de trabajo 12.5 / 25 / 50 %.
+     - Canal TRIANGULO para los graves.
+     Todo cambia de frecuencia y volumen por pasos de 1/60 s, como el hardware original. */
+  var PT = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];   // periodos del canal de ruido (NTSC)
+  var ONDAS = {};
+  function onda(a, duty){
+    var k = String(duty);
+    if (ONDAS[k]) return ONDAS[k];
+    var N = 48, re = new Float32Array(N), im = new Float32Array(N);
+    for (var n = 1; n < N; n++){
+      var c = 2 / (n * Math.PI) * Math.sin(n * Math.PI * duty);
+      re[n] = c * Math.cos(n * Math.PI * duty); im[n] = c * Math.sin(n * Math.PI * duty);
+    }
+    return (ONDAS[k] = a.createPeriodicWave(re, im));
   }
-  function vr(){ return 0.88 + Math.random() * 0.26; }       // ligera variacion en cada sonido
   function lim(k, ms){ var n = performance.now(); if (n - (ultimoSfx[k] || 0) < ms) return false; ultimoSfx[k] = n; return true; }
-  function tono(f0, f1, dur, tipo, vol, delay){
+  function vr(){ return 0.88 + Math.random() * 0.26; }       // ligera variacion en cada sonido
+  function nota(n){ return 440 * Math.pow(2, n / 12); }      // semitonos desde La4
+
+  /* Canal de ruido. idx0 -> idx1: indice del periodo (0 agudo .. 15 grave), se interpola por pasos.
+     modo 1 = ruido corto "metalico". trem: parpadeo de volumen cada N cuadros (para truenos). */
+  function ruidoNES(idx0, idx1, modo, dur, vol, delay, trem){
     if (!SFX_ON) return;
     var a = ac(); if (!a) return;
-    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
-    o.type = tipo || 'square';
-    o.frequency.setValueAtTime(f0, t);
-    if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
-    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+    var sr = a.sampleRate, n = Math.floor(dur * sr), buf = a.createBuffer(1, n, sr), d = buf.getChannelData(0);
+    var lfsr = 1, acc = 0, bit = 1, frames = Math.max(1, Math.round(dur * 60));
+    for (var i = 0; i < n; i++){
+      var f = Math.min(frames - 1, Math.floor(i / sr * 60)), frac = f / Math.max(1, frames - 1);
+      var per = PT[idx0] * Math.pow(PT[idx1] / PT[idx0], frac);
+      acc += (1789773 / per) / sr;
+      while (acc >= 1){
+        acc -= 1;
+        var fb = (lfsr & 1) ^ ((lfsr >> (modo ? 6 : 1)) & 1);
+        lfsr = (lfsr >> 1) | (fb << 14);
+        bit = (lfsr & 1) ? -1 : 1;
+      }
+      var niv = Math.round(15 * (1 - f / frames));                  // 15 niveles, baja por pasos
+      if (trem && (f % trem) >= trem / 2) niv = Math.max(0, niv - 5);
+      d[i] = bit * niv / 15;
+    }
+    var s = a.createBufferSource(), g = a.createGain();
+    s.buffer = buf; g.gain.value = vol; s.connect(g); g.connect(a.destination);
+    s.start(a.currentTime + (delay || 0));
   }
-  function ruido(dur, vol, delay){
+  /* Canal de pulso (duty .125/.25/.5) o triangulo ('tri'). Frecuencia y volumen por pasos de 1/60 s. */
+  function pulsoNES(f0, f1, dur, duty, vol, delay, plano){
     if (!SFX_ON) return;
     var a = ac(); if (!a) return;
-    if (!NB){ NB = a.createBuffer(1, a.sampleRate, a.sampleRate); var d = NB.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-    var t = a.currentTime + (delay || 0), s = a.createBufferSource(), g = a.createGain();
-    s.buffer = NB; g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(g); g.connect(a.destination); s.start(t); s.stop(t + dur + 0.02);
+    var t0 = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain(), frames = Math.max(1, Math.round(dur * 60));
+    if (duty === 'tri') o.type = 'triangle'; else o.setPeriodicWave(onda(a, duty));
+    for (var f = 0; f < frames; f++){
+      var tt = t0 + f / 60;
+      o.frequency.setValueAtTime(f0 + (f1 - f0) * (f / Math.max(1, frames - 1)), tt);
+      g.gain.setValueAtTime(vol * (plano ? (f < frames - 2 ? 1 : 0.4) : Math.round(15 * (1 - f / frames)) / 15), tt);
+    }
+    g.gain.setValueAtTime(0, t0 + frames / 60);
+    o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0 + frames / 60 + 0.03);
   }
   var sfx = {
-    disparo: function(){ if (lim('d', 55)) tono(780, 420, 0.05, 'square', 0.02); },
-    golpe:   function(){ if (lim('g', 45)) tono(220, 140, 0.04, 'square', 0.022); },
-    /* muerte de enemigo: golpe de ruido corto y rapido, como el tanque que explota en Battle City */
-    matar:   function(){ if (!lim('m', 35)) return; var v = vr(); ruidoF(0.12 * v, 0.07, 2800 * v, 260, 0); tono(210 * v, 55, 0.1, 'square', 0.035); },
-    dano:    function(){ tono(180, 60, 0.25, 'sawtooth', 0.07); ruido(0.18, 0.06); },
-    nivel:   function(){ [523, 659, 784, 1047].forEach(function(f, i){ tono(f, null, 0.1, 'square', 0.05, i * 0.08); }); },
-    elegir:  function(){ tono(660, 990, 0.1, 'triangle', 0.06); },
-    cura:    function(){ tono(523, null, 0.07, 'triangle', 0.06); tono(784, null, 0.12, 'triangle', 0.06, 0.07); },
-    /* explosion: ruido mas grave y largo, con un golpe de bajo */
-    bomba:   function(){ var v = vr(); ruidoF(0.9 * v, 0.17, 1000 * v, 55, 0); ruidoF(0.5, 0.1, 320, 40, 0.08); tono(75 * v, 26, 0.85, 'sawtooth', 0.11); },
-    barrido: function(){ ruidoF(0.9, 0.09, 200, 3200, 0); tono(180, 1400, 0.9, 'sine', 0.05); },
-    eshot:   function(){ if (lim('e', 120)) tono(320 * vr(), 140, 0.09, 'square', 0.03); },
-    carga:   function(){ tono(180, 460, 0.35, 'sawtooth', 0.03); },
-    divide:  function(){ var v = vr(); tono(520 * v, 980 * v, 0.09, 'square', 0.04); },
-    tiempo:  function(){ tono(900, 200, 0.5, 'triangle', 0.07); },
-    burbuja: function(){ tono(400, 1000, 0.25, 'sine', 0.07); },
-    /* trueno: chasquido seco + retumbo grave y ruidoso */
-    rayoOn:  function(){ ruidoF(0.6, 0.1, 900, 60, 0); tono(80, 30, 0.6, 'sawtooth', 0.07); },
-    zap:     function(){ if (!lim('z', 110)) return; var v = vr(); ruidoF(0.16, 0.1, 5200, 400, 0); ruidoF(0.95 * v, 0.12, 380 * v, 38, 0.05); tono(95 * v, 28, 0.7, 'sawtooth', 0.07, 0.05); },
-    alarma:  function(){ tono(660, null, 0.15, 'square', 0.06); tono(440, null, 0.15, 'square', 0.06, 0.18); tono(660, null, 0.15, 'square', 0.06, 0.36); },
-    oleada:  function(){ tono(110, 70, 0.5, 'sawtooth', 0.08); },
-    click:   function(){ tono(520, null, 0.04, 'square', 0.04); },
-    fin:     function(){ [392, 330, 262, 196].forEach(function(f, i){ tono(f, f * 0.97, 0.22, 'square', 0.06, i * 0.2); }); }
+    disparo: function(){ if (lim('d', 55)) pulsoNES(1250, 620, 0.06, 0.25, 0.02); },
+    golpe:   function(){ if (lim('g', 45)) ruidoNES(3, 4, 0, 0.04, 0.03); },
+    /* muerte de enemigo: la rafaga de ruido de la explosion de un tanque en Battle City: corta, rapida,
+       con el tono cayendo; ligera variacion de periodo y duracion cada vez */
+    matar:   function(){
+      if (!lim('m', 35)) return;
+      var v = vr(), i0 = 5 + ((Math.random() * 2) | 0), i1 = 9 + ((Math.random() * 2) | 0);
+      ruidoNES(i0, i1, 0, 0.28 * v, 0.11);
+    },
+    dano:    function(){ ruidoNES(7, 11, 0, 0.3, 0.1); pulsoNES(240, 90, 0.2, 0.5, 0.045); },
+    nivel:   function(){ [3, 7, 10, 15].forEach(function(n, i){ pulsoNES(nota(n), nota(n), 0.085, 0.5, 0.05, i * 0.085, true); }); },
+    elegir:  function(){ pulsoNES(nota(3), nota(3), 0.05, 0.25, 0.05, 0, true); pulsoNES(nota(10), nota(10), 0.09, 0.25, 0.05, 0.05, true); },
+    cura:    function(){ pulsoNES(nota(3), nota(3), 0.06, 0.5, 0.05, 0, true); pulsoNES(nota(10), nota(10), 0.1, 0.5, 0.05, 0.06, true); },
+    /* explosion: el mismo ruido pero mas grave y largo, con un golpe de triangulo bajo */
+    bomba:   function(){ var v = vr(); ruidoNES(9, 14, 0, 0.95 * v, 0.16); ruidoNES(6, 10, 0, 0.35, 0.1, 0.02); pulsoNES(90, 32, 0.7, 'tri', 0.14); },
+    barrido: function(){ ruidoNES(13, 3, 0, 0.9, 0.09); pulsoNES(150, 1300, 0.9, 0.125, 0.04, 0, true); },
+    eshot:   function(){ if (lim('e', 120)) pulsoNES(420 * vr(), 160, 0.09, 0.125, 0.035); },
+    carga:   function(){ pulsoNES(180, 520, 0.35, 0.25, 0.03, 0, true); },
+    divide:  function(){ var v = vr(); pulsoNES(520 * v, 980 * v, 0.09, 0.5, 0.04); },
+    tiempo:  function(){ pulsoNES(1100, 160, 0.5, 0.125, 0.05); },
+    burbuja: function(){ pulsoNES(300, 1100, 0.25, 0.5, 0.05, 0, true); },
+    /* trueno: un chasquido de ruido agudo y luego un retumbo larguisimo de ruido en el periodo mas
+       grave, con el volumen parpadeando */
+    rayoOn:  function(){ ruidoNES(12, 15, 0, 0.7, 0.12, 0, 4); pulsoNES(70, 28, 0.6, 'tri', 0.1); },
+    zap:     function(){
+      if (!lim('z', 110)) return;
+      var v = vr();
+      ruidoNES(2, 5, 0, 0.07, 0.13);
+      ruidoNES(12, 15, 0, 1.0 * v, 0.15, 0.06, 5);
+      pulsoNES(80 * v, 26, 0.7, 'tri', 0.09, 0.06);
+    },
+    alarma:  function(){ [0, 1, 2].forEach(function(i){ pulsoNES(i % 2 ? nota(-5) : nota(7), i % 2 ? nota(-5) : nota(7), 0.14, 0.5, 0.055, i * 0.16, true); }); },
+    oleada:  function(){ pulsoNES(110, 55, 0.5, 'tri', 0.14); ruidoNES(14, 15, 0, 0.5, 0.08); },
+    click:   function(){ pulsoNES(nota(3), nota(3), 0.04, 0.5, 0.04, 0, true); },
+    fin:     function(){ [3, 0, -4, -9].forEach(function(n, i){ pulsoNES(nota(n), nota(n) * 0.96, 0.2, 0.5, 0.055, i * 0.2, true); }); }
   };
 
   function fmt(t){ var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
