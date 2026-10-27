@@ -12,7 +12,7 @@
   var W = 0, H = 0, dpr = 1;
 
   function resize(){
-    dpr = 0.35;   // el fondo es suave: a menor resolucion cuesta mucho menos y se ve igual
+    dpr = 0.18;   // resolucion muy baja a proposito: cada pixel del lienzo mide ~5 px en pantalla (efecto pixel art)
     W = window.innerWidth; H = window.innerHeight;
     cvs.forEach(function(c){
       c.width = W * dpr; c.height = H * dpr;
@@ -56,7 +56,7 @@
 
   function stroke(rgb, a, w){
     ctx.strokeStyle = 'rgba(' + rgb + ',' + a + ')';
-    ctx.lineWidth = w * 2.6;
+    ctx.lineWidth = w * 5;
     ctx.stroke();
   }
 
@@ -128,15 +128,16 @@
   }
   function particulas(t){
     parts.forEach(function(p){
+      var R = p.r * 3.2;   // el lienzo es de baja resolucion: se agrandan para que no desaparezcan
       var x = (((p.x0 + p.vx * t) % 1) + 1) % 1 * W + p.ax * Math.sin(t * p.fx + p.ph);
       var y = (((p.y0 + p.vy * t) % 1) + 1) % 1 * H + p.ay * Math.cos(t * p.fy + p.ph);
       var a = p.a * (0.7 + 0.3 * Math.sin(t * p.tw + p.ph));
-      var g = ctx.createRadialGradient(x, y, 0, x, y, p.r);
+      var g = ctx.createRadialGradient(x, y, 0, x, y, R);
       g.addColorStop(0,                    'rgba(' + p.c + ',' + a + ')');
       g.addColorStop(Math.max(0.05, 1 - p.soft), 'rgba(' + p.c + ',' + (a * 0.85) + ')');
       g.addColorStop(1,                    'rgba(' + p.c + ',0)');
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x, y, p.r, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, R, 0, 6.2832); ctx.fill();
     });
   }
 

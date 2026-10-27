@@ -233,6 +233,7 @@
      con relieve (fondo.js / vidrio.js).
      ========================================================== */
   canvas.fondo,canvas.bordes{position:fixed;inset:0;z-index:0;pointer-events:none}
+  canvas.fondo{image-rendering:crisp-edges;image-rendering:pixelated}
   body{background:var(--bg);padding:12px;gap:12px;position:relative}
   .bar,.note,.estado,.body{position:relative;z-index:1}
 
@@ -450,7 +451,7 @@
 
 <script>
 window.VIDRIO = {
-  sel:".bar button, .estado button, .list .add, .foot button, .imgrow button, .crow button",
+  sel:"",
   panel:""
 };
 </script>
