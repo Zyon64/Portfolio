@@ -12,7 +12,7 @@
   var W = 0, H = 0, dpr = 1;
 
   function resize(){
-    dpr = 0.7;   // el fondo es suave: a menor resolucion cuesta mucho menos y se ve igual
+    dpr = 0.5;   // el fondo es suave: a menor resolucion cuesta mucho menos y se ve igual
     W = window.innerWidth; H = window.innerHeight;
     cvs.forEach(function(c){
       c.width = W * dpr; c.height = H * dpr;
@@ -56,7 +56,7 @@
 
   function stroke(rgb, a, w){
     ctx.strokeStyle = 'rgba(' + rgb + ',' + a + ')';
-    ctx.lineWidth = w * 1.4;
+    ctx.lineWidth = w * 2;
     ctx.stroke();
   }
 
@@ -112,7 +112,7 @@
      Posicion analitica (deriva + oscilacion), sin estado entre cuadros. */
   var PCOL = ['61,220,132','88,101,242','19,175,240','190,80,255','255,110,150','255,190,90','230,240,255'];
   var parts = [];
-  for (var pi = 0; pi < 56; pi++){
+  for (var pi = 0; pi < 32; pi++){
     var blurK = Math.random();                       // 0 nitida .. 1 muy borrosa
     parts.push({
       c:PCOL[(Math.random() * PCOL.length) | 0],
@@ -162,7 +162,7 @@
 
   var ultimo = 0;
   function frame(ms){
-    if (!document.hidden && ms - ultimo >= 33){ ultimo = ms; todos(ms); }   // ~30 fps
+    if (!document.hidden && ms - ultimo >= 42){ ultimo = ms; todos(ms); }   // ~24 fps
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

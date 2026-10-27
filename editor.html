@@ -332,6 +332,7 @@
   .foot{border-top:0}
   .grupo-cab{border-bottom-color:rgba(255,255,255,.08)}
 
+  .bar::before,.note::before,.estado::before,.pnl::before{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 </style>
 </head>
 <body>
@@ -449,8 +450,8 @@
 
 <script>
 window.VIDRIO = {
-  sel:".bar button, .estado button, .list .add, .foot button, .imgrow button, .crow button, .item, .medio, .drop, .compress, .visor-sel",
-  panel:".bar, .note, .estado, .pnl"
+  sel:".bar button, .estado button, .list .add, .foot button, .imgrow button, .crow button",
+  panel:""
 };
 </script>
 <script src="fondo.js"></script>
