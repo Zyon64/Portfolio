@@ -982,17 +982,18 @@
       } else {
         // dos muros a la vez, desde lados OPUESTOS, cada uno con su propio hueco
         var lado0 = (Math.random() * 4) | 0;
-        muroDe(lado0); muroDe((lado0 + 2) % 4);
+        var fHueco = Math.random();                       // misma posicion de hueco en ambos muros
+        muroDe(lado0, fHueco); muroDe((lado0 + 2) % 4, fHueco);
         sfx.oleada(); mostrarAviso('<b>WALLS</b> · find the gaps', true, 2400);
       }
     }
     /* Un muro de bloques que cruza la pantalla en linea recta, con un hueco de 4 para escapar.
        lado: 0 arriba, 1 derecha, 2 abajo, 3 izquierda. */
-    function muroDe(lado){
+    function muroDe(lado, fHueco){
       var horiz = lado % 2 === 0, largo = horiz ? W : H, v = 38;
-      var cuantos = Math.floor(largo / 12), hueco = (Math.random() * (cuantos - 4)) | 0;
+      var cuantos = Math.floor(largo / 12), hueco = Math.floor((fHueco === undefined ? Math.random() : fHueco) * (cuantos - 5));
       for (var m2 = 0; m2 < cuantos; m2++){
-        if (m2 >= hueco && m2 < hueco + 4) continue;
+        if (m2 >= hueco && m2 < hueco + 5) continue;
         var pos = (m2 + 0.5) * largo / cuantos, wx, wy, vx = 0, vy = 0;
         if (lado === 0){ wx = pos; wy = -10; vy = v; }
         else if (lado === 2){ wx = pos; wy = H + 10; vy = -v; }
@@ -1009,6 +1010,12 @@
     function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; }
     function jBala(x, y, ang, v, e, r, c){ ebalas.push({ x:x, y:y, vx:Math.cos(ang) * v, vy:Math.sin(ang) * v, d:e.golpe * 0.7, t:7, r:r || 1.6, c:c || '#ff9a9a' }); }
     function jAnillo(x, y, v, gapA, gapL, e){ anillosJ.push({ x:x, y:y, r:6, v:v, gapA:gapA, gapL:gapL, d:e.golpe * 0.8, hit:false }); sfx.zona(); }
+    /* Anillo con salida garantizada: el hueco se centra hacia el jugador (+/- hasta 0.8 rad al azar), asi
+       siempre hay un camino a pocos pasos. gapL = ancho del hueco en radianes (minimo ~1 rad). */
+    function jAnilloJusto(x, y, v, e, gapL){
+      var haciaP = Math.atan2(P.y - y, P.x - x);
+      jAnillo(x, y, v, haciaP + (Math.random() - 0.5) * 1.6, Math.max(1.0, gapL), e);
+    }
     function jZona(x, y, r, t0, e){ zonas.push({ x:x, y:y, r:r, t0:t0, t:0, d:e.golpe * 1.1, hecho:false }); }
     function jRayo(x, y, ang, vang, t0, tAct, e){ rayosJ.push({ x:x, y:y, ang:ang, vang:vang, t0:t0, t:tAct, w:3, d:e.golpe * 0.9, largo:520, aviso:false }); }
     function jAviso(x, y, ang, t0){ rayosJ.push({ x:x, y:y, ang:ang, vang:0, t0:t0, t:0.01, w:0, d:0, largo:260, aviso:true }); }
@@ -1064,7 +1071,7 @@
             e.et -= dt;
             if (e.et <= 0){
               e.x = e.tx; e.y = e.ty; sfx.bomba();
-              jAnillo(e.x, e.y, 78, 0, 0, e); if (fase >= 1) jAnillo(e.x, e.y, 56, 0, 0, e);
+              jAnilloJusto(e.x, e.y, 78, e, 1.3); if (fase >= 1) jAnilloJusto(e.x, e.y, 56, e, 1.1);   // la onda del salto ahora tiene brechas
               anillo(e.x, e.y, 36, 60, 0.4, '#ff9a3d'); e.est = 'base'; e.et = 1.8; e.aux = 0;
             }
           } else if (e.est === 'carga'){ jCarga(e, dt, ux, uy, 2 + fase, 'base'); }
@@ -1129,8 +1136,8 @@
             }
             if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
           } else if (e.est === 'gas'){                        // anillos de gas con un hueco para pasar
-            if (e.aux === 0){ e.aux = 1; e.et = 0.9; jAnillo(e.x, e.y, 62, Math.random() * 6.28, 1.0 - 0.1 * fase, e); }
-            else if (e.aux === 1 && (e.et -= dt) <= 0){ jAnillo(e.x, e.y, 62, Math.random() * 6.28, 1.0 - 0.1 * fase, e); e.aux = 2; e.et = 1.6; }
+            if (e.aux === 0){ e.aux = 1; e.et = 0.9; jAnilloJusto(e.x, e.y, 62, e, 1.2 - 0.08 * fase); }
+            else if (e.aux === 1 && (e.et -= dt) <= 0){ jAnilloJusto(e.x, e.y, 62, e, 1.2 - 0.08 * fase); e.aux = 2; e.et = 1.6; }
             else if (e.aux === 2 && (e.et -= dt) <= 0){ e.est = 'base'; e.et = 1.6; e.aux = 0; }
           }
           return;
@@ -1144,9 +1151,9 @@
             e.et -= dt;
             if (e.et <= 0 && e.n < 2 + fase){
               e.n++; e.et = 1.1;
-              var lado = (Math.random() * 3) | 0, cuantos = lado === 0 ? Math.floor(W / 8) : Math.floor(H / 8), hueco = (Math.random() * (cuantos - 5)) | 0;
+              var lado = (Math.random() * 3) | 0, cuantos = lado === 0 ? Math.floor(W / 8) : Math.floor(H / 8), hueco = (Math.random() * (cuantos - 6)) | 0;
               for (i = 0; i < cuantos; i++){
-                if (i >= hueco && i < hueco + 5) continue;
+                if (i >= hueco && i < hueco + 6) continue;
                 if (lado === 0) jBala((i + 0.5) * W / cuantos, -3, 1.5708, 42, e, 2.2, '#ffd94d');
                 else if (lado === 1) jBala(-3, (i + 0.5) * H / cuantos, 0, 42, e, 2.2, '#ffd94d');
                 else jBala(W + 3, (i + 0.5) * H / cuantos, 3.1416, 42, e, 2.2, '#ffd94d');
@@ -1158,7 +1165,7 @@
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
             e.et -= dt;
             if (e.et <= 0 && e.n < 2 + fase){
-              var nn = 16 - e.n * 2, off = e.n * 0.2;
+              var nn = 14 - e.n * 2, off = e.n * 0.22;
               for (i = 0; i < nn; i++) jBala(e.x, e.y, off + i * 6.2832 / nn, 46, e, 1.7, '#ffe98a');
               e.n++; e.et = 0.55; sfx.zona();
             }
@@ -1187,7 +1194,7 @@
           } else if (e.est === 'ondas'){
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
             e.et -= dt;
-            if (e.et <= 0 && e.n < 3){ jAnillo(e.x, e.y, 66, Math.random() * 6.28, 1.0 - 0.08 * fase, e); e.n++; e.et = 0.75; }
+            if (e.et <= 0 && e.n < 3){ jAnilloJusto(e.x, e.y, 66, e, 1.15 - 0.07 * fase); e.n++; e.et = 0.75; }
             if (e.n >= 3 && e.et <= -1.4){ e.est = 'base'; e.et = 1.4; e.aux = 0; }
           }
           return;
@@ -1625,7 +1632,7 @@
             var pdx = P.x - an2.x, pdy = P.y - an2.y, pd = Math.hypot(pdx, pdy);
             if (Math.abs(pd - an2.r) < 2.6){
               var dif = Math.abs((Math.atan2(pdy, pdx) - an2.gapA + Math.PI * 3) % (Math.PI * 2) - Math.PI);
-              if (!(an2.gapL > 0 && dif > Math.PI - an2.gapL / 2)){ an2.hit = true; herir(an2.d); if (fin) return; }
+              if (!(an2.gapL > 0 && dif <= an2.gapL / 2)){ an2.hit = true; herir(an2.d); if (fin) return; }
             }
           }
         }
@@ -1978,7 +1985,7 @@
         var na = Math.ceil(a.r * 6.2832 / 1.1);
         for (var ai2 = 0; ai2 < na; ai2++){
           var aa = ai2 / na * 6.2832, dif2 = Math.abs((aa - a.gapA + Math.PI * 3) % (Math.PI * 2) - Math.PI);
-          if (a.gapL > 0 && dif2 > Math.PI - a.gapL / 2) continue;
+          if (a.gapL > 0 && dif2 <= a.gapL / 2) continue;
           px(a.x + Math.cos(aa) * a.r, a.y + Math.sin(aa) * a.r, 1, 1, '#ffb15a');
           px(a.x + Math.cos(aa) * (a.r - 1), a.y + Math.sin(aa) * (a.r - 1), 1, 1, 'rgba(255,120,60,.5)');
         }
