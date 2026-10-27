@@ -12,7 +12,7 @@
   var W = 0, H = 0, dpr = 1;
 
   function resize(){
-    dpr = 0.5;   // el fondo es suave: a menor resolucion cuesta mucho menos y se ve igual
+    dpr = 0.35;   // el fondo es suave: a menor resolucion cuesta mucho menos y se ve igual
     W = window.innerWidth; H = window.innerHeight;
     cvs.forEach(function(c){
       c.width = W * dpr; c.height = H * dpr;
@@ -56,7 +56,7 @@
 
   function stroke(rgb, a, w){
     ctx.strokeStyle = 'rgba(' + rgb + ',' + a + ')';
-    ctx.lineWidth = w * 2;
+    ctx.lineWidth = w * 2.6;
     ctx.stroke();
   }
 
@@ -68,7 +68,7 @@
       var A1 = 38 + i * 9, A2 = 20 + i * 5;
       var k1 = 0.0042 + i * 0.0006, k2 = 0.0091 - i * 0.0007;
       ctx.beginPath();
-      for (var x = -10; x <= W + 10; x += 14){
+      for (var x = -10; x <= W + 10; x += 28){
         var y = base + A1 * Math.sin(k1 * x + t * 0.21 + i) + A2 * Math.sin(k2 * x - t * 0.34 + i * 2);
         if (x === -10) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
@@ -82,8 +82,8 @@
     for (var k = 0; k < 2; k++){
       ctx.beginPath();
       var a = 3 + k, b = 2 + k * 3, d = t * 0.05 + k;
-      for (var s = 0; s <= 520; s++){
-        var u = s / 520 * Math.PI * 2;
+      for (var s = 0; s <= 220; s++){
+        var u = s / 220 * Math.PI * 2;
         var x = cx + A * Math.sin(a * u + d), y = cy + B * Math.sin(b * u);
         if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
@@ -112,7 +112,7 @@
      Posicion analitica (deriva + oscilacion), sin estado entre cuadros. */
   var PCOL = ['61,220,132','88,101,242','19,175,240','190,80,255','255,110,150','255,190,90','230,240,255'];
   var parts = [];
-  for (var pi = 0; pi < 32; pi++){
+  for (var pi = 0; pi < 20; pi++){
     var blurK = Math.random();                       // 0 nitida .. 1 muy borrosa
     parts.push({
       c:PCOL[(Math.random() * PCOL.length) | 0],
@@ -162,7 +162,7 @@
 
   var ultimo = 0;
   function frame(ms){
-    if (!document.hidden && ms - ultimo >= 42){ ultimo = ms; todos(ms); }   // ~24 fps
+    if (!document.hidden && ms - ultimo >= 50){ ultimo = ms; todos(ms); }   // ~20 fps
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

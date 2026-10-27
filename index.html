@@ -1087,6 +1087,14 @@ prototype of fnaf
   window.popIn = function(el, demora){
     el.classList.remove('pre');
     if (!puede() || !el.animate) return;
+    if (el.classList.contains('card')){
+      el.animate([
+        { transform:'scale(.6)', opacity:0, offset:0, easing:'cubic-bezier(.2,.9,.3,1)' },
+        { transform:'scale(1.04)', opacity:1, offset:.55, easing:'ease-out' },
+        { transform:'scale(1)', opacity:1, offset:1 }
+      ], { duration:480, delay:demora || 0, fill:'backwards' });
+      return;
+    }
     el.animate([
       { transform:'scale(.08)', opacity:0, filter:'blur(12px)', offset:0,   easing:'cubic-bezier(.2,.9,.3,1)' },
       { transform:'scale(1.22)', opacity:1, filter:'blur(1px)',  offset:.42, easing:'cubic-bezier(.4,0,.3,1)' },
@@ -1971,7 +1979,9 @@ prototype of fnaf
     ['play','pause','volumechange'].forEach(function(e){ v.addEventListener(e, pintar); });
     ['timeupdate','loadedmetadata','durationchange'].forEach(function(e){ v.addEventListener(e, tiempo); });
 
-    function alternar(){ if (v.paused) v.play(); else v.pause(); }
+    function alternar(){
+      if (v.paused){ v.__manual = false; v.play(); } else { v.__manual = true; v.pause(); }
+    }
     bPlay.addEventListener('click', function(e){ e.stopPropagation(); alternar(); });
     v.addEventListener('click', alternar);
     bMute.addEventListener('click', function(e){ e.stopPropagation(); v.muted = !v.muted; });
@@ -2012,14 +2022,38 @@ prototype of fnaf
     despertar();
   }
 
+  /* Gestor de videos: un video solo se descarga y reproduce mientras esta a la
+     vista, y como mucho 3 suenan a la vez. Sin esto, cada tarjeta bajaba y
+     decodificaba su video de golpe: se agotaban las conexiones (por eso algunas
+     portadas no llegaban a cargar) y el sitio se arrastraba. */
+  var reproduciendo = [];
+  var visVideo = ('IntersectionObserver' in window) ? new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      var v = e.target;
+      if (e.isIntersecting){
+        if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src;
+        if (!v.__manual){ var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+      } else if (!v.paused){ v.pause(); }
+    });
+  }, { rootMargin:'150px' }) : null;
+  function vigilarVideo(v){
+    if (!visVideo) { if (v.dataset.src) v.src = v.dataset.src; return; }
+    v.addEventListener('playing', function(){
+      var i = reproduciendo.indexOf(v); if (i >= 0) reproduciendo.splice(i, 1);
+      reproduciendo.push(v);
+      while (reproduciendo.length > 3){ var viejo = reproduciendo.shift(); if (viejo !== v) viejo.pause(); }
+    });
+    visVideo.observe(v);
+  }
+
   function montarMedia(cont, src, alt, conSello){
     var video = esVideo(src), media;
 
     if (video){
       media = document.createElement('video');
-      media.src = src;
-      media.autoplay = media.muted = media.loop = media.playsInline = true;
-      media.preload = 'metadata';
+      media.muted = media.loop = media.playsInline = true;
+      media.preload = 'none';
+      media.dataset.src = src;      // el src real se pone cuando entra a la vista
       media.controls = false;                      // en el detalle van los controles de vidrio
 
       /* Un video tarda en arrancar: mostramos que esta cargando
@@ -2091,6 +2125,7 @@ prototype of fnaf
       media.loading = 'lazy';
     }
     cont.appendChild(media);
+    if (video) vigilarVideo(media);
     if (video && !conSello) controlesVidrio(cont, media);
 
     /* Sello en la esquina: dice de un vistazo si es video o imagen */
