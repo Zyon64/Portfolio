@@ -1349,7 +1349,7 @@ prototype of fnaf
   document.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest(window.BOTONES);
     if (!b || !b.animate) return;
-    if (b.closest('.vc-bar, .z-pie')) return;   // controles de video y la Z secreta responden al instante
+    if (b.closest('.vc-bar, .z-pie, .jg')) return;   // controles de video y la Z secreta responden al instante
     if (b.__sigue){ b.__sigue = false; return; }   // el click re-lanzado pasa tal cual
     e.preventDefault();
     e.stopImmediatePropagation();
