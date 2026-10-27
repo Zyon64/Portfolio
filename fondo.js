@@ -93,14 +93,14 @@
       curva(function(u){
         var x = u * CW, xc = x / e;
         return [x, base + A1 * Math.sin(k1 * xc + t * 0.21 + i) + A2 * Math.sin(k2 * xc - t * 0.34 + i * 2)];
-      }, CW * 2, function(u){ return tono(t, u, i); }, 0.3);
+      }, CW * 2, function(u){ return tono(t, u, i); }, 0.09);
     });
 
     /* 1 lissajous grande y lenta: x = A sin(a t + d), y = B sin(b t) */
     curva(function(u){
       var a = u * Math.PI * 2;
       return [CW * 0.5 + CW * 0.46 * Math.sin(3 * a + t * 0.05), CH * 0.5 + CH * 0.4 * Math.sin(2 * a)];
-    }, 700, function(u){ return tono(t, u, 5); }, 0.26);
+    }, 700, function(u){ return tono(t, u, 5); }, 0.07);
 
     /* 1 bezier cubica con puntos de control orbitando */
     var o = t * 0.1, y0 = CH * 0.5;
@@ -114,7 +114,7 @@
         v * v * v * P0[0] + 3 * v * v * u * P1[0] + 3 * v * u * u * P2[0] + u * u * u * P3[0],
         v * v * v * P0[1] + 3 * v * v * u * P1[1] + 3 * v * u * u * P2[1] + u * u * u * P3[1]
       ];
-    }, 500, function(u){ return tono(t, u, 8); }, 0.28);
+    }, 500, function(u){ return tono(t, u, 8); }, 0.08);
 
     ctx.restore();
   }
@@ -151,12 +151,58 @@
     });
   }
 
+  /* ---------- Estrellas fugaces ----------
+     Un pixel brillante con una estela pegada, que cruza el fondo y se apaga. Salen
+     al azar, con colores distintos: unas rapidas y largas, otras lentas y cortas.
+     El estado se avanza una sola vez por cuadro aunque haya varios lienzos. */
+  var estrellas = [], ultimoMs = -1, ultimoSpawn = 0;
+  var TONOS = [140, 170, 200, 260, 300, 330, 45];
+  function nuevaEstrella(CW, CH){
+    var rapida = Math.random() < 0.45;
+    var ang = (Math.random() < 0.5 ? 1 : -1) * (0.35 + Math.random() * 0.9);   // diagonal, hacia abajo
+    var sentido = Math.random() < 0.5 ? 1 : -1;
+    var vel = rapida ? 150 + Math.random() * 110 : 45 + Math.random() * 40;       // pixeles de lienzo por segundo
+    var vx = Math.cos(ang) * vel * sentido, vy = Math.abs(Math.sin(ang)) * vel;
+    return {
+      x: sentido > 0 ? -4 : CW + 4, y: Math.random() * CH * 0.65,
+      vx: vx, vy: vy,
+      largo: rapida ? 10 + Math.floor(Math.random() * 12) : 4 + Math.floor(Math.random() * 6),
+      h: TONOS[(Math.random() * TONOS.length) | 0],
+      a: 0.55 + Math.random() * 0.4
+    };
+  }
+  function avanzarEstrellas(ms, CW, CH){
+    if (ms === ultimoMs) return;
+    var dt = ultimoMs < 0 ? 0.05 : Math.min(0.1, (ms - ultimoMs) / 1000);
+    ultimoMs = ms;
+    if (ms - ultimoSpawn > 700 && estrellas.length < 5 && Math.random() < 0.18){
+      estrellas.push(nuevaEstrella(CW, CH)); ultimoSpawn = ms;
+    }
+    estrellas.forEach(function(s){ s.x += s.vx * dt; s.y += s.vy * dt; });
+    estrellas = estrellas.filter(function(s){ return s.x > -40 && s.x < CW + 40 && s.y < CH + 20; });
+  }
+  function dibujarEstrellas(){
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    estrellas.forEach(function(s){
+      var vel = Math.sqrt(s.vx * s.vx + s.vy * s.vy), dx = s.vx / vel, dy = s.vy / vel;
+      for (var k = s.largo; k >= 1; k--){                         // estela: se apaga hacia atras
+        var f = 1 - k / (s.largo + 1);
+        pix(s.x - dx * k, s.y - dy * k, 'hsla(' + s.h + ',90%,70%,' + (s.a * f * 0.7).toFixed(3) + ')');
+      }
+      pix(s.x, s.y, 'hsla(' + s.h + ',100%,88%,' + s.a.toFixed(3) + ')');   // la cabeza
+    });
+    ctx.restore();
+  }
+
   function dibujar(ms){
     var t = ms / 1000;
     ctx.clearRect(0, 0, W, H);
     drawBlobs(t);
     particulas(t);
     lineas(t);
+    avanzarEstrellas(ms, ctx.canvas.width, ctx.canvas.height);
+    dibujarEstrellas();
   }
 
   function todos(ms){

@@ -1146,27 +1146,17 @@ prototype of fnaf
     return unidades;
   }
 
-  /* El pop de cada unidad lo hace CSS (animation-delay escalonado): no se crea un
-     objeto de animacion por caracter. */
+  /* Solo el header (la intro que escribe mi presentacion) anima letra por letra.
+     Todo el resto del texto aparece con un fade-in rapido: barato y sin tirones. */
   window.textoPop = function(el, demora){
-    if (el && el.__texto && !el.querySelector('.cp')){ el.__texto = false; el.__chars = null; el.classList.remove('listo', 'go'); }
-    if (!el || el.__texto) return;
-    if (!puede()) return;
-    el.__texto = true;
-    var unidades = partir(el);
-    if (!unidades.length) return;
-    var paso = Math.max(5, Math.min(24, 1100 / unidades.length));
-    unidades.forEach(function(c, i){ c.style.animationDelay = ((demora || 0) + i * paso) + 'ms'; });
-    el.classList.add('go');
-    setTimeout(function(){
-      if (el.__orig === undefined) return;
-      el.innerHTML = el.__orig; el.__orig = undefined; el.__chars = null;   // vuelve a texto normal
-      el.classList.remove('go'); el.classList.add('listo');
-    }, (demora || 0) + unidades.length * paso + 450);
+    if (!el) return;
+    el.classList.remove('pre');
+    if (!puede() || !el.animate) return;
+    el.animate([{ opacity:0 }, { opacity:1 }], { duration:260, delay:demora || 0, easing:'ease-out', fill:'backwards' });
   };
 
   /* Prepara (oculta) un texto para que no se vea antes de su turno */
-  function preparar(el){ if (puede()){ partir(el); } }
+  function preparar(el){ if (puede()) el.classList.add('pre'); }
 
   /* ---------- Aparicion por scroll de lo que esta fijo en el HTML ---------- */
   var POP  = '.cat, .tools li';
@@ -2450,7 +2440,6 @@ window.VIDRIO = {
 <script src="fondo.js"></script>
 <script src="bordes.js"></script>
 <script src="vidrio.js"></script>
-<script src="cursor.js"></script>
 <script src="onda.js"></script>
 </body>
 </html>
