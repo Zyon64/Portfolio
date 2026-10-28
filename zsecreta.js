@@ -92,7 +92,7 @@
     if (window.Juego) return Promise.resolve();
     return new Promise(function(res){
       var s = document.createElement('script');
-      s.src = 'juego.js'; s.onload = res; s.onerror = res;     // si falla, queda la pantalla provisoria
+      s.src = 'juego.js?v=003e58d5'; s.onload = res; s.onerror = res;     // si falla, queda la pantalla provisoria
       document.head.appendChild(s);
     });
   }
