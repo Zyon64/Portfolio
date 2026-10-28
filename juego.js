@@ -924,10 +924,7 @@
     ];
     function especieAleatoria(){
       var r = Math.random(), acc = 0;
-      // juggernaut: aparece "a veces" desde el nivel 10 y cada vez mas seguido (hasta 14%)
-      var pj = nivel >= 10 ? Math.min(0.14, 0.04 + 0.0025 * (nivel - 10)) : 0;
-      if (r < pj) return 'juggernaut';
-      acc = pj;
+
       for (var i = 0; i < ESPECIES.length; i++){
         if (nivel < ESPECIES[i].desde) continue;
         acc += ESPECIES[i].p;
@@ -950,7 +947,6 @@
         case 'bombardero':tam = 9;  vida = d.vida * 0.8; vel = d.vel * 1.1; golpe = d.golpe * 1.3; col = '#ff6a3d'; extra = { enc:false, mecha:0 }; break;
         case 'escudero':  tam = 12; vida = d.vida * 2.2; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#9fd0ff'; break;
         case 'sembrador': tam = 14; vida = d.vida * 4; vel = d.vel * 0.3; col = '#c8ff6a'; extra = { ft:2 }; break;
-        case 'juggernaut':tam = 24; vida = d.vida * 9; vel = d.vel * 0.55; golpe = d.golpe * 1.5; break;   // color y persecucion de un enemigo comun
         case 'orbital':   tam = 5;  vida = d.vida * 0.35; vel = d.vel * 1.1; col = '#ff8ae0'; extra = { rad:38 + Math.random() * 14 }; break;
         case 'muro':      tam = 9;  vida = d.vida * 0.8; vel = 0; col = '#ff7a7a'; break;
         default:
@@ -958,9 +954,15 @@
           if (r < d.pesado){ tam = 17; vida = d.vida * 4; vel *= 0.6; tipo = 1; }
           else if (r < d.pesado + d.rapido){ tam = 6; vida = d.vida * 0.6; vel *= 1.6; tipo = 2; }
       }
+      // JUGGERNAUT: desde el nivel 10, a veces (4% -> 14%) un enemigo de CUALQUIER tipo sale en su version
+      // grande y robusta: 1.8x de tamano, 7x de vida, 40% mas de dano y algo mas lento. Conserva su forma de moverse y atacar.
+      var jug = false;
+      if (!forzar && nivel >= 10 && sp !== 'masa' && Math.random() < Math.min(0.14, 0.04 + 0.0025 * (nivel - 10))){
+        jug = true; tam = Math.round(tam * 1.8); vida *= 7; golpe *= 1.4; vel *= 0.8;
+      }
       var c = elegirComportamiento(sp === 'orbital' ? 7 : nivel);
       // todo se "congela" aqui: subir de nivel despues NO cambia a los que ya estan vivos
-      var e = { x:x, y:y, s:tam, hp:vida, max:vida, v:vel, golpe:golpe, flash:0, tipo:tipo, ph:Math.random() * 6.28, sp:sp,
+      var e = { x:x, y:y, s:tam, hp:vida, max:vida, v:vel, golpe:golpe, flash:0, tipo:tipo, ph:Math.random() * 6.28, sp:sp, jug:jug,
                 kx:0, ky:0, beh:(sp === 'orbital' ? 'cerco' : c.id), col:col || c.color, slot:(slotCerco++) % 8, rad:30 + Math.random() * 20 };
       for (var k in extra) e[k] = extra[k];
       enemigos.push(e);
@@ -1568,7 +1570,9 @@
         case 'tiempo':  sfx.tiempo(); ebalas = []; efectos.tiempo += s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · +' + (s.dur * 0.8).toFixed(1) + 's'); break;
         case 'burbuja': sfx.burbuja(); efectos.burbuja += s.dur; mostrarAviso('<b>SHIELD</b> · +' + s.dur.toFixed(1) + 's'); break;
         case 'rayo':    sfx.rayoOn(); efectos.rayo += s.dur; rayoT = 0; mostrarAviso('<b>STORM</b> · +' + s.dur.toFixed(1) + 's'); break;
-        case 'barrido': ultimoBarrido = tiempo; sfx.barrido(); enemigos.forEach(function(q2){ if (!enPantalla(q2)) q2.bar = true; });   // lo que esta fuera no se barre barrido = { eje:(Math.random() < 0.5 ? 'x' : 'y'), pos:-4, vel:0 };
+        case 'barrido': ultimoBarrido = tiempo; sfx.barrido();
+                        enemigos.forEach(function(q2){ if (!enPantalla(q2)) q2.bar = true; });   // lo que esta fuera de pantalla no se barre
+                        barrido = { eje:(Math.random() < 0.5 ? 'x' : 'y'), pos:-4, vel:0 };
                         barrido.vel = (barrido.eje === 'x' ? W : H) / 0.9; mostrarAviso('<b>SWEEP</b> · clears the screen'); break;
       }
     }
@@ -1902,10 +1906,32 @@
       }
       ctx.globalAlpha = 1;
     }
+    /* Blindaje de juggernaut: aro punteado exterior, hombreras con picos y remaches, mas una barrita de vida
+       encima, para reconocerlo de un vistazo sea del tipo que sea. */
+    function dibujarBlindaje(e, congelado){
+      var cx = Math.round(e.x), cy = Math.round(e.y), r = e.s / 2 + 3, i;
+      var col = e.flash > 0 ? '#ffffff' : (congelado ? '#8fd8ff' : e.col);
+      if (e.sp === 'fantasma' && e.fase) ctx.globalAlpha = 0.3;
+      var n = Math.ceil(r * 6.2832 / 2);
+      for (i = 0; i < n; i += 2){ var a = i / n * 6.2832; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
+      for (i = 0; i < 4; i++){
+        var ah = i * 1.5708 + 0.7854;
+        lineaPx(cx + Math.cos(ah) * r, cy + Math.sin(ah) * r, cx + Math.cos(ah) * (r + 4), cy + Math.sin(ah) * (r + 4), col);
+        px(cx + Math.cos(ah) * (r - 4), cy + Math.sin(ah) * (r - 4), 2, 2, col);
+      }
+      px(cx - 1, cy - 1, 3, 3, col);
+      ctx.globalAlpha = 1;
+      var w = Math.round(e.s), f = Math.max(0, e.hp / e.max);
+      px(cx - w / 2, cy - e.s / 2 - 9, w, 1, 'rgba(255,255,255,.25)'); px(cx - w / 2, cy - e.s / 2 - 9, Math.max(1, w * f), 1, '#ffffff');
+    }
     function dibujarEnemigo(e, congelado){
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
+      dibujarBase(e, congelado);
+      if (e.jug) dibujarBlindaje(e, congelado);
+    }
+    function dibujarBase(e, congelado){
       var s = Math.round(e.s), cx = Math.round(e.x), cy = Math.round(e.y), x0 = Math.round(e.x - s / 2), y0 = Math.round(e.y - s / 2);
-      var col = e.flash > 0 ? '#ffd0d0' : (congelado ? '#8fd8ff' : e.col), g = e.sp === 'juggernaut' ? 3 : (e.tipo === 1 ? 2 : 1);
+      var col = e.flash > 0 ? '#ffd0d0' : (congelado ? '#8fd8ff' : e.col), g = e.tipo === 1 ? 2 : 1;
       if (e.sp === 'masa'){                                  // blob redondo lleno de picos
         var r = s / 2, np = Math.ceil(r * 6.2832);
         for (var i = 0; i < np; i++){ var a = i / np * 6.2832; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
@@ -1939,12 +1965,6 @@
       px(x0, y0, s, g, col); px(x0, y0 + s - g, s, g, col);
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
-      if (e.sp === 'juggernaut'){                                                       // blindaje: placas, remaches y hombreras con picos
-        px(x0 + 5, y0 + 5, s - 10, 1, col); px(x0 + 5, y0 + s - 6, s - 10, 1, col); px(x0 + 5, y0 + 5, 1, s - 10, col); px(x0 + s - 6, y0 + 5, 1, s - 10, col);
-        px(x0 + 2, y0 + 2, 2, 2, col); px(x0 + s - 4, y0 + 2, 2, 2, col); px(x0 + 2, y0 + s - 4, 2, 2, col); px(x0 + s - 4, y0 + s - 4, 2, 2, col);
-        px(cx - 1, cy - 1, 3, 3, col);
-        for (var jk = 1; jk <= 4; jk++){ px(x0 - jk, y0 + 3 + jk, 1, 1, col); px(x0 + s - 1 + jk, y0 + 3 + jk, 1, 1, col); px(x0 - jk, y0 + s - 6 - jk, 1, 1, col); px(x0 + s - 1 + jk, y0 + s - 6 - jk, 1, 1, col); }
-      }
       if (e.sp === 'saltarin'){                                                         // patas; se agacha antes de saltar
         px(x0 + 1, y0 + s, 1, e.est === 'espera' ? 1 : 3, col); px(x0 + s - 2, y0 + s, 1, e.est === 'espera' ? 1 : 3, col);
         px(x0 + 2, y0 + 2, 1, 1, col); px(x0 + s - 3, y0 + 2, 1, 1, col);
@@ -2104,7 +2124,9 @@
     /* ---------- bucle ---------- */
     function frame(now){
       var dt = Math.min(0.05, (now - ultimo) / 1000); ultimo = now;
-      if (!pausado && !eligiendo && !fin) actualizar(dt);
+      if (!pausado && !eligiendo && !fin){
+        try { actualizar(dt); } catch(err){ if (window.console) console.error('juego:', err); }   // un error ya no congela el juego
+      }
       if (eligiendo && armaT !== null){                    // cuenta de 10 s para elegir arma
         var antes = Math.ceil(armaT);
         armaT -= dt;
@@ -2112,7 +2134,7 @@
         if (Math.ceil(armaT) !== antes && armaT > 0) sfx.tic();
         if (armaT <= 0 && armaOpc) mantenerArma();         // se acabo el tiempo: conservas tu arma actual
       }
-      dibujar();
+      try { dibujar(); } catch(err2){ if (window.console) console.error('juego (dibujo):', err2); }
       raf = requestAnimationFrame(frame);
     }
     reiniciar();
