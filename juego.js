@@ -131,8 +131,10 @@
     return {
       intervalo: Math.max(0.22, 1.2 / (1 + L * 0.12)),          // segundos entre apariciones
       maxVivos:  Math.min(140, Math.floor(6 + L * 3)),
-      vida:      2 + L * 1.0,
-      vel:       22 + Math.min(38, L * 1.6),                    // unidades/s
+      // Vida cuadratica: al inicio te sientes superior, pero en niveles altos tus mejoras tienen que
+      // seguirle el paso (L10: 15, L30: 111, L50: 303, L70: 591). Antes crecia solo +1 por nivel.
+      vida:      3 + 0.12 * L * L,
+      vel:       22 + Math.min(44, L * 1.5),                    // unidades/s
       golpe:     10 + L * 1.6,                                  // HP que quita al tocarte
       pesado:    Math.min(0.3, Math.max(0, (L - 3) * 0.03)),    // prob. de bloque grande
       rapido:    Math.min(0.3, Math.max(0, (L - 6) * 0.025))    // prob. de bloque chico y veloz
@@ -217,8 +219,18 @@
   '.jg-fila{display:flex;gap:6px;flex-wrap:wrap}' +
   '.jg-der .jg-fila{justify-content:flex-end}' +
   '.jg-stats{display:flex;flex-direction:column;gap:8px;align-items:flex-end}' +
-  '.jg-efectos{display:flex;gap:6px;flex-wrap:wrap}' +
-  '.jg-efectos .jg-chip{padding:5px 11px;font-size:.7rem}' +
+  '.jg-efectos{display:flex;flex-direction:column;gap:5px}' +
+  '.jg-ef{display:grid;grid-template-columns:10px auto 1fr;align-items:center;gap:4px 8px;padding:6px 12px;border-radius:16px;' +
+  '  background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.1);font-size:.7rem;letter-spacing:.05em;min-width:150px}' +
+  '.jg-ef i{width:8px;height:8px;border-radius:50%}.jg-ef b{color:#fff;text-align:right}' +
+  '.jg-ef em{grid-column:1 / -1;display:block;height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}' +
+  '.jg-ef em u{display:block;height:100%;transition:width .3s}' +
+  '.jg-panel{display:flex;flex-direction:column;gap:5px;min-width:190px;padding:12px 16px;border-radius:20px;' +
+  '  background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 10px 26px -14px rgba(0,0,0,.8)}' +
+  '.jg-st{display:flex;justify-content:space-between;gap:20px;font-size:.72rem;letter-spacing:.06em;color:#8da398}' +
+  '.jg-st b{color:' + VERDE + ';font-weight:700}' +
+  '.jg-st[hidden]{display:none}.jg-ex span{color:#c7a66a}' +
+  '.jg-sep{height:1px;background:rgba(255,255,255,.12);margin:1px 0}' +
   '.jg-barra{display:block;width:86px;height:7px;border-radius:7px;background:rgba(255,255,255,.14);overflow:hidden}' +
   '.jg-barra u{display:block;height:100%;width:0;transition:width .25s}' +
   '.jg-hp b{color:' + ROJO + '}.jg-hp .jg-barra{width:110px}.jg-hp .jg-barra u{background:' + ROJO + '}' +
@@ -558,14 +570,19 @@
             '<div class="jg-fila"><button class="jg-btn' + (SFX_ON ? '' : ' off') + '" data-a="sonido" aria-label="Sound">♪</button>' +
             '<button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' +
             '<button class="jg-btn" data-a="salir" aria-label="Exit">X</button></div>' +
-            '<div class="jg-stats">' +
-              '<div class="jg-fila"><div class="jg-chip">RATE <b data-n="cad">1.8</b>/s</div>' +
-              '<div class="jg-chip">DMG <b data-n="dano">1.0</b></div></div>' +
-              '<div class="jg-fila"><div class="jg-chip">SHOTS <b data-n="balas">1</b></div>' +
-              '<div class="jg-chip">LINES <b data-n="lineas">1</b></div>' +
-              '<div class="jg-chip">PIERCE <b data-n="perf">0</b></div>' +
-              '<div class="jg-chip">SIZE <b data-n="tam">1.0</b></div></div>' +
-              '<div class="jg-fila"><div class="jg-chip">WEAPON <b data-n="arma">STANDARD</b></div></div>' +
+            '<div class="jg-stats"><div class="jg-panel">' +
+              '<div class="jg-st"><span>WEAPON</span><b data-n="arma">STANDARD</b></div>' +
+              '<div class="jg-sep"></div>' +
+              '<div class="jg-st"><span>FIRE RATE</span><b data-n="cad">1.8</b></div>' +
+              '<div class="jg-st"><span>DAMAGE</span><b data-n="dano">1.0</b></div>' +
+              '<div class="jg-st"><span>SHOTS</span><b data-n="balas">1</b></div>' +
+              '<div class="jg-st"><span>LINES</span><b data-n="lineas">1</b></div>' +
+              '<div class="jg-st"><span>PIERCE</span><b data-n="perf">0</b></div>' +
+              '<div class="jg-st"><span>SIZE</span><b data-n="tam">1.0</b></div>' +
+              '<div class="jg-st jg-ex" data-n="f_pulso" hidden><span>PULSE</span><b data-n="pulso">-</b></div>' +
+              '<div class="jg-st jg-ex" data-n="f_veneno" hidden><span>POISON</span><b data-n="veneno">-</b></div>' +
+              '<div class="jg-st jg-ex" data-n="f_fuego" hidden><span>FIRE</span><b data-n="fuego">-</b></div>' +
+            '</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -603,6 +620,7 @@
 
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
+    var efMax = { tiempo:0, burbuja:0, rayo:0 };
     var ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
@@ -639,6 +657,10 @@
       el('balas').textContent = s.balas; el('lineas').textContent = s.lineas;
       el('perf').textContent = s.perf; el('tam').textContent = s.tam.toFixed(1);
       el('arma').textContent = ARMAS[arma].nombre;
+      el('f_pulso').hidden = !s.pulsoOn; el('f_veneno').hidden = !s.venenoOn; el('f_fuego').hidden = !s.fuegoOn;
+      if (s.pulsoOn) el('pulso').textContent = s.pulsoDano.toFixed(1) + ' / ' + s.pulsoInt.toFixed(2) + 's';
+      if (s.venenoOn) el('veneno').textContent = s.venenoDps.toFixed(1) + '/s';
+      if (s.fuegoOn) el('fuego').textContent = s.fuegoDps.toFixed(1) + '/s';
     }
 
     var avisoT = 0;
@@ -857,7 +879,7 @@
       eligiendo = true; armaPend = false; raiz.classList.add('menu'); sfx.nivel();
       armaOpc = mezclar(Object.keys(ARMAS).filter(function(k){ return k !== arma; })).slice(0, 3);
       armaT = 10;
-      var h2 = '<div class="jg-h">BOSS DEFEATED</div><p>Choose a weapon · <b data-n="cuenta">10</b>s</p><div class="jg-cartas">';
+      var h2 = '<div class="jg-h">BOSS DEFEATED</div><p>Choose a weapon · <b data-n="cuenta">10</b>s <span style="color:#6f8579">(time up = keep current)</span></p><div class="jg-cartas">';
       armaOpc.forEach(function(k, i){
         h2 += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span>' +
               '<em>' + ARMAS[k].uso + '</em><i>[' + (i + 1) + ']</i></button>';
@@ -871,6 +893,12 @@
       reanudar(); hud();
       mostrarAviso('<b>' + ARMAS[k].nombre + '</b> · ' + ARMAS[k].desc, false, 2200);
       anillo(P.x, P.y, 28, 60, 0.45, '#ffd94d');
+      siguienteMenu();
+    }
+    function mantenerArma(){
+      armaT = null; armaOpc = null; eligiendo = false; sfx.elegir();
+      reanudar(); hud();
+      mostrarAviso('Time up · kept <b>' + ARMAS[arma].nombre + '</b>', false, 2000);
       siguienteMenu();
     }
     /* Orden de menus tras cerrar uno: arma pendiente, nivel pendiente y por ultimo el jefe. */
@@ -896,6 +924,10 @@
     ];
     function especieAleatoria(){
       var r = Math.random(), acc = 0;
+      // juggernaut: aparece "a veces" desde el nivel 10 y cada vez mas seguido (hasta 14%)
+      var pj = nivel >= 10 ? Math.min(0.14, 0.04 + 0.0025 * (nivel - 10)) : 0;
+      if (r < pj) return 'juggernaut';
+      acc = pj;
       for (var i = 0; i < ESPECIES.length; i++){
         if (nivel < ESPECIES[i].desde) continue;
         acc += ESPECIES[i].p;
@@ -918,6 +950,7 @@
         case 'bombardero':tam = 9;  vida = d.vida * 0.8; vel = d.vel * 1.1; golpe = d.golpe * 1.3; col = '#ff6a3d'; extra = { enc:false, mecha:0 }; break;
         case 'escudero':  tam = 12; vida = d.vida * 2.2; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#9fd0ff'; break;
         case 'sembrador': tam = 14; vida = d.vida * 4; vel = d.vel * 0.3; col = '#c8ff6a'; extra = { ft:2 }; break;
+        case 'juggernaut':tam = 24; vida = d.vida * 9; vel = d.vel * 0.55; golpe = d.golpe * 1.5; break;   // color y persecucion de un enemigo comun
         case 'orbital':   tam = 5;  vida = d.vida * 0.35; vel = d.vel * 1.1; col = '#ff8ae0'; extra = { rad:38 + Math.random() * 14 }; break;
         case 'muro':      tam = 9;  vida = d.vida * 0.8; vel = 0; col = '#ff7a7a'; break;
         default:
@@ -1206,7 +1239,7 @@
       var ids = Object.keys(JEFES), id;
       do { id = ids[(Math.random() * ids.length) | 0]; } while (id === ultimoJefe && ids.length > 1);
       ultimoJefe = id;
-      var def = JEFES[id], d = dificultad(nivel), vidaJ = d.vida * 110;
+      var def = JEFES[id], d = dificultad(nivel), vidaJ = d.vida * 150;                       // los jefes escalan con la misma curva, y mas
       jefe = { x:W / 2, y:-30, s:def.s, hp:vidaJ, max:vidaJ, v:d.vel * 0.8, golpe:d.golpe * 1.4, flash:0, tipo:3, ph:0, sp:'jefe', jf:id,
                kx:0, ky:0, beh:'directo', col:def.col, slot:0, rad:30, nombre:def.nombre, est:'entra', et:2.0, fase:0, aux:0, n:0 };
       enemigos.push(jefe);
@@ -1321,10 +1354,15 @@
     }
 
     /* ---------- disparo ---------- */
+    /* Un enemigo solo cuenta (para apuntarle y para recibir dano) si esta DENTRO de la pantalla: asi no
+       mueres de golpe a lo que ni ves, y quedarte quieto ya no te hace matar todo lo que viene de afuera. */
+    function enPantalla(e){ return e.x > 0 && e.x < W && e.y > 0 && e.y < H; }
     function masCercano(){
       var cerca = null, dm = 1e9;
       for (var j = 0; j < enemigos.length; j++){
-        var q = enemigos[j], dd = (q.x - P.x) * (q.x - P.x) + (q.y - P.y) * (q.y - P.y);
+        var q = enemigos[j];
+        if (!enPantalla(q)) continue;
+        var dd = (q.x - P.x) * (q.x - P.x) + (q.y - P.y) * (q.y - P.y);
         if (dd < dm){ dm = dd; cerca = q; }
       }
       return cerca;
@@ -1351,14 +1389,14 @@
     function explosion(x, y, R, dmg, s){
       anillo(x, y, 30, R / 0.35, 0.35, '#ffa23d'); anillo(x, y, 16, R / 0.5, 0.4, '#fff3c4'); sfx.granada();
       enemigos.slice().forEach(function(e){
-        if (e.sp === 'fantasma' && e.fase) return;
+        if ((e.sp === 'fantasma' && e.fase) || !enPantalla(e)) return;
         if (Math.hypot(e.x - x, e.y - y) <= R + e.s / 2) golpear(e, dmg, s);
       });
     }
     /* Laser: golpea al instante a los enemigos sobre la linea (hasta 3 + 2 × perforacion por rayo). */
     function dispararLaser(s){
       sfx.disparo();
-      var objs = enemigos.slice().filter(function(e){ return !(e.sp === 'fantasma' && e.fase); });
+      var objs = enemigos.slice().filter(function(e){ return !(e.sp === 'fantasma' && e.fase) && enPantalla(e); });
       if (!objs.length) return;
       objs.sort(function(a, b){ return Math.hypot(a.x - P.x, a.y - P.y) - Math.hypot(b.x - P.x, b.y - P.y); });
       var nb = Math.min(6, s.balas);
@@ -1367,7 +1405,7 @@
         for (var li = 0; li < s.lineas; li++){
           var off = (li - (s.lineas - 1) / 2) * 3.4, sx = P.x - uy * off, sy = P.y + ux * off, ancho = s.tam * 0.5 + 0.8, tocados = [];
           enemigos.forEach(function(e){
-            if (e.sp === 'fantasma' && e.fase) return;
+            if ((e.sp === 'fantasma' && e.fase) || !enPantalla(e)) return;
             var rx = e.x - sx, ry = e.y - sy, proy = rx * ux + ry * uy;
             if (proy < 0 || proy > 420) return;
             if (Math.abs(rx * uy - ry * ux) <= ancho + e.s / 2) tocados.push({ e:e, p:proy });
@@ -1488,10 +1526,20 @@
       // los enemigos muertos junto al jugador NO sueltan objetos (solo los que mueren a distancia)
       var lejos = Math.hypot(e.x - P.x, e.y - P.y) > 28;
       if (lejos && Math.random() < stats(m).suerte){
-        var posibles = OBJETOS.filter(function(o){ return o.id !== 'barrido' || tiempo - ultimoBarrido > 150; });   // el barrido: 1 cada 2.5 min como maximo
-        var tot = posibles.reduce(function(a, o){ return a + o.peso; }, 0), r = Math.random() * tot, tipo = posibles[0].id;
-        for (var q3 = 0; q3 < posibles.length; q3++){ r -= posibles[q3].peso; if (r <= 0){ tipo = posibles[q3].id; break; } }
-        objetos.push({ x:e.x, y:e.y, t:10, tipo:tipo });
+        var activo = { tiempo:efectos.tiempo > 0, burbuja:efectos.burbuja > 0, rayo:efectos.rayo > 0 };
+        var posibles = OBJETOS.filter(function(o){
+          var enSuelo = objetos.filter(function(q){ return q.tipo === o.id; }).length;
+          if (enSuelo >= (o.id === 'barrido' ? 1 : 2)) return false;                      // tope de 2 iguales a la vez en el suelo
+          if (activo[o.id]) return false;                                                 // ya tienes ese efecto activo: no cae otro igual
+          if (o.id === 'barrido' && tiempo - ultimoBarrido <= 150) return false;          // el barrido: 1 cada 2.5 min como maximo
+          return true;
+        });
+        if (!posibles.length) posibles = [];
+        if (posibles.length){
+          var tot = posibles.reduce(function(a, o){ return a + o.peso; }, 0), r = Math.random() * tot, tipo = posibles[0].id;
+          for (var q3 = 0; q3 < posibles.length; q3++){ r -= posibles[q3].peso; if (r <= 0){ tipo = posibles[q3].id; break; } }
+          objetos.push({ x:e.x, y:e.y, t:10, tipo:tipo });
+        }
       }
       hud();
       if (!eligiendo && xp >= requiere(nivel)) subirNivel();
@@ -1507,11 +1555,11 @@
           break;
         }
         case 'bomba': {                                    // dano grande en una gran area
-          var R = 78, dmg = s.dano * 5;                 // exactamente 5 veces tu dano actual
+          var R = 105, dmg = s.dano * 7;                // mas daño (7x) y mas rango que antes (5x, 78)
           sfx.bomba(); anillo(o.x, o.y, 60, R / 0.45, 0.45, '#ffa23d');
           anillo(o.x, o.y, 36, R / 0.7, 0.5, '#fff3c4');
           enemigos.slice().forEach(function(e){
-            if (Math.hypot(e.x - o.x, e.y - o.y) <= R){ e.hp -= dmg; e.flash = 0.1; if (e.hp <= 0) matar(e); }
+            if (enPantalla(e) && Math.hypot(e.x - o.x, e.y - o.y) <= R){ e.hp -= dmg; e.flash = 0.1; if (e.hp <= 0) matar(e); }
           });
           mostrarAviso('<b>BOMB</b>');
           break;
@@ -1520,7 +1568,7 @@
         case 'tiempo':  sfx.tiempo(); ebalas = []; efectos.tiempo += s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · +' + (s.dur * 0.8).toFixed(1) + 's'); break;
         case 'burbuja': sfx.burbuja(); efectos.burbuja += s.dur; mostrarAviso('<b>SHIELD</b> · +' + s.dur.toFixed(1) + 's'); break;
         case 'rayo':    sfx.rayoOn(); efectos.rayo += s.dur; rayoT = 0; mostrarAviso('<b>STORM</b> · +' + s.dur.toFixed(1) + 's'); break;
-        case 'barrido': ultimoBarrido = tiempo; sfx.barrido(); barrido = { eje:(Math.random() < 0.5 ? 'x' : 'y'), pos:-4, vel:0 };
+        case 'barrido': ultimoBarrido = tiempo; sfx.barrido(); enemigos.forEach(function(q2){ if (!enPantalla(q2)) q2.bar = true; });   // lo que esta fuera no se barre barrido = { eje:(Math.random() < 0.5 ? 'x' : 'y'), pos:-4, vel:0 };
                         barrido.vel = (barrido.eje === 'x' ? W : H) / 0.9; mostrarAviso('<b>SWEEP</b> · clears the screen'); break;
       }
     }
@@ -1566,7 +1614,7 @@
         if (auraT <= 0){
           auraT = s.pulsoInt; auras.push({ t:0, r:s.pulsoR }); sfx.pulso();
           enemigos.slice().forEach(function(en3){
-            if (en3.sp === 'fantasma' && en3.fase) return;
+            if ((en3.sp === 'fantasma' && en3.fase) || !enPantalla(en3)) return;
             if (Math.hypot(en3.x - P.x, en3.y - P.y) <= s.pulsoR + en3.s / 2) golpear(en3, s.pulsoDano, s);
           });
         }
@@ -1702,10 +1750,11 @@
       // rayos de la tormenta: caen en enemigos al azar mientras dura
       if (efectos.rayo > 0){
         rayoT -= dt;
-        if (rayoT <= 0 && enemigos.length){
-          rayoT = 0.28;
-          var v = enemigos[(Math.random() * enemigos.length) | 0];
-          v.hp -= s.dano * 3 + nivel; v.flash = 0.1;
+        var visibles = enemigos.filter(enPantalla);
+        if (rayoT <= 0 && visibles.length){
+          rayoT = 0.32;
+          var v = visibles[(Math.random() * visibles.length) | 0];
+          v.hp -= s.dano * 2.4 + nivel * 0.6; v.flash = 0.1;           // antes 3x dano + nivel: quitaba demasiado
           rayos.push({ x:v.x, y:v.y, t:0.16 }); sfx.zap();
           if (v.hp <= 0) matar(v);
         }
@@ -1719,7 +1768,7 @@
           var best = null, bd = 150 * 150;
           for (var hq = 0; hq < enemigos.length; hq++){
             var he = enemigos[hq];
-            if (bl.golpes.indexOf(he) >= 0 || (he.sp === 'fantasma' && he.fase)) continue;
+            if (bl.golpes.indexOf(he) >= 0 || (he.sp === 'fantasma' && he.fase) || !enPantalla(he)) continue;
             var dd2 = (he.x - bl.x) * (he.x - bl.x) + (he.y - bl.y) * (he.y - bl.y);
             if (dd2 < bd){ bd = dd2; best = he; }
           }
@@ -1743,7 +1792,7 @@
         if (!fuera){
           for (var q = enemigos.length - 1; q >= 0; q--){
             var en = enemigos[q];
-            if (bl.golpes.indexOf(en) >= 0 || (en.sp === 'fantasma' && en.fase)) continue;
+            if (bl.golpes.indexOf(en) >= 0 || (en.sp === 'fantasma' && en.fase) || !enPantalla(en)) continue;
             if (Math.abs(bl.x - en.x) < en.s / 2 + bl.r && Math.abs(bl.y - en.y) < en.s / 2 + bl.r){
               if (bl.gran){ explosion(bl.x, bl.y, bl.rad, s.dano * 3, s); fuera = true; break; }
               var dmg = bl.d;
@@ -1781,9 +1830,17 @@
       el('hp').textContent = Math.ceil(hp);
       el('hpbarra').style.width = Math.max(0, hp / s.vida * 100) + '%';
       if (jefe) el('jefebarra').style.width = Math.max(0, jefe.hp / jefe.max * 100) + '%';
-      var tx2 = (efectos.tiempo > 0 ? '<div class="jg-chip">FREEZE <b>' + Math.ceil(efectos.tiempo) + 's</b></div>' : '') +
-                (efectos.burbuja > 0 ? '<div class="jg-chip">SHIELD <b>' + Math.ceil(efectos.burbuja) + 's</b></div>' : '') +
-                (efectos.rayo > 0 ? '<div class="jg-chip">STORM <b>' + Math.ceil(efectos.rayo) + 's</b></div>' : '');
+      // lista de estados activos: nombre, barra y segundos restantes; desaparece cuando se acaba
+      var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d']];
+      var tx2 = '';
+      DEFE.forEach(function(d3){
+        var k3 = d3[0];
+        if (efectos[k3] <= 0){ efMax[k3] = 0; return; }
+        if (efectos[k3] > efMax[k3]) efMax[k3] = efectos[k3];
+        var pct = Math.round(efectos[k3] / efMax[k3] * 10) * 10;                     // pasos de 10% para no reescribir cada cuadro
+        tx2 += '<div class="jg-ef"><i style="background:' + d3[2] + '"></i><span>' + d3[1] + '</span>' +
+               '<b>' + Math.ceil(efectos[k3]) + 's</b><em><u style="width:' + pct + '%;background:' + d3[2] + '"></u></em></div>';
+      });
       if (tx2 !== efectosTxt){ efectosTxt = tx2; el('efectos').innerHTML = tx2; }
     }
 
@@ -1848,7 +1905,7 @@
     function dibujarEnemigo(e, congelado){
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
       var s = Math.round(e.s), cx = Math.round(e.x), cy = Math.round(e.y), x0 = Math.round(e.x - s / 2), y0 = Math.round(e.y - s / 2);
-      var col = e.flash > 0 ? '#ffd0d0' : (congelado ? '#8fd8ff' : e.col), g = e.tipo === 1 ? 2 : 1;
+      var col = e.flash > 0 ? '#ffd0d0' : (congelado ? '#8fd8ff' : e.col), g = e.sp === 'juggernaut' ? 3 : (e.tipo === 1 ? 2 : 1);
       if (e.sp === 'masa'){                                  // blob redondo lleno de picos
         var r = s / 2, np = Math.ceil(r * 6.2832);
         for (var i = 0; i < np; i++){ var a = i / np * 6.2832; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
@@ -1882,6 +1939,12 @@
       px(x0, y0, s, g, col); px(x0, y0 + s - g, s, g, col);
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
+      if (e.sp === 'juggernaut'){                                                       // blindaje: placas, remaches y hombreras con picos
+        px(x0 + 5, y0 + 5, s - 10, 1, col); px(x0 + 5, y0 + s - 6, s - 10, 1, col); px(x0 + 5, y0 + 5, 1, s - 10, col); px(x0 + s - 6, y0 + 5, 1, s - 10, col);
+        px(x0 + 2, y0 + 2, 2, 2, col); px(x0 + s - 4, y0 + 2, 2, 2, col); px(x0 + 2, y0 + s - 4, 2, 2, col); px(x0 + s - 4, y0 + s - 4, 2, 2, col);
+        px(cx - 1, cy - 1, 3, 3, col);
+        for (var jk = 1; jk <= 4; jk++){ px(x0 - jk, y0 + 3 + jk, 1, 1, col); px(x0 + s - 1 + jk, y0 + 3 + jk, 1, 1, col); px(x0 - jk, y0 + s - 6 - jk, 1, 1, col); px(x0 + s - 1 + jk, y0 + s - 6 - jk, 1, 1, col); }
+      }
       if (e.sp === 'saltarin'){                                                         // patas; se agacha antes de saltar
         px(x0 + 1, y0 + s, 1, e.est === 'espera' ? 1 : 3, col); px(x0 + s - 2, y0 + s, 1, e.est === 'espera' ? 1 : 3, col);
         px(x0 + 2, y0 + 2, 1, 1, col); px(x0 + s - 3, y0 + 2, 1, 1, col);
@@ -2047,7 +2110,7 @@
         armaT -= dt;
         var cn2 = el('cuenta'); if (cn2) cn2.textContent = Math.max(0, Math.ceil(armaT));
         if (Math.ceil(armaT) !== antes && armaT > 0) sfx.tic();
-        if (armaT <= 0 && armaOpc) elegirArma(armaOpc[(Math.random() * armaOpc.length) | 0]);
+        if (armaT <= 0 && armaOpc) mantenerArma();         // se acabo el tiempo: conservas tu arma actual
       }
       dibujar();
       raf = requestAnimationFrame(frame);
