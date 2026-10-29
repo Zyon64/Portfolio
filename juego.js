@@ -523,6 +523,8 @@
     nivel:   function(){ [3, 7, 10, 15].forEach(function(n, i){ pulsoNES(nota(n), nota(n), 0.085, 0.5, 0.05, i * 0.085, true); }); },
     elegir:  function(){ pulsoNES(nota(3), nota(3), 0.05, 0.25, 0.05, 0, true); pulsoNES(nota(10), nota(10), 0.09, 0.25, 0.05, 0.05, true); },
     cura:    function(){ pulsoNES(nota(3), nota(3), 0.06, 0.5, 0.05, 0, true); pulsoNES(nota(10), nota(10), 0.1, 0.5, 0.05, 0.06, true); },
+    regen:   function(){ pulsoNES(330, 690, 0.24, 0.25, 0.045, 0, true); pulsoNES(520, 880, 0.18, 0.125, 0.035, 0.09, true); },
+    nucleo:  function(){ if (lim('nx', 300)) [0,4,7,12].forEach(function(n,i){ pulsoNES(nota(n), nota(n), .075, .25, .05, i*.065, true); }); },
     /* explosion: el mismo ruido pero mas grave y largo, con un golpe de triangulo bajo */
     bomba:   function(){ if (!lim('b', 260)) return; var v = vr(); ruidoNES(9, 14, 0, 0.9 * v, 0.09); ruidoNES(6, 10, 0, 0.3, 0.055, 0.02); pulsoNES(90, 32, 0.6, 'tri', 0.08); },
     barrido: function(){ ruidoNES(13, 3, 0, 0.9, 0.055); pulsoNES(150, 1300, 0.9, 0.125, 0.03, 0, true); },
@@ -1594,10 +1596,10 @@
           anillo(P.x, P.y, 14, 30, 0.35, '#ff8a8a'); sfx.cura();
           break;
         }
-        case 'curaLenta': efectos.curaLenta += 7; mostrarAviso('<b>REGEN</b> · healing over time'); anillo(P.x, P.y, 14, 30, .35, '#ff91c9'); break;
+        case 'curaLenta': sfx.regen(); efectos.curaLenta += 7; mostrarAviso('<b>REGEN</b> · healing over time'); anillo(P.x, P.y, 14, 30, .35, '#ff91c9'); break;
         case 'nucleo': {
           var ganada = Math.max(1, Math.ceil(requiere(nivel) * .5)); xp += ganada;
-          mostrarAviso('<b>XP CORE</b> · +' + ganada + ' XP'); anillo(P.x, P.y, 28, 55, .45, '#c783ff');
+          sfx.nucleo(); mostrarAviso('<b>XP CORE</b> · +' + ganada + ' XP'); anillo(P.x, P.y, 28, 55, .45, '#c783ff');
           if (!eligiendo && xp >= requiere(nivel)) subirNivel(); break;
         }
         case 'bomba': {                                    // dano grande en una gran area
