@@ -626,7 +626,7 @@
 
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
-    var efMax = { tiempo:0, burbuja:0, rayo:0 };
+    var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
     var ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
@@ -1564,7 +1564,7 @@
       // los enemigos muertos junto al jugador NO sueltan objetos (solo los que mueren a distancia)
       var lejos = Math.hypot(e.x - P.x, e.y - P.y) > 28;
       if (lejos && Math.random() < stats(m).suerte){
-        var activo = { tiempo:efectos.tiempo > 0, burbuja:efectos.burbuja > 0, rayo:efectos.rayo > 0 };
+        var activo = { tiempo:efectos.tiempo > 0, burbuja:efectos.burbuja > 0, rayo:efectos.rayo > 0, curaLenta:efectos.curaLenta > 0 };
         var posibles = OBJETOS.filter(function(o){
           var enSuelo = objetos.filter(function(q){ return q.tipo === o.id; }).length;
           if (enSuelo >= (o.id === 'barrido' ? 1 : 2)) return false;                      // tope de 2 iguales a la vez en el suelo
@@ -2089,9 +2089,9 @@
     }
 
     function dibujar(){
-      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = 'rgba(61,220,132,.06)';                           // puntos tenues: sensacion de suelo
-      for (var gy = 6; gy < H; gy += 14) for (var gx = 6; gx < W; gx += 14) ctx.fillRect(gx, gy, 1, 1);
+      ctx.fillStyle = '#050811'; ctx.fillRect(0, 0, W, H);
+      // Espacio muy tenue: conserva contraste para enemigos, items y proyectiles.
+      estrellas.forEach(function(st){ ctx.fillStyle = st.c; ctx.globalAlpha = st.a; ctx.fillRect(Math.round(st.x), Math.round(st.y), 1, 1); }); ctx.globalAlpha = 1;
 
       objetos.forEach(function(o){
         if (o.t < 2.5 && Math.floor(o.t * 6) % 2) return;                // parpadea al acabarse
@@ -2132,10 +2132,12 @@
         if (c.x === undefined) return;
         px(c.x - 1, c.y, 3, 1, '#d9c2ff'); px(c.x, c.y - 1, 1, 3, '#d9c2ff'); px(c.x, c.y, 1, 1, '#fff');
       });
-      ebalas.forEach(function(b){                                        // balas de torretas y jefes
-        var rr = Math.max(2, Math.round((b.r || 1.5) * 1.4));
-        px(b.x - rr / 2 - b.vx * 0.03, b.y - rr / 2 - b.vy * 0.03, rr, rr, 'rgba(255,77,77,.35)');
-        px(b.x - rr / 2, b.y - rr / 2, rr, rr, b.c || '#ff9a9a');
+      ebalas.forEach(function(b){                                        // orbe enemigo: anillo distinto + nucleo rojo
+        var rr = Math.max(2, Math.round((b.r || 1.5) * 1.6)), bx = Math.round(b.x), by = Math.round(b.y);
+        px(bx - rr / 2 - b.vx * 0.025, by - rr / 2 - b.vy * 0.025, rr, rr, 'rgba(255,65,80,.22)');
+        px(bx - 1, by - rr / 2, 2, 1, '#ffe5e8'); px(bx - 1, by + rr / 2 - 1, 2, 1, '#ffe5e8');
+        px(bx - rr / 2, by - 1, 1, 2, '#ffe5e8'); px(bx + rr / 2 - 1, by - 1, 1, 2, '#ffe5e8');
+        px(bx - 1, by - 1, 2, 2, '#ff2638');
       });
       if (barrido){                                                      // linea blanca con estela
         for (var bk = 0; bk < 12; bk++){
@@ -2164,6 +2166,7 @@
         }
       });
       parts.forEach(function(p){ px(p.x, p.y, 1, 1, p.c); });
+      numeros.forEach(function(no){ ctx.globalAlpha = Math.max(0, no.t / no.max); ctx.fillStyle = no.c; ctx.font = '5px monospace'; ctx.fillText(String(no.n), Math.round(no.x), Math.round(no.y)); }); ctx.globalAlpha = 1;
       if (!fin){ dibujarAuras(); dibujarPulsos(); dibujarZ(); }
     }
 
@@ -2184,6 +2187,7 @@
       raf = requestAnimationFrame(frame);
     }
     reiniciar();
+    ofrecerArmasIniciales();
     raf = requestAnimationFrame(frame);
     mostrarAviso(tactil ? 'Drag to move · <b>auto-fire</b>' : 'Move the mouse · <b>auto-fire</b>');
   }
