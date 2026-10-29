@@ -2097,6 +2097,7 @@
         }
       }
       if (parpadeo) return;
+      if (spriteSheet('jugador', P.x, P.y, 7)) return;
       for (var y = 0; y < 7; y++) for (var x = 0; x < 7; x++)
         if (Z_PIX[y][x] === 'X') px(x0 + x, y0 + y, 1, 1, VERDE);
       ctx.fillStyle = 'rgba(61,220,132,.12)'; ctx.fillRect(x0 - 2, y0 - 2, 11, 11);    // resplandor tenue
