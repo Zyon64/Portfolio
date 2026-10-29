@@ -130,7 +130,9 @@
   function dificultad(L){
     return {
       intervalo: Math.max(0.22, 1.2 / (1 + L * 0.12)),          // segundos entre apariciones
-      maxVivos:  Math.min(140, Math.floor(6 + L * 3)),
+      // El campo comienza legible: 30 enemigos, y solo gana un hueco cada 5 niveles.
+      // Todas las apariciones (incluidas oleadas) consultan este mismo limite.
+      maxVivos:  30 + Math.floor((L - 1) / 5),
       // Vida cuadratica: al inicio te sientes superior, pero en niveles altos tus mejoras tienen que
       // seguirle el paso (L10: 15, L30: 111, L50: 303, L70: 591). Antes crecia solo +1 por nivel.
       vida:      3 + 0.12 * L * L,
@@ -159,18 +161,22 @@
   /* Objetos que sueltan los enemigos. */
   var OBJETOS = [
     { id:'cura',    peso:34, color:'#ff4d4d' },
+    { id:'curaLenta', peso:12, color:'#ff91c9' },
     { id:'bomba',   peso:18, color:'#ffa23d' },
     { id:'tiempo',  peso:16, color:'#7fd6ff' },
     { id:'burbuja', peso:16, color:'#8fa8ff' },
     { id:'rayo',    peso:16, color:'#ffe14d' },
+    { id:'nucleo',  peso:2,  color:'#c783ff' },          // raro: media barra de experiencia
     { id:'barrido', peso:1,  color:'#ffffff' }          // rarisimo: barre toda la pantalla (y con enfriamiento largo)
   ];
   var SPR = {
     cura:    ['..XXX..', '..XXX..', 'XXXXXXX', 'XXXXXXX', 'XXXXXXX', '..XXX..', '..XXX..'],
+    curaLenta:['..X.X..', '.X...X.', 'X.XXX.X', 'X.XoX.X', 'X.XXX.X', '.X...X.', '..X.X..'],
     bomba:   ['....o..', '...o...', '.XXXXX.', 'XXXXXXX', 'XXXXXXX', 'XXXXXXX', '.XXXXX.'],
     tiempo:  ['.XXXXX.', 'X..o..X', 'X..o..X', 'X..ooXX', 'X.....X', 'X.....X', '.XXXXX.'],
     burbuja: ['..XXX..', '.X...X.', 'X.o...X', 'X.....X', 'X.....X', '.X...X.', '..XXX..'],
     rayo:    ['...XXX.', '..XXX..', '.XXX...', 'XXXXXX.', '..XXX..', '.XX....', 'X......'],
+    nucleo:  ['...X...', '..XXX..', '.XXoXX.', 'XXXXXXX', '.XX.XX.', '..X.X..', '...X...'],
     barrido: ['.......', '.X..X..', '..X..X.', '...X..X', '..X..X.', '.X..X..', '.......']
   };
   /* Tipos de disparo: se consiguen al derrotar a un jefe. TODOS usan tus mejoras: daño, cadencia, tamaño de
@@ -558,7 +564,7 @@
     var raiz = document.createElement('div');
     raiz.className = 'jg';
     raiz.innerHTML =
-      '<canvas class="jg-cv"></canvas><div class="jg-rojo"></div>' +
+      '<canvas class="jg-cv"></canvas><div class="jg-rojo"></div><input class="jg-sheet-input" type="file" accept="image/png,image/webp,image/jpeg" hidden>' +
       '<div class="jg-hud">' +
         '<div class="jg-arriba">' +
           '<div class="jg-izq">' +
@@ -622,7 +628,7 @@
     var rafaga = 0, rafagaT = 0;
     var efMax = { tiempo:0, burbuja:0, rayo:0 };
     var ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
-    var P, enemigos, balas, parts, objetos, rayos, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
+    var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
     var tactil = window.matchMedia('(pointer: coarse)').matches;
     var tx = 0, ty = 0;                                  // hacia donde apunta el cursor (unidades)
@@ -633,10 +639,11 @@
       nivel = 1; xp = 0; kills = 0; tiempo = 0; acum = 0; rafaga = 0; rafagaT = 0; spawnT = 0.6; inv = 0; pulsoT = 1.2; pulsos = [];
       pausado = false; eligiendo = false; fin = false; pendientes = 0; ultimaMejora = null;
       oleadaT = OLEADA_PRIMERA; oleadaAvisada = false; rayoT = 0; efectosTxt = ''; slotCerco = 0;
-      efectos = { tiempo:0, burbuja:0, rayo:0 };
+      efectos = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
       P = { x: W / 2, y: H / 2, vx:0, vy:0 };
       tx = P.x; ty = P.y;
-      enemigos = []; balas = []; parts = []; objetos = []; rayos = []; ebalas = []; barrido = null;
+      enemigos = []; balas = []; parts = []; objetos = []; rayos = []; numeros = []; ebalas = []; barrido = null;
+      estrellas = Array.from({ length:Math.max(40, Math.floor(W * H / 700)) }, function(){ return { x:Math.random() * W, y:Math.random() * H, a:0.12 + Math.random() * 0.18, c:Math.random() < 0.14 ? '#6076a8' : '#b8d2dc' }; });
       auras = []; auraT = 1; contagioT = 0; ultimoBarrido = -999;
       arma = 'normal'; lasers = []; armaOpc = null; armaT = null; armaPend = false; jefe = null; jefePend = false;
       zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; ultimoJefe = null; el('jefe').hidden = true;
