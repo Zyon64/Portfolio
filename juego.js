@@ -1967,7 +1967,7 @@
       // jugador y enemigos comunes: una fila por especie; las tres primeras columnas son fotogramas.
       enCelda(0, 0, function(){ sprite(Z_PIX, 24, 24, VERDE); });
       var comunes = [['normal',null,9,'#ff4d4d'],['mini','mini',6,'#ff8080'],['embestida','embestida',10,'#ff9a3d'],['divisor','divisor',15,'#ff6bd6'],['espinoso','espinoso',9,'#ffd94d'],['fantasma','fantasma',10,'#c9a0ff'],['torreta','torreta',12,'#ff5b5b'],['masa','masa',26,'#ff3b6b'],['saltarin','saltarin',8,'#ffb34d'],['bombardero','bombardero',9,'#ff6a3d'],['escudero','escudero',12,'#9fd0ff'],['sembrador','sembrador',14,'#c8ff6a'],['orbital','orbital',5,'#ff8ae0'],['muro','muro',9,'#ff7a7a']];
-      comunes.forEach(function(q, i){ frames(i + 1, function(){ enFila(q[0], q[1], q[2], q[3], q[0] === 'masa'); }); });
+      comunes.forEach(function(q, i){ frames(i + 1, function(){ enFila(q[0], q[1], q[2], q[3], ['masa','torreta','escudero','bombardero','saltarin'].indexOf(q[0]) >= 0); }); });
       // Jefes: sus tres fotogramas van primero; los componentes que se mueven quedan separados a la derecha.
       var bosses = [['triturador','#ff6a3d'],['centinela','#ff4dd2'],['colmena','#c8ff6a'],['rey','#ffd94d'],['vacio','#b48cff']];
       bosses.forEach(function(q, i){ var fila = 15 + i; frames(fila, function(){ enFila(q[0], 'jefe', JEFES[q[0]].s, q[1], q[0] === 'centinela' || q[0] === 'colmena'); });
@@ -1977,6 +1977,10 @@
         if (q[0] === 'vacio') enCelda(fila,3,function(){ for(var v=0;v<4;v++) px(22+Math.cos(v*1.5708)*14,22+Math.sin(v*1.5708)*14,3,3,'#d9c2ff'); }); });
       // Pua individual de masa: ocho direcciones editables; el juego elige la direccion y mantiene su orbita real.
       for (var md=0; md<8; md++) enCelda(8,3+md,function(){ var ma=md*6.2832/8; lineaPx(24,24,24+Math.cos(ma)*4,24+Math.sin(ma)*4,'#ff3b6b'); });
+      for (var td=0; td<8; td++) enCelda(7,3+td,function(){ var ta=td*6.2832/8; lineaPx(24,24,24+Math.cos(ta)*8,24+Math.sin(ta)*8,'#ff5b5b'); });
+      for (var sd=0; sd<8; sd++) enCelda(11,3+sd,function(){ var sa=sd*6.2832/8; for(var ss=-.9;ss<=.9;ss+=.12) px(24+Math.cos(sa+ss)*10,24+Math.sin(sa+ss)*10,1,1,'#9fd0ff'); });
+      enCelda(10,3,function(){ lineaPx(24,28,26,23,'#bbb'); px(26,22,1,1,'#ff6a3d'); }); enCelda(10,4,function(){ lineaPx(24,28,26,23,'#bbb'); px(26,22,1,1,'#ffd94d'); });
+      enCelda(9,3,function(){ px(21,22,1,1,'#ffb34d'); px(26,22,1,1,'#ffb34d'); }); enCelda(9,4,function(){ px(21,22,1,3,'#ffb34d'); px(26,22,1,3,'#ffb34d'); });
       var listaObj = OBJETOS.map(function(o){ return o.id; });
       listaObj.forEach(function(id, i){ var fila = 20 + i, inf = OBJETOS.filter(function(o){ return o.id === id; })[0]; enCelda(fila,0,function(){ sprite(SPR[id],24,24,inf.color); }); });
       enCelda(28,0,function(){ px(23,23,2,2,'#c9ffe0'); });
@@ -2056,6 +2060,10 @@
     function dibujarEnemigo(e, congelado){
       var idSheet = e.sp === 'jefe' ? e.jf : (e.sp || 'normal');
       if (sheetPersonalizado && e.sp === 'masa' && spriteSheet('masa', e.x, e.y, e.s + 5)){ capasMasa(e); return; }
+      if (sheetPersonalizado && e.sp === 'torreta' && spriteSheet('torreta', e.x, e.y, e.s + 5)){ capasTorreta(e); return; }
+      if (sheetPersonalizado && e.sp === 'escudero' && spriteSheet('escudero', e.x, e.y, e.s + 5)){ capasEscudo(e); return; }
+      if (sheetPersonalizado && e.sp === 'bombardero' && spriteSheet('bombardero', e.x, e.y, e.s + 5)){ capasBombardero(e); return; }
+      if (sheetPersonalizado && e.sp === 'saltarin' && spriteSheet('saltarin', e.x, e.y, e.s + 5)){ capasSaltarin(e); return; }
       if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'centinela' && spriteSheet('centinela', e.x, e.y, e.s + 14)){ capasCentinela(e); return; }
       if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'colmena' && spriteSheet('colmena', e.x, e.y, e.s + 14)){ capasColmena(e); return; }
       // Los demas animados conservan su renderer original hasta que su propia capa este mapeada.
