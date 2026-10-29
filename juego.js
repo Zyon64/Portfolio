@@ -1903,6 +1903,19 @@
         px(x0 + i, y0 + j, 1, 1, c === 'o' ? '#fff' : color);
       }
     }
+    /* Hoja opcional: cada celda mide 16×16 px. El lienzo mantiene imageSmoothing=false,
+       por lo que los sprites importados conservan sus pixeles exactos. */
+    var TILE = { jugador:0, normal:1, embestida:2, divisor:3, espinoso:4, fantasma:5, torreta:6, masa:7,
+      saltarin:8, bombardero:9, escudero:10, sembrador:11, orbital:12, muro:13, mini:14,
+      triturador:16, centinela:17, colmena:18, rey:19, vacio:20,
+      cura:24, curaLenta:25, bomba:26, tiempo:27, burbuja:28, rayo:29, nucleo:30, barrido:31,
+      normalArma:32, dirigidas:33, s:34, escopeta:35, laser:36, sniper:37, bumeran:38, granadas:39, bala:40 };
+    function spriteSheet(id, x, y, tam){
+      if (!sheetPersonalizado || TILE[id] === undefined) return false;
+      var n = TILE[id], cols = Math.max(1, (sheetPersonalizado.width / 16) | 0), sx = (n % cols) * 16, sy = ((n / cols) | 0) * 16;
+      ctx.drawImage(sheetPersonalizado, sx, sy, 16, 16, Math.round(x - tam / 2), Math.round(y - tam / 2), Math.max(1, Math.round(tam)), Math.max(1, Math.round(tam)));
+      return true;
+    }
 
     function lineaPx(x0, y0, x1, y1, c){
       var dx = x1 - x0, dy = y1 - y0, n = Math.max(Math.abs(dx), Math.abs(dy), 1);
@@ -1971,6 +1984,7 @@
       px(cx - w / 2, cy - e.s / 2 - 9, w, 1, 'rgba(255,255,255,.25)'); px(cx - w / 2, cy - e.s / 2 - 9, Math.max(1, w * f), 1, '#ffffff');
     }
     function dibujarEnemigo(e, congelado){
+      if (spriteSheet(e.sp === 'jefe' ? e.jf : (e.sp || 'normal'), e.x, e.y, e.s + 5)) return;
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
       dibujarBase(e, congelado);
       if (e.jug) dibujarBlindaje(e, congelado);
@@ -2096,7 +2110,7 @@
       objetos.forEach(function(o){
         if (o.t < 2.5 && Math.floor(o.t * 6) % 2) return;                // parpadea al acabarse
         var info = OBJETOS.filter(function(q){ return q.id === o.tipo; })[0];
-        sprite(SPR[o.tipo], o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), info.color);
+        if (!spriteSheet(o.tipo, o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), 7)) sprite(SPR[o.tipo], o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), info.color);
       });
       var cong = efectos.tiempo > 0;
       enemigos.forEach(function(e){ dibujarEnemigo(e, cong); dibujarEstados(e); });
@@ -2154,7 +2168,7 @@
       balas.forEach(function(b){
         if (b.gran){ px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#ffa23d'); return; }
         px(b.x - b.t / 2 - b.vx * 0.014, b.y - b.t / 2 - b.vy * 0.014, b.t, b.t, 'rgba(61,220,132,.45)');   // estela corta
-        px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#c9ffe0');
+        if (!spriteSheet('bala', b.x, b.y, Math.max(3, b.t + 2))) px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#c9ffe0');
       });
       rayos.forEach(function(r){                                         // rayo: zigzag del borde de arriba al enemigo
         var x = r.x, y = 0, pasos = Math.max(4, Math.floor(r.y / 7));
