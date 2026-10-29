@@ -1604,7 +1604,7 @@
           sfx.bomba(); anillo(o.x, o.y, 60, R / 0.45, 0.45, '#ffa23d');
           anillo(o.x, o.y, 36, R / 0.7, 0.5, '#fff3c4');
           enemigos.slice().forEach(function(e){
-            if (enPantalla(e) && Math.hypot(e.x - o.x, e.y - o.y) <= R){ e.hp -= dmg; e.flash = 0.1; if (e.hp <= 0) matar(e); }
+            if (enPantalla(e) && Math.hypot(e.x - o.x, e.y - o.y) <= R) golpear(e, dmg, s);
           });
           mostrarAviso('<b>BOMB</b>');
           break;
@@ -1803,9 +1803,8 @@
         if (rayoT <= 0 && visibles.length){
           rayoT = 0.32;
           var v = visibles[(Math.random() * visibles.length) | 0];
-          v.hp -= s.dano * 2.4 + nivel * 0.6; v.flash = 0.1;           // antes 3x dano + nivel: quitaba demasiado
+          golpear(v, s.dano * 2.4 + nivel * 0.6, s);                    // antes 3x dano + nivel: quitaba demasiado
           rayos.push({ x:v.x, y:v.y, t:0.16 }); sfx.zap();
-          if (v.hp <= 0) matar(v);
         }
       }
       for (var ri = rayos.length - 1; ri >= 0; ri--){ rayos[ri].t -= dt; if (rayos[ri].t <= 0) rayos.splice(ri, 1); }
