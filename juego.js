@@ -728,6 +728,8 @@
       else if (a === 'ranking') verRanking({ temp:true, s:puntaje(nivel, kills, tiempo), d:tactil ? 'm' : 'p', id:'yo' }, 'pausa');
       else if (a === 'todos') verRanking(rankYo, rankModo, !rankTodos);
       else if (a === 'opciones') verOpciones();
+      else if (a === 'sprites') abrirSelectorSheet();
+      else if (a === 'catalogo') window.open('spritesheet.html', '_blank', 'noopener');
       else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
       else if (a === 'pausa') alternarPausa();
       else if (a === 'seguir') alternarPausa();
@@ -774,9 +776,21 @@
       caja.innerHTML = '<div class="jg-h">OPTIONS</div><p>Sound volume</p>' +
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
-        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
+        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 16×16-pixel tiles, rendered without smoothing.</p>' +
+        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
+    var sheetPersonalizado = null;
+    function abrirSelectorSheet(){ raiz.querySelector('.jg-sheet-input').click(); }
+    raiz.querySelector('.jg-sheet-input').addEventListener('change', function(e){
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      var im = new Image();
+      im.onload = function(){
+        if (im.width % 16 || im.height % 16){ mostrarAviso('<b>SHEET</b> · use 16×16 tiles', true, 2600); return; }
+        sheetPersonalizado = im; mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
+      };
+      im.src = URL.createObjectURL(f); e.target.value = '';
+    });
     var puntos = 0;
     function gameOver(){
       fin = true; sfx.fin();
@@ -901,6 +915,13 @@
       mostrarAviso('<b>' + ARMAS[k].nombre + '</b> · ' + ARMAS[k].desc, false, 2200);
       anillo(P.x, P.y, 28, 60, 0.45, '#ffd94d');
       siguienteMenu();
+    }
+    function ofrecerArmasIniciales(){
+      eligiendo = true; raiz.classList.add('menu'); sfx.nivel();
+      armaOpc = mezclar(Object.keys(ARMAS).slice()).slice(0, 3); armaT = null;
+      var h = '<div class="jg-h">CHOOSE YOUR WEAPON</div><p>Start with one of three random weapons</p><div class="jg-cartas">';
+      armaOpc.forEach(function(k, i){ h += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span><em>' + ARMAS[k].uso + '</em><i>[' + (i + 1) + ']</i></button>'; });
+      caja.innerHTML = h + '</div>'; modal.hidden = false;
     }
     function mantenerArma(){
       armaT = null; armaOpc = null; eligiendo = false; sfx.elegir();
