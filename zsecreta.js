@@ -95,7 +95,7 @@
     if (window.Juego) return Promise.resolve();
     return new Promise(function(res){
       var s = document.createElement('script');
-      s.src = 'juego.js?v=sheet-layers-v5'; s.onload = res; s.onerror = res; // version nueva: activa capas funcionales desde cache limpia
+      s.src = 'juego.js?v=sheet-layers-v6'; s.onload = res; s.onerror = res; // version nueva: activa componentes direccionales desde cache limpia
       document.head.appendChild(s);
     });
   }
