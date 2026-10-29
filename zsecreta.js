@@ -95,7 +95,7 @@
     if (window.Juego) return Promise.resolve();
     return new Promise(function(res){
       var s = document.createElement('script');
-      s.src = 'juego.js?v=sheet-48-v3'; s.onload = res; s.onerror = res; // version nueva: evita servir una hoja anterior desde cache
+      s.src = 'juego.js?v=sheet-layers-v4'; s.onload = res; s.onerror = res; // version nueva: evita servir sprites animados horneados desde cache
       document.head.appendChild(s);
     });
   }
