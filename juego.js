@@ -1910,9 +1910,14 @@
       saltarin:[9,0], bombardero:[10,0], escudero:[11,0], sembrador:[12,0], orbital:[13,0], muro:[14,0],
       triturador:[15,0], centinela:[16,0], colmena:[17,0], rey:[18,0], vacio:[19,0],
       cura:[20,0], curaLenta:[21,0], bomba:[22,0], tiempo:[23,0], burbuja:[24,0], rayo:[25,0], nucleo:[26,0], barrido:[27,0], bala:[28,0] };
+    var ANIM_SHEET = { embestida:1, espinoso:1, fantasma:1, torreta:1, masa:1, saltarin:1, bombardero:1, escudero:1, triturador:1, centinela:1, colmena:1, rey:1, vacio:1 };
+    function tamSheet(id, tam){
+      var extra = { masa:7, espinoso:7, escudero:8, torreta:5, bombardero:5, saltarin:3, triturador:4, centinela:4, colmena:5, rey:5, vacio:6 };
+      return Math.min(48, Math.max(7, Math.round(tam + (extra[id] || 0))));
+    }
     function spriteSheet(id, x, y, tam){
       if (!sheetPersonalizado || TILE[id] === undefined) return false;
-      var tile = TILE[id], sw = Math.max(7, Math.round(tam)), sx = tile[1] * 48 + Math.round((48 - sw) / 2), sy = tile[0] * 48 + Math.round((48 - sw) / 2);
+      var tile = TILE[id], sw = tamSheet(id, tam), cuadro = ANIM_SHEET[id] ? Math.floor(tiempo * 5) % 3 : 0, sx = (tile[1] + cuadro) * 48 + Math.round((48 - sw) / 2), sy = tile[0] * 48 + Math.round((48 - sw) / 2);
       ctx.drawImage(sheetPersonalizado, sx, sy, sw, sw, Math.round(x - sw / 2), Math.round(y - sw / 2), sw, sw);
       return true;
     }
