@@ -733,7 +733,7 @@
       else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
       else if (a === 'pausa') alternarPausa();
       else if (a === 'seguir') alternarPausa();
-      else if (a === 'reiniciar'){ reiniciar(); }
+      else if (a === 'reiniciar'){ reiniciar(); ofrecerArmasIniciales(); }
       else if (a === 'salir') cerrar();
       else if (a === 'mejora') elegir(b.getAttribute('data-k'));
       else if (a === 'arma') elegirArma(b.getAttribute('data-k'));
