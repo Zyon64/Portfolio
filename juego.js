@@ -1912,7 +1912,7 @@
       saltarin:[9,0], bombardero:[10,0], escudero:[11,0], sembrador:[12,0], orbital:[13,0], muro:[14,0],
       triturador:[15,0], centinela:[16,0], colmena:[17,0], rey:[18,0], vacio:[19,0],
       cura:[20,0], curaLenta:[21,0], bomba:[22,0], tiempo:[23,0], burbuja:[24,0], rayo:[25,0], nucleo:[26,0], barrido:[27,0], bala:[28,0] };
-    var ANIM_SHEET = { embestida:1, espinoso:1, fantasma:1, torreta:1, masa:1, saltarin:1, bombardero:1, escudero:1, triturador:1, centinela:1, colmena:1, rey:1, vacio:1 };
+    var ANIM_SHEET = { embestida:1, espinoso:1, fantasma:1, torreta:1, masa:1, saltarin:1, bombardero:1, escudero:1, centinela:1, colmena:1, vacio:1 };
     /* Piezas funcionales: no son frames del enemigo, el codigo las coloca y rota cada cuadro. */
     var CAPAS = { masaPua:[8,3,8], ojoCentinela:[16,3,1], puaCentinela:[16,4,8], celdaColmena:[17,3,1],
       canonTorreta:[7,3,8], escudo:[11,3,8], mecha:[10,3,2], patas:[9,3,2] };
@@ -1953,6 +1953,13 @@
     function capasEscudo(e){ capaSheet('escudo', e.x, e.y, e.s + 12, Math.atan2(P.y - e.y, P.x - e.x)); }
     function capasBombardero(e){ capaFrame('mecha', e.x + 1, e.y - e.s / 2 - 3, e.s + 6, Math.floor(tiempo * 18) % 2); }
     function capasSaltarin(e){ capaFrame('patas', e.x, e.y + e.s / 2, e.s + 5, e.est === 'espera' ? 0 : 1); }
+    function capasFantasma(e){
+      ctx.save(); if (e.fase) ctx.globalAlpha = .3; spriteSheet('fantasma', e.x, e.y, e.s + 5); ctx.restore();
+    }
+    function capasEmbestida(e){
+      ctx.save(); if (e.est === 'carga' && Math.floor(tiempo * 20) % 2) ctx.globalAlpha = .42;
+      spriteSheet('embestida', e.x, e.y, e.s + 5); ctx.restore();
+    }
     /* Exporta la hoja desde los mismos trazos que usa el canvas. Las celdas son de 48×48,
        pero cada sprite queda centrado en su tamaño real: al reimportarlo no cambia de escala. */
     function exportarSheet(){
@@ -2064,6 +2071,8 @@
       if (sheetPersonalizado && e.sp === 'escudero' && spriteSheet('escudero', e.x, e.y, e.s + 5)){ capasEscudo(e); return; }
       if (sheetPersonalizado && e.sp === 'bombardero' && spriteSheet('bombardero', e.x, e.y, e.s + 5)){ capasBombardero(e); return; }
       if (sheetPersonalizado && e.sp === 'saltarin' && spriteSheet('saltarin', e.x, e.y, e.s + 5)){ capasSaltarin(e); return; }
+      if (sheetPersonalizado && e.sp === 'fantasma'){ capasFantasma(e); return; }
+      if (sheetPersonalizado && e.sp === 'embestida'){ capasEmbestida(e); return; }
       if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'centinela' && spriteSheet('centinela', e.x, e.y, e.s + 14)){ capasCentinela(e); return; }
       if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'colmena' && spriteSheet('colmena', e.x, e.y, e.s + 14)){ capasColmena(e); return; }
       // Los demas animados conservan su renderer original hasta que su propia capa este mapeada.
