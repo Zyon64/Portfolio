@@ -1919,7 +1919,11 @@
     }
     function spriteSheet(id, x, y, tam){
       if (!sheetPersonalizado || TILE[id] === undefined) return false;
-      var tile = TILE[id], sw = tamSheet(id, tam), cuadro = ANIM_SHEET[id] ? Math.floor(tiempo * 5) % 3 : 0, sx = (tile[1] + cuadro) * 48 + Math.round((48 - sw) / 2), sy = tile[0] * 48 + Math.round((48 - sw) / 2);
+      /* Los animados no se sustituyen por una tira de frames horneada: sus piezas tienen
+         transformaciones vivas (seguimiento del ojo, angulos, orbitas). Hasta que cada capa
+         se lea de su celda individual, se conserva el dibujo original para no congelarlas. */
+      if (ANIM_SHEET[id]) return false;
+      var tile = TILE[id], sw = tamSheet(id, tam), sx = tile[1] * 48 + Math.round((48 - sw) / 2), sy = tile[0] * 48 + Math.round((48 - sw) / 2);
       ctx.drawImage(sheetPersonalizado, sx, sy, sw, sw, Math.round(x - sw / 2), Math.round(y - sw / 2), sw, sw);
       return true;
     }
