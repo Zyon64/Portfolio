@@ -1916,6 +1916,35 @@
       ctx.drawImage(sheetPersonalizado, sx, sy, sw, sw, Math.round(x - sw / 2), Math.round(y - sw / 2), sw, sw);
       return true;
     }
+    /* Exporta la hoja desde los mismos trazos que usa el canvas. Las celdas son de 48×48,
+       pero cada sprite queda centrado en su tamaño real: al reimportarlo no cambia de escala. */
+    function exportarSheet(){
+      var hoja = document.createElement('canvas'), filas = 29, celda = 48;
+      hoja.width = celda * 3; hoja.height = celda * filas;
+      var anterior = ctx, anteriorSheet = sheetPersonalizado, cc = hoja.getContext('2d');
+      cc.imageSmoothingEnabled = false; ctx = cc; sheetPersonalizado = null;
+      function eBase(sp, s, col){ return { x:24, y:24, s:s, col:col, flash:0, tipo:0, ph:0, sp:sp, est:'espera', fase:false, enc:false, beh:'directo', jf:sp, fade:false }; }
+      function enFila(id, sp, s, col){ var e = eBase(sp, s, col); if (sp === 'jefe'){ e.jf = id; e.nombre = JEFES[id].nombre; } dibujarEnemigo(e, false); }
+      function moverFila(f){ ctx.translate(0, f * celda); }
+      // jugador y enemigos comunes: una fila por especie, de izquierda a derecha.
+      moverFila(0); sprite(Z_PIX, 24, 24, VERDE); ctx.translate(0, -0 * celda);
+      var comunes = [['normal',null,9,'#ff4d4d'],['mini','mini',6,'#ff8080'],['embestida','embestida',10,'#ff9a3d'],['divisor','divisor',15,'#ff6bd6'],['espinoso','espinoso',9,'#ffd94d'],['fantasma','fantasma',10,'#c9a0ff'],['torreta','torreta',12,'#ff5b5b'],['masa','masa',26,'#ff3b6b'],['saltarin','saltarin',8,'#ffb34d'],['bombardero','bombardero',9,'#ff6a3d'],['escudero','escudero',12,'#9fd0ff'],['sembrador','sembrador',14,'#c8ff6a'],['orbital','orbital',5,'#ff8ae0'],['muro','muro',9,'#ff7a7a']];
+      comunes.forEach(function(q, i){ moverFila(i + 1); enFila(q[0], q[1], q[2], q[3]); moverFila(-(i + 1)); });
+      // Jefes: cuerpo en col. 1; componentes que se mueven/rotan, separados a la derecha.
+      var bosses = [['triturador','#ff6a3d'],['centinela','#ff4dd2'],['colmena','#c8ff6a'],['rey','#ffd94d'],['vacio','#b48cff']];
+      bosses.forEach(function(q, i){ var fila = 15 + i; moverFila(fila); enFila(q[0], 'jefe', JEFES[q[0]].s, q[1]);
+        if (q[0] === 'centinela'){ ctx.translate(48,0); px(20,22,8,4,q[1]); px(23,20,2,8,'#fff'); ctx.translate(48,0); for(var a=0;a<8;a++) lineaPx(24,24,24+Math.cos(a*6.2832/8)*13,24+Math.sin(a*6.2832/8)*13,q[1]); ctx.translate(-96,0); }
+        if (q[0] === 'colmena'){ ctx.translate(48,0); for(var c=0;c<6;c++) px(22+Math.cos(c*6.2832/6)*11,22+Math.sin(c*6.2832/6)*11,3,3,q[1]); ctx.translate(-48,0); }
+        if (q[0] === 'rey'){ ctx.translate(48,0); for(var k=0;k<5;k++) lineaPx(10+k*7,30,13+k*7,14,q[1]); ctx.translate(-48,0); }
+        if (q[0] === 'vacio'){ ctx.translate(48,0); for(var v=0;v<4;v++) px(22+Math.cos(v*1.5708)*14,22+Math.sin(v*1.5708)*14,3,3,'#d9c2ff'); ctx.translate(-48,0); }
+        moverFila(-fila); });
+      var listaObj = OBJETOS.map(function(o){ return o.id; });
+      listaObj.forEach(function(id, i){ var fila = 20 + i; moverFila(fila); var inf = OBJETOS.filter(function(o){ return o.id === id; })[0]; sprite(SPR[id],24,24,inf.color); moverFila(-fila); });
+      moverFila(28); px(23,23,2,2,'#c9ffe0'); moverFila(-28);
+      ctx = anterior; sheetPersonalizado = anteriorSheet;
+      var a = document.createElement('a'); a.download = 'zyon-game-sprites-actual-48px.png'; a.href = hoja.toDataURL('image/png'); a.click();
+      mostrarAviso('<b>SHEET</b> · downloaded · 48×48 cells', false, 2400);
+    }
 
     function lineaPx(x0, y0, x1, y1, c){
       var dx = x1 - x0, dy = y1 - y0, n = Math.max(Math.abs(dx), Math.abs(dy), 1);
