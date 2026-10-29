@@ -232,7 +232,7 @@
           var pr = zPie && zPie.getBoundingClientRect();
           if (pr && pr.top > H * .7){
             el.style.setProperty('--zx', Math.round(dx - TAM / 2) + 'px');
-            el.classList.add('visible', 'llamando', 'regresa');
+            el.classList.add('visible', 'llamando', 'regresa'); activo = true;
           } else programar(26000 + Math.random() * 16000);
         }, 3400);
       }
