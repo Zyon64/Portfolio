@@ -1495,19 +1495,21 @@
     function quemar(e, s){ if (s.fuegoOn) e.fg = { t:s.fuegoDur, d:s.fuegoDps * (e.sp === 'jefe' ? 0.5 : 1), k:0 }; }
     function golpear(e, dmg, s){
       e.hp -= dmg; e.flash = 0.07;
+      numeroDano(e.x, e.y - e.s / 2 - 2, dmg, '#ffffff');
       envenenar(e, s); quemar(e, s);
       if (e.hp <= 0) matar(e);
     }
+    function numeroDano(x, y, dmg, color){ numeros.push({ x:x + (Math.random() - .5) * 4, y:y, v:-10 - Math.random() * 5, t:.65, max:.65, n:Math.max(1, Math.round(dmg)), c:color }); }
     /* Ticks de veneno (cada 0.5 s) y fuego (cada 0.4 s). Devuelve true si el enemigo murio. */
     function estadosTick(e, dt){
       if (e.pz){
         e.pz.t -= dt; e.pz.k += dt;
-        if (e.pz.k >= 0.5){ e.pz.k -= 0.5; e.hp -= e.pz.d * 0.5; if (e.hp <= 0){ matar(e); return true; } }
+        if (e.pz.k >= 0.5){ e.pz.k -= 0.5; var dp = e.pz.d * 0.5; e.hp -= dp; numeroDano(e.x, e.y - e.s / 2 - 2, dp, '#bc79ff'); if (e.hp <= 0){ matar(e); return true; } }
         if (e.pz.t <= 0) e.pz = null;
       }
       if (e.fg){
         e.fg.t -= dt; e.fg.k += dt;
-        if (e.fg.k >= 0.4){ e.fg.k -= 0.4; e.hp -= e.fg.d * 0.4; if (e.hp <= 0){ matar(e); return true; } }
+        if (e.fg.k >= 0.4){ e.fg.k -= 0.4; var df = e.fg.d * 0.4; e.hp -= df; numeroDano(e.x, e.y - e.s / 2 - 2, df, '#ff9a3d'); if (e.hp <= 0){ matar(e); return true; } }
         if (e.fg.t <= 0) e.fg = null;
       }
       return false;
@@ -1574,7 +1576,8 @@
         if (posibles.length){
           var tot = posibles.reduce(function(a, o){ return a + o.peso; }, 0), r = Math.random() * tot, tipo = posibles[0].id;
           for (var q3 = 0; q3 < posibles.length; q3++){ r -= posibles[q3].peso; if (r <= 0){ tipo = posibles[q3].id; break; } }
-          objetos.push({ x:e.x, y:e.y, t:10, tipo:tipo });
+          // Los items no nacen fuera ni pegados al borde, y quedan mas tiempo para poder volver por ellos.
+          objetos.push({ x:Math.max(12, Math.min(W - 12, e.x)), y:Math.max(12, Math.min(H - 12, e.y)), t:18, tipo:tipo });
         }
       }
       hud();
@@ -1589,6 +1592,12 @@
           if (cura > 0){ hp += cura; hud(); mostrarAviso('<b>+' + Math.round(cura) + ' HP</b>'); }
           anillo(P.x, P.y, 14, 30, 0.35, '#ff8a8a'); sfx.cura();
           break;
+        }
+        case 'curaLenta': efectos.curaLenta += 7; mostrarAviso('<b>REGEN</b> · healing over time'); anillo(P.x, P.y, 14, 30, .35, '#ff91c9'); break;
+        case 'nucleo': {
+          var ganada = Math.max(1, Math.ceil(requiere(nivel) * .5)); xp += ganada;
+          mostrarAviso('<b>XP CORE</b> · +' + ganada + ' XP'); anillo(P.x, P.y, 28, 55, .45, '#c783ff');
+          if (!eligiendo && xp >= requiere(nivel)) subirNivel(); break;
         }
         case 'bomba': {                                    // dano grande en una gran area
           var R = 105, dmg = s.dano * 7;                // mas daño (7x) y mas rango que antes (5x, 78)
@@ -1618,7 +1627,8 @@
       tiempo += dt;
       if (inv > 0) inv -= dt;
       if (s.reg > 0 && hp < s.vida){ hp = Math.min(s.vida, hp + s.reg * dt); }
-      ['tiempo', 'burbuja', 'rayo'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });
+      ['tiempo', 'burbuja', 'rayo', 'curaLenta'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });
+      if (efectos.curaLenta > 0 && hp < s.vida) hp = Math.min(s.vida, hp + 8 * dt);
       // tiempo detenido: sonido general bajo + tic-tac + conteo en pantalla hasta que se acabe
       var cn = el('conteo');
       if (efectos.tiempo > 0){
@@ -1839,7 +1849,7 @@
                 var fx = P.x - en.x, fy = P.y - en.y, fl = Math.hypot(fx, fy) || 1, qx = bl.x - en.x, qy = bl.y - en.y, ql = Math.hypot(qx, qy) || 1;
                 if ((fx * qx + fy * qy) / (fl * ql) > 0.35) dmg *= 0.2;
               }
-              en.hp -= dmg; en.flash = 0.07; bl.golpes.push(en); sfx.golpe(); envenenar(en, s); quemar(en, s);
+              golpear(en, dmg, s); bl.golpes.push(en); sfx.golpe();
               parts.push({ x:bl.x, y:bl.y, vx:(Math.random() - 0.5) * 40, vy:(Math.random() - 0.5) * 40, t:0.15, c:'#fff' });
               if (en.hp <= 0) matar(en);
               if (bl.golpes.length > bl.p){ fuera = true; break; }       // se acabo la perforacion
@@ -1862,6 +1872,7 @@
         var pa = parts[p]; pa.x += pa.vx * dt; pa.y += pa.vy * dt; pa.t -= dt;
         if (pa.t <= 0) parts.splice(p, 1);
       }
+      for (var nd = numeros.length - 1; nd >= 0; nd--){ var no = numeros[nd]; no.y += no.v * dt; no.t -= dt; if (no.t <= 0) numeros.splice(nd, 1); }
 
       // hud vivo
       el('tiempo').textContent = fmt(tiempo);
@@ -1870,7 +1881,7 @@
       el('hpbarra').style.width = Math.max(0, hp / s.vida * 100) + '%';
       if (jefe) el('jefebarra').style.width = Math.max(0, jefe.hp / jefe.max * 100) + '%';
       // lista de estados activos: nombre, barra y segundos restantes; desaparece cuando se acaba
-      var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d']];
+      var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d'], ['curaLenta', 'REGEN', '#ff91c9']];
       var tx2 = '';
       DEFE.forEach(function(d3){
         var k3 = d3[0];
