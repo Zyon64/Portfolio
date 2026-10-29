@@ -1023,12 +1023,14 @@
     /* Tipos de oleada (los raros solo existen en oleadas): anillo por todos los bordes, enjambre de
        orbitales que giran y se cierran, y muro de bloques que cruza la pantalla con un hueco. */
     function oleada(){
+      var cupo = Math.max(0, dificultad(nivel).maxVivos - enemigos.length);
+      if (!cupo){ mostrarAviso('<b>WAVE</b> · field is full', true, 1800); return; }
       var tipos = ['anillo'];
       if (nivel >= 7) tipos.push('enjambre');
       if (nivel >= 10) tipos.push('muro');
       var tipo = tipos[(Math.random() * tipos.length) | 0], per = 2 * (W + H);
       if (tipo === 'anillo'){
-        var n = Math.min(70, 10 + nivel * 3);
+        var n = Math.min(cupo, 70, 10 + nivel * 3);
         for (var i = 0; i < n; i++){
           var pt = puntoBorde((i + Math.random() * 0.6) / n * per, 10);
           crearEnemigo(pt[0], pt[1]);
@@ -1037,32 +1039,34 @@
       } else if (tipo === 'enjambre'){
         // grupos repartidos por LOS CUATRO lados (arriba, derecha, abajo, izquierda), mas algunos extra al azar
         var grupos = 4 + ((nivel / 8) | 0), lados = [[0, W], [W, H], [W + H, W], [2 * W + H, H]];
-        for (var g = 0; g < grupos; g++){
+        var creados = 0;
+        for (var g = 0; g < grupos && creados < cupo; g++){
           var seg = lados[g % 4], base = puntoBorde(seg[0] + 2 + Math.random() * Math.max(1, seg[1] - 4), 12);
-          for (var j = 0; j < 9; j++) crearEnemigo(base[0] + (Math.random() - 0.5) * 14, base[1] + (Math.random() - 0.5) * 14, 'orbital');
+          for (var j = 0; j < 9 && creados < cupo; j++, creados++) crearEnemigo(base[0] + (Math.random() - 0.5) * 14, base[1] + (Math.random() - 0.5) * 14, 'orbital');
         }
         sfx.oleada(); mostrarAviso('<b>SWARM</b> · they circle and close in', true, 2400);
       } else {
         // dos muros a la vez, desde lados OPUESTOS, cada uno con su propio hueco
         var lado0 = (Math.random() * 4) | 0;
         var fHueco = Math.random();                       // misma posicion de hueco en ambos muros
-        muroDe(lado0, fHueco); muroDe((lado0 + 2) % 4, fHueco);
+        var antesMuros = enemigos.length;
+        muroDe(lado0, fHueco, cupo); muroDe((lado0 + 2) % 4, fHueco, Math.max(0, cupo - (enemigos.length - antesMuros)));
         sfx.oleada(); mostrarAviso('<b>WALLS</b> · find the gaps', true, 2400);
       }
     }
     /* Un muro de bloques que cruza la pantalla en linea recta, con un hueco de 4 para escapar.
        lado: 0 arriba, 1 derecha, 2 abajo, 3 izquierda. */
-    function muroDe(lado, fHueco){
+    function muroDe(lado, fHueco, cupo){
       var horiz = lado % 2 === 0, largo = horiz ? W : H, v = 38;
       var cuantos = Math.floor(largo / 12), hueco = Math.floor((fHueco === undefined ? Math.random() : fHueco) * (cuantos - 5));
-      for (var m2 = 0; m2 < cuantos; m2++){
+      for (var m2 = 0, creados = 0; m2 < cuantos && creados < cupo; m2++){
         if (m2 >= hueco && m2 < hueco + 5) continue;
         var pos = (m2 + 0.5) * largo / cuantos, wx, wy, vx = 0, vy = 0;
         if (lado === 0){ wx = pos; wy = -10; vy = v; }
         else if (lado === 2){ wx = pos; wy = H + 10; vy = -v; }
         else if (lado === 1){ wx = W + 10; wy = pos; vx = -v; }
         else { wx = -10; wy = pos; vx = v; }
-        crearEnemigo(wx, wy, 'muro').lin = { vx:vx, vy:vy };
+        crearEnemigo(wx, wy, 'muro').lin = { vx:vx, vy:vy }; creados++;
       }
     }
     function disparoEnemigo(e, ux, uy){
@@ -1106,6 +1110,8 @@
       }
     }
     function moverJefe(e, dt, dist){
+      // A mayor nivel, las ventanas entre ataques se consumen antes y el jefe se mueve mas rapido.
+      dt *= Math.min(2.2, 1 + Math.max(0, nivel - 10) * 0.035);
       var dx = P.x - e.x, dy = P.y - e.y, ux = dx / dist, uy = dy / dist;
       var fase = e.hp < e.max * 0.33 ? 2 : (e.hp < e.max * 0.66 ? 1 : 0), i, a;
       if (fase !== e.fase){                                   // cambio de fase: grito, anillo y pocos minions
@@ -1636,7 +1642,8 @@
         spawnT = d.intervalo * (0.7 + Math.random() * 0.6) * (jefe ? 4 : 1);
         if (enemigos.length < (jefe ? 6 : d.maxVivos)){
           var n = 1 + (nivel > 8 && Math.random() < 0.5 ? 1 : 0) + (nivel > 16 && Math.random() < 0.5 ? 1 : 0);
-          for (var i = 0; i < n; i++) aparecerBorde();
+          var huecos = (jefe ? 6 : d.maxVivos) - enemigos.length;
+          for (var i = 0; i < n && i < huecos; i++) aparecerBorde();
         }
       }
 
