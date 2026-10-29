@@ -729,6 +729,7 @@
       else if (a === 'todos') verRanking(rankYo, rankModo, !rankTodos);
       else if (a === 'opciones') verOpciones();
       else if (a === 'sprites') abrirSelectorSheet();
+      else if (a === 'descargarSheet') exportarSheet();
       else if (a === 'catalogo') window.open('spritesheet.html', '_blank', 'noopener');
       else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
       else if (a === 'pausa') alternarPausa();
@@ -1904,15 +1905,15 @@
     }
     /* Hoja opcional: cada celda mide 16×16 px. El lienzo mantiene imageSmoothing=false,
        por lo que los sprites importados conservan sus pixeles exactos. */
-    var TILE = { jugador:0, normal:1, embestida:2, divisor:3, espinoso:4, fantasma:5, torreta:6, masa:7,
-      saltarin:8, bombardero:9, escudero:10, sembrador:11, orbital:12, muro:13, mini:14,
-      triturador:16, centinela:17, colmena:18, rey:19, vacio:20,
-      cura:24, curaLenta:25, bomba:26, tiempo:27, burbuja:28, rayo:29, nucleo:30, barrido:31,
-      normalArma:32, dirigidas:33, s:34, escopeta:35, laser:36, sniper:37, bumeran:38, granadas:39, bala:40 };
+    /* Una fila por sprite. Las columnas extra de un jefe son componentes animados independientes. */
+    var TILE = { jugador:[0,0], normal:[1,0], mini:[2,0], embestida:[3,0], divisor:[4,0], espinoso:[5,0], fantasma:[6,0], torreta:[7,0], masa:[8,0],
+      saltarin:[9,0], bombardero:[10,0], escudero:[11,0], sembrador:[12,0], orbital:[13,0], muro:[14,0],
+      triturador:[15,0], centinela:[16,0], colmena:[17,0], rey:[18,0], vacio:[19,0],
+      cura:[20,0], curaLenta:[21,0], bomba:[22,0], tiempo:[23,0], burbuja:[24,0], rayo:[25,0], nucleo:[26,0], barrido:[27,0], bala:[28,0] };
     function spriteSheet(id, x, y, tam){
       if (!sheetPersonalizado || TILE[id] === undefined) return false;
-      var n = TILE[id], cols = Math.max(1, (sheetPersonalizado.width / 16) | 0), sx = (n % cols) * 16, sy = ((n / cols) | 0) * 16;
-      ctx.drawImage(sheetPersonalizado, sx, sy, 16, 16, Math.round(x - tam / 2), Math.round(y - tam / 2), Math.max(1, Math.round(tam)), Math.max(1, Math.round(tam)));
+      var tile = TILE[id], sw = Math.max(7, Math.round(tam)), sx = tile[1] * 48 + Math.round((48 - sw) / 2), sy = tile[0] * 48 + Math.round((48 - sw) / 2);
+      ctx.drawImage(sheetPersonalizado, sx, sy, sw, sw, Math.round(x - sw / 2), Math.round(y - sw / 2), sw, sw);
       return true;
     }
 
@@ -1983,7 +1984,7 @@
       px(cx - w / 2, cy - e.s / 2 - 9, w, 1, 'rgba(255,255,255,.25)'); px(cx - w / 2, cy - e.s / 2 - 9, Math.max(1, w * f), 1, '#ffffff');
     }
     function dibujarEnemigo(e, congelado){
-      if (spriteSheet(e.sp === 'jefe' ? e.jf : (e.sp || 'normal'), e.x, e.y, e.s + 5)) return;
+      if (spriteSheet(e.sp === 'jefe' ? e.jf : (e.sp || 'normal'), e.x, e.y, e.s + (e.sp === 'jefe' ? 14 : 5))) return;
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
       dibujarBase(e, congelado);
       if (e.jug) dibujarBlindaje(e, congelado);
