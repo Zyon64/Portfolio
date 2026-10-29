@@ -28,6 +28,7 @@
     '  opacity:0;pointer-events:none;cursor:pointer;will-change:transform,opacity;' +
     '  filter:drop-shadow(0 0 7px rgba(61,220,132,.75));transition:opacity .8s}' +
     '.z-secreta.visible{opacity:.9;pointer-events:auto}' +
+    '.z-secreta.llamando{opacity:1;z-index:2}' +
     '.z-secreta svg,.z-pie svg{display:block}' +
     '.z-estela{position:fixed;left:0;top:0;width:' + TAM + 'px;height:' + TAM + 'px;z-index:0;opacity:0;' +
     '  pointer-events:none;will-change:transform,opacity;filter:drop-shadow(0 0 4px rgba(61,220,132,.5))}' +
@@ -39,6 +40,8 @@
     /* llamar la atencion: la Z late y suelta un aro que se expande, para que la noten */
     '@keyframes z-late{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}' +
     '@keyframes z-aro{0%{transform:scale(.7);opacity:.75}100%{transform:scale(2.1);opacity:0}}' +
+    '@keyframes z-regresa{0%{transform:translate(var(--zx),calc(100vh + 35px)) scale(.9)}55%{transform:translate(var(--zx),calc(100vh - 106px)) scale(1.16)}72%{transform:translate(var(--zx),calc(100vh - 84px)) scale(.96)}100%{transform:translate(var(--zx),calc(100vh - 92px)) scale(1)}}' +
+    '.z-secreta.regresa{animation:z-regresa 1.05s cubic-bezier(.2,.9,.25,1) both}' +
     '.z-secreta svg,.z-pie svg{animation:z-late 1.5s ease-in-out infinite}' +
     '.z-secreta::after,.z-pie::after{content:"";position:absolute;inset:-4px;border:2px solid rgba(61,220,132,.8);' +
     '  border-radius:50%;pointer-events:none;animation:z-aro 1.8s ease-out infinite}' +
@@ -140,7 +143,8 @@
       }
     });
   }
-  if (MOVIL || DESBLOQUEADO) crearZPie();
+  // La puerta inferior existe siempre: la Z flotante puede apuntar hacia ella antes del primer desbloqueo.
+  crearZPie();
   if (MOVIL) return;
 
   /* =====================  PC: Z flotante en el fondo  ===================== */
@@ -150,7 +154,7 @@
   el.innerHTML = SVG(TAM);
   document.body.appendChild(el);
 
-  var activo = false, raf = 0, t0 = 0, dur = 0, p = null;
+  var activo = false, raf = 0, t0 = 0, dur = 0, p = null, bajando = false, vuelveT = 0;
   /* estela: copias mas chicas y tenues de la Z que siguen su trayectoria reciente */
   var N_ESTELA = 6, hist = [], fant = [];
   for (var q = 0; q < N_ESTELA; q++){
@@ -209,6 +213,33 @@
   }
   function programar(ms){ setTimeout(empezar, ms); }
 
+  /* Al acercar el cursor, la Z cae hacia la puerta del pie. Si no se baja a buscarla,
+     reaparece desde abajo, alineada con esa puerta, y rebota una sola vez como pista. */
+  function bajarAlPie(x, y){
+    if (!activo || bajando || entrando) return;
+    bajando = true; cancelAnimationFrame(raf); limpiarEstela();
+    var r = zPie && zPie.getBoundingClientRect(), dx = r ? r.left + r.width / 2 : W - 34;
+    var desdeX = x, desdeY = y, inicio = performance.now(), tarda = 760;
+    function caer(now){
+      var k = Math.min(1, (now - inicio) / tarda), e = 1 - Math.pow(1 - k, 3);
+      var xx = desdeX + (dx - desdeX) * e, yy = desdeY + (H + TAM) * e;
+      el.style.transform = 'translate(' + (xx - TAM / 2) + 'px,' + (yy - TAM / 2) + 'px)';
+      if (k < 1) requestAnimationFrame(caer);
+      else {
+        el.classList.remove('visible'); activo = false; bajando = false;
+        vuelveT = setTimeout(function(){
+          // Si el usuario ya llego al pie, no duplicamos la senal delante suyo.
+          var pr = zPie && zPie.getBoundingClientRect();
+          if (pr && pr.top > H * .7){
+            el.style.setProperty('--zx', Math.round(dx - TAM / 2) + 'px');
+            el.classList.add('visible', 'llamando', 'regresa');
+          } else programar(26000 + Math.random() * 16000);
+        }, 3400);
+      }
+    }
+    requestAnimationFrame(caer);
+  }
+
   if (!reducido) programar(/#z\b/.test(location.hash) ? 1500 : 22000 + Math.random() * 12000);
 
   el.addEventListener('click', function(e){
@@ -221,4 +252,10 @@
     activo = false;
     entrar(r.left + r.width / 2, r.top + r.height / 2, function(){ crearZPie(); programar(40000); });
   });
+  window.addEventListener('pointermove', function(e){
+    if (!activo || bajando || !p) return;
+    var k = (performance.now() - t0) / dur;
+    var x = p.a[0] + (p.b[0] - p.a[0]) * k, y = p.a[1] + (p.b[1] - p.a[1]) * k;
+    if (Math.hypot(e.clientX - x, e.clientY - y) < 82) bajarAlPie(x, y);
+  }, { passive:true });
 })();
