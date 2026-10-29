@@ -1946,24 +1946,26 @@
        pero cada sprite queda centrado en su tamaño real: al reimportarlo no cambia de escala. */
     function exportarSheet(){
       var hoja = document.createElement('canvas'), filas = 29, celda = 48;
-      hoja.width = celda * 6; hoja.height = celda * filas;
+      hoja.width = celda * 12; hoja.height = celda * filas;
       var anterior = ctx, anteriorSheet = sheetPersonalizado, cc = hoja.getContext('2d');
       var tiempoAnterior = tiempo; cc.imageSmoothingEnabled = false; ctx = cc; sheetPersonalizado = null;
       function eBase(sp, s, col){ return { x:24, y:24, s:s, col:col, flash:0, tipo:0, ph:0, sp:sp, est:'espera', fase:false, enc:false, beh:'directo', jf:sp, fade:false }; }
-      function enFila(id, sp, s, col){ var e = eBase(sp, s, col); if (sp === 'jefe'){ e.jf = id; e.nombre = JEFES[id].nombre; } dibujarEnemigo(e, false); }
+      function enFila(id, sp, s, col, baseOnly){ var e = eBase(sp, s, col); e.baseOnly = !!baseOnly; if (sp === 'jefe'){ e.jf = id; e.nombre = JEFES[id].nombre; } dibujarEnemigo(e, false); }
       function enCelda(fila, col, fn){ ctx.save(); ctx.translate(col * celda, fila * celda); fn(); ctx.restore(); }
       function frames(fila, fn){ for (var f = 0; f < 3; f++){ tiempo = tiempoAnterior + f * .22; enCelda(fila, f, fn); } }
       // jugador y enemigos comunes: una fila por especie; las tres primeras columnas son fotogramas.
       enCelda(0, 0, function(){ sprite(Z_PIX, 24, 24, VERDE); });
       var comunes = [['normal',null,9,'#ff4d4d'],['mini','mini',6,'#ff8080'],['embestida','embestida',10,'#ff9a3d'],['divisor','divisor',15,'#ff6bd6'],['espinoso','espinoso',9,'#ffd94d'],['fantasma','fantasma',10,'#c9a0ff'],['torreta','torreta',12,'#ff5b5b'],['masa','masa',26,'#ff3b6b'],['saltarin','saltarin',8,'#ffb34d'],['bombardero','bombardero',9,'#ff6a3d'],['escudero','escudero',12,'#9fd0ff'],['sembrador','sembrador',14,'#c8ff6a'],['orbital','orbital',5,'#ff8ae0'],['muro','muro',9,'#ff7a7a']];
-      comunes.forEach(function(q, i){ frames(i + 1, function(){ enFila(q[0], q[1], q[2], q[3]); }); });
+      comunes.forEach(function(q, i){ frames(i + 1, function(){ enFila(q[0], q[1], q[2], q[3], q[0] === 'masa'); }); });
       // Jefes: sus tres fotogramas van primero; los componentes que se mueven quedan separados a la derecha.
       var bosses = [['triturador','#ff6a3d'],['centinela','#ff4dd2'],['colmena','#c8ff6a'],['rey','#ffd94d'],['vacio','#b48cff']];
-      bosses.forEach(function(q, i){ var fila = 15 + i; frames(fila, function(){ enFila(q[0], 'jefe', JEFES[q[0]].s, q[1]); });
-        if (q[0] === 'centinela'){ enCelda(fila,3,function(){ px(20,22,8,4,q[1]); px(23,20,2,8,'#fff'); }); enCelda(fila,4,function(){ for(var a=0;a<8;a++) lineaPx(24,24,24+Math.cos(a*6.2832/8)*13,24+Math.sin(a*6.2832/8)*13,q[1]); }); }
+      bosses.forEach(function(q, i){ var fila = 15 + i; frames(fila, function(){ enFila(q[0], 'jefe', JEFES[q[0]].s, q[1], q[0] === 'centinela' || q[0] === 'colmena'); });
+        if (q[0] === 'centinela'){ enCelda(fila,3,function(){ px(20,22,8,4,q[1]); px(23,20,2,8,'#fff'); }); for(var d=0;d<8;d++) enCelda(fila,4+d,function(){ var a=d*6.2832/8; lineaPx(24,24,24+Math.cos(a)*5,24+Math.sin(a)*5,q[1]); }); }
         if (q[0] === 'colmena') enCelda(fila,3,function(){ for(var c=0;c<6;c++) px(22+Math.cos(c*6.2832/6)*11,22+Math.sin(c*6.2832/6)*11,3,3,q[1]); });
         if (q[0] === 'rey') enCelda(fila,3,function(){ for(var k=0;k<5;k++) lineaPx(10+k*7,30,13+k*7,14,q[1]); });
         if (q[0] === 'vacio') enCelda(fila,3,function(){ for(var v=0;v<4;v++) px(22+Math.cos(v*1.5708)*14,22+Math.sin(v*1.5708)*14,3,3,'#d9c2ff'); }); });
+      // Pua individual de masa: ocho direcciones editables; el juego elige la direccion y mantiene su orbita real.
+      for (var md=0; md<8; md++) enCelda(8,3+md,function(){ var ma=md*6.2832/8; lineaPx(24,24,24+Math.cos(ma)*4,24+Math.sin(ma)*4,'#ff3b6b'); });
       var listaObj = OBJETOS.map(function(o){ return o.id; });
       listaObj.forEach(function(id, i){ var fila = 20 + i, inf = OBJETOS.filter(function(o){ return o.id === id; })[0]; enCelda(fila,0,function(){ sprite(SPR[id],24,24,inf.color); }); });
       enCelda(28,0,function(){ px(23,23,2,2,'#c9ffe0'); });
@@ -1991,6 +1993,7 @@
         case 'centinela': {                                 // un ojo con picos y pupila que te sigue
           var r1 = s / 2, n1 = Math.ceil(r1 * 6.2832);
           for (i = 0; i < n1; i++){ a = i / n1 * 6.2832; px(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, 1, 1, col); }
+          if (e.baseOnly) break;
           for (i = 0; i < 10; i++){ a = i / 10 * 6.2832 + tiempo * 0.5; lineaPx(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, cx + Math.cos(a) * (r1 + 5), cy + Math.sin(a) * (r1 + 5), col); }
           var pa = Math.atan2(P.y - e.y, P.x - e.x);
           var n2 = Math.ceil(5 * 6.2832); for (i = 0; i < n2; i++){ a = i / n2 * 6.2832; px(cx + Math.cos(pa) * 5 + Math.cos(a) * 5, cy + Math.sin(pa) * 5 + Math.sin(a) * 5, 1, 1, '#fff'); }
@@ -2001,6 +2004,7 @@
           var r3 = s / 2 + 2, vs = [];
           for (i = 0; i < 6; i++){ a = i / 6 * 6.2832 + 0.5236; vs.push([cx + Math.cos(a) * r3, cy + Math.sin(a) * r3]); }
           for (i = 0; i < 6; i++){ var p1 = vs[i], p2 = vs[(i + 1) % 6]; lineaPx(p1[0], p1[1], p2[0], p2[1], col); lineaPx(p1[0], p1[1], p1[0] + (p1[0] - cx) * 0.25, p1[1] + (p1[1] - cy) * 0.25, col); }
+          if (e.baseOnly) break;
           for (i = 0; i < 6; i++){ a = i / 6 * 6.2832 + tiempo * 0.3; px(cx + Math.cos(a) * 8, cy + Math.sin(a) * 8, 2, 2, col); }
           px(cx - 1, cy - 1, 3, 3, col);
           break;
@@ -2039,7 +2043,12 @@
       px(cx - w / 2, cy - e.s / 2 - 9, w, 1, 'rgba(255,255,255,.25)'); px(cx - w / 2, cy - e.s / 2 - 9, Math.max(1, w * f), 1, '#ffffff');
     }
     function dibujarEnemigo(e, congelado){
-      if (spriteSheet(e.sp === 'jefe' ? e.jf : (e.sp || 'normal'), e.x, e.y, e.s + (e.sp === 'jefe' ? 14 : 5))) return;
+      var idSheet = e.sp === 'jefe' ? e.jf : (e.sp || 'normal');
+      if (sheetPersonalizado && e.sp === 'masa' && spriteSheet('masa', e.x, e.y, e.s + 5)){ capasMasa(e); return; }
+      if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'centinela' && spriteSheet('centinela', e.x, e.y, e.s + 14)){ capasCentinela(e); return; }
+      if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'colmena' && spriteSheet('colmena', e.x, e.y, e.s + 14)){ capasColmena(e); return; }
+      // Los demas animados conservan su renderer original hasta que su propia capa este mapeada.
+      if (!ANIM_SHEET[idSheet] && spriteSheet(idSheet, e.x, e.y, e.s + (e.sp === 'jefe' ? 14 : 5))) return;
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
       dibujarBase(e, congelado);
       if (e.jug) dibujarBlindaje(e, congelado);
@@ -2050,6 +2059,7 @@
       if (e.sp === 'masa'){                                  // blob redondo lleno de picos
         var r = s / 2, np = Math.ceil(r * 6.2832);
         for (var i = 0; i < np; i++){ var a = i / np * 6.2832; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
+        if (e.baseOnly) return;
         for (var j = 0; j < 14; j++){
           var a2 = j / 14 * 6.2832 + tiempo * 0.25;
           lineaPx(cx + Math.cos(a2) * r, cy + Math.sin(a2) * r, cx + Math.cos(a2) * (r + 4), cy + Math.sin(a2) * (r + 4), col);
@@ -2080,6 +2090,7 @@
       px(x0, y0, s, g, col); px(x0, y0 + s - g, s, g, col);
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
+      if (e.baseOnly) return;
       if (e.sp === 'saltarin'){                                                         // patas; se agacha antes de saltar
         px(x0 + 1, y0 + s, 1, e.est === 'espera' ? 1 : 3, col); px(x0 + s - 2, y0 + s, 1, e.est === 'espera' ? 1 : 3, col);
         px(x0 + 2, y0 + 2, 1, 1, col); px(x0 + s - 3, y0 + 2, 1, 1, col);
