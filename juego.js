@@ -777,7 +777,7 @@
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
         '<p style="font-size:.7rem;color:#8da398">Custom sheet: 16×16-pixel tiles, rendered without smoothing.</p>' +
-        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
+        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
     var sheetPersonalizado = null;
@@ -786,7 +786,7 @@
       var f = e.target.files && e.target.files[0]; if (!f) return;
       var im = new Image();
       im.onload = function(){
-        if (im.width % 16 || im.height % 16){ mostrarAviso('<b>SHEET</b> · use 16×16 tiles', true, 2600); return; }
+        if (im.width % 48 || im.height % 48){ mostrarAviso('<b>SHEET</b> · use 48×48 cells', true, 2600); return; }
         sheetPersonalizado = im; mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
       };
       im.src = URL.createObjectURL(f); e.target.value = '';
