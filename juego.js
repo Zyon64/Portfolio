@@ -1913,20 +1913,35 @@
       triturador:[15,0], centinela:[16,0], colmena:[17,0], rey:[18,0], vacio:[19,0],
       cura:[20,0], curaLenta:[21,0], bomba:[22,0], tiempo:[23,0], burbuja:[24,0], rayo:[25,0], nucleo:[26,0], barrido:[27,0], bala:[28,0] };
     var ANIM_SHEET = { embestida:1, espinoso:1, fantasma:1, torreta:1, masa:1, saltarin:1, bombardero:1, escudero:1, triturador:1, centinela:1, colmena:1, rey:1, vacio:1 };
+    /* Piezas funcionales: no son frames del enemigo, el codigo las coloca y rota cada cuadro. */
+    var CAPAS = { masaPua:[8,3,8], ojoCentinela:[16,3,1], puaCentinela:[16,4,8], celdaColmena:[17,3,1] };
     function tamSheet(id, tam){
       var extra = { masa:7, espinoso:7, escudero:8, torreta:5, bombardero:5, saltarin:3, triturador:4, centinela:4, colmena:5, rey:5, vacio:6 };
       return Math.min(48, Math.max(7, Math.round(tam + (extra[id] || 0))));
     }
     function spriteSheet(id, x, y, tam){
       if (!sheetPersonalizado || TILE[id] === undefined) return false;
-      /* Los animados no se sustituyen por una tira de frames horneada: sus piezas tienen
-         transformaciones vivas (seguimiento del ojo, angulos, orbitas). Hasta que cada capa
-         se lea de su celda individual, se conserva el dibujo original para no congelarlas. */
-      if (ANIM_SHEET[id]) return false;
       var tile = TILE[id], sw = tamSheet(id, tam), sx = tile[1] * 48 + Math.round((48 - sw) / 2), sy = tile[0] * 48 + Math.round((48 - sw) / 2);
       ctx.drawImage(sheetPersonalizado, sx, sy, sw, sw, Math.round(x - sw / 2), Math.round(y - sw / 2), sw, sw);
       return true;
     }
+    function capaSheet(nombre, x, y, tam, ang){
+      if (!sheetPersonalizado || !CAPAS[nombre]) return false;
+      var d = CAPAS[nombre], cuadros = d[2] || 1, cuadro = cuadros === 1 ? 0 : ((Math.round((ang || 0) / 6.2832 * cuadros) % cuadros) + cuadros) % cuadros;
+      var sw = Math.max(3, Math.round(tam)), sx = (d[1] + cuadro) * 48 + Math.round((48 - sw) / 2), sy = d[0] * 48 + Math.round((48 - sw) / 2);
+      ctx.drawImage(sheetPersonalizado, sx, sy, sw, sw, Math.round(x - sw / 2), Math.round(y - sw / 2), sw, sw);
+      return true;
+    }
+    function capasMasa(e){
+      var r = e.s / 2;
+      for (var j = 0; j < 14; j++){ var a = j / 14 * 6.2832 + tiempo * .25; capaSheet('masaPua', e.x + Math.cos(a) * (r + 2), e.y + Math.sin(a) * (r + 2), 9, a); }
+    }
+    function capasCentinela(e){
+      var r = e.s / 2, pa = Math.atan2(P.y - e.y, P.x - e.x);
+      for (var i = 0; i < 10; i++){ var a = i / 10 * 6.2832 + tiempo * .5; capaSheet('puaCentinela', e.x + Math.cos(a) * (r + 3), e.y + Math.sin(a) * (r + 3), 11, a); }
+      capaSheet('ojoCentinela', e.x + Math.cos(pa) * 5, e.y + Math.sin(pa) * 5, 12, 0);
+    }
+    function capasColmena(e){ for (var i = 0; i < 6; i++){ var a = i / 6 * 6.2832 + tiempo * .3; capaSheet('celdaColmena', e.x + Math.cos(a) * 8, e.y + Math.sin(a) * 8, 4, 0); } }
     /* Exporta la hoja desde los mismos trazos que usa el canvas. Las celdas son de 48×48,
        pero cada sprite queda centrado en su tamaño real: al reimportarlo no cambia de escala. */
     function exportarSheet(){
