@@ -732,6 +732,8 @@
       else if (a === 'opciones') verOpciones();
       else if (a === 'sprites') abrirSelectorSheet();
       else if (a === 'descargarSheet') exportarSheet();
+      else if (a === 'descargarGuia') exportarGuia();
+      else if (a === 'usarDefecto'){ sheetPersonalizado = null; try { localStorage.removeItem('juegoZ_hoja'); } catch(err){} mostrarAviso('<b>SHEET</b> · default art restored', false, 2000); }
       else if (a === 'catalogo') window.open('spritesheet.html', '_blank', 'noopener');
       else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
       else if (a === 'pausa') alternarPausa();
@@ -779,18 +781,22 @@
       caja.innerHTML = '<div class="jg-h">OPTIONS</div><p>Sound volume</p>' +
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
-        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 16×16-pixel tiles, rendered without smoothing.</p>' +
-        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
+        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 64×64 cells. Animated parts are separate cells; the game moves, rotates and scales them. Download the sheet, edit it, load it back.</p>' +
+        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="descargarGuia">DOWNLOAD GUIDE</button><button class="jg-btn" data-a="usarDefecto">USE DEFAULT</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
     var sheetPersonalizado = null;
+    try { var guardada = localStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === 512 && imG.height === 640) sheetPersonalizado = imG; }; imG.src = guardada; } } catch(err){}
     function abrirSelectorSheet(){ raiz.querySelector('.jg-sheet-input').click(); }
     raiz.querySelector('.jg-sheet-input').addEventListener('change', function(e){
       var f = e.target.files && e.target.files[0]; if (!f) return;
       var im = new Image();
       im.onload = function(){
-        if (im.width % 48 || im.height % 48){ mostrarAviso('<b>SHEET</b> · use 48×48 cells', true, 2600); return; }
+        if (im.width !== CELDA * HOJA_COLS || im.height !== CELDA * HOJA_FILAS){
+          mostrarAviso('<b>SHEET</b> · needs ' + (CELDA * HOJA_COLS) + '×' + (CELDA * HOJA_FILAS) + ' px (64×64 cells). Download the new one.', true, 3400); return;
+        }
         sheetPersonalizado = im; mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
+        try { var c2 = document.createElement('canvas'); c2.width = im.width; c2.height = im.height; c2.getContext('2d').drawImage(im, 0, 0); localStorage.setItem('juegoZ_hoja', c2.toDataURL('image/png')); } catch(err){}
       };
       im.src = URL.createObjectURL(f); e.target.value = '';
     });
@@ -1963,7 +1969,8 @@
       burbuja:     { r:9, c:4, win:24, s0:7, et:'BUBBLE',       nota:'Pickup.' },
       rayo:        { r:9, c:5, win:24, s0:7, et:'LIGHTNING',    nota:'Pickup.' },
       nucleo:      { r:9, c:6, win:24, s0:7, et:'CORE',         nota:'Pickup.' },
-      barrido:     { r:9, c:7, win:24, s0:7, et:'SWEEP',        nota:'Pickup.' }
+      barrido:     { r:9, c:7, win:24, s0:7, et:'SWEEP',        nota:'Pickup.' },
+      vacio:       { virtual:true, s0:30 }                  // jefe VOID: se compone de las tres capas vacio*
     };
     var HOJA_COLS = 8, HOJA_FILAS = 10;
     var scratch = document.createElement('canvas'); scratch.width = scratch.height = CELDA;
@@ -1972,7 +1979,7 @@
        tinte = color que reemplaza al de la pieza, alfa = opacidad. */
     function pieza(id, x, y, k, ang, tinte, alfa){
       var h = HOJA[id];
-      if (!sheetPersonalizado || !h) return false;
+      if (!sheetPersonalizado || !h || h.virtual) return false;
       var win = h.win, sx = h.c * CELDA + (CELDA - win) / 2, sy = h.r * CELDA + (CELDA - win) / 2, fuente = sheetPersonalizado;
       if (tinte){
         var t = scratch.getContext('2d');
@@ -2008,7 +2015,6 @@
       switch (id){
         case 'espinoso':                                                   // todo el rombo gira
           pieza('espinoso', cx, cy, k, t * 3 + e.ph, tCuerpo, alfa); break;
-        case 'vacioAnillo': break;
         case 'vacio':
           pieza('vacioAnillo',  cx, cy, k,  t * 0.8, tinte, alfa);
           pieza('vacioEspiral', cx, cy, k,  t * 2,   tinte, alfa);
@@ -2111,7 +2117,8 @@
           ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(cc2 * CELDA + CELDA / 2, rr * CELDA, 1, CELDA); ctx.fillRect(cc2 * CELDA, rr * CELDA + CELDA / 2, CELDA, 1);
         }
         Object.keys(HOJA).forEach(function(id){
-          var h = HOJA[id], x0 = h.c * CELDA, y0 = h.r * CELDA, w0 = (CELDA - h.win) / 2;
+          var h = HOJA[id]; if (h.virtual) return;
+          var x0 = h.c * CELDA, y0 = h.r * CELDA, w0 = (CELDA - h.win) / 2;
           ctx.strokeStyle = 'rgba(61,220,132,.55)'; ctx.strokeRect(x0 + w0 + .5, y0 + w0 + .5, h.win - 1, h.win - 1);
           ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x0 + 1, y0 + 1, Math.min(CELDA - 2, h.et.length * 4 + 4), 9);
           ctx.fillStyle = '#9fffc7'; ctx.fillText(h.et, x0 + 3, y0 + 2);
@@ -2179,7 +2186,7 @@
     }
     /* Blindaje de juggernaut: aro punteado exterior, hombreras con picos y remaches, mas una barrita de vida
        encima, para reconocerlo de un vistazo sea del tipo que sea. */
-    function dibujarBlindaje(e, congelado){
+    function dibujarBlindaje(e, congelado, soloForma){
       var cx = Math.round(e.x), cy = Math.round(e.y), r = e.s / 2 + 3, i;
       var col = e.flash > 0 ? '#ffffff' : (congelado ? '#8fd8ff' : e.col);
       if (e.sp === 'fantasma' && e.fase) ctx.globalAlpha = 0.3;
@@ -2192,22 +2199,14 @@
       }
       px(cx - 1, cy - 1, 3, 3, col);
       ctx.globalAlpha = 1;
-      var w = Math.round(e.s), f = Math.max(0, e.hp / e.max);
+      if (!soloForma) dibujarBarraBlindaje(e);
+    }
+    function dibujarBarraBlindaje(e){
+      var cx = Math.round(e.x), cy = Math.round(e.y), w = Math.round(e.s), f = Math.max(0, e.hp / e.max);
       px(cx - w / 2, cy - e.s / 2 - 9, w, 1, 'rgba(255,255,255,.25)'); px(cx - w / 2, cy - e.s / 2 - 9, Math.max(1, w * f), 1, '#ffffff');
     }
     function dibujarEnemigo(e, congelado){
-      var idSheet = e.sp === 'jefe' ? e.jf : (e.sp || 'normal');
-      if (sheetPersonalizado && e.sp === 'masa' && spriteSheet('masa', e.x, e.y, e.s + 5)){ capasMasa(e); return; }
-      if (sheetPersonalizado && e.sp === 'torreta' && spriteSheet('torreta', e.x, e.y, e.s + 5)){ capasTorreta(e); return; }
-      if (sheetPersonalizado && e.sp === 'escudero' && spriteSheet('escudero', e.x, e.y, e.s + 5)){ capasEscudo(e); return; }
-      if (sheetPersonalizado && e.sp === 'bombardero' && spriteSheet('bombardero', e.x, e.y, e.s + 5)){ capasBombardero(e); return; }
-      if (sheetPersonalizado && e.sp === 'saltarin' && spriteSheet('saltarin', e.x, e.y, e.s + 5)){ capasSaltarin(e); return; }
-      if (sheetPersonalizado && e.sp === 'fantasma'){ capasFantasma(e); return; }
-      if (sheetPersonalizado && e.sp === 'embestida'){ capasEmbestida(e); return; }
-      if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'centinela' && spriteSheet('centinela', e.x, e.y, e.s + 14)){ capasCentinela(e); return; }
-      if (sheetPersonalizado && e.sp === 'jefe' && e.jf === 'colmena' && spriteSheet('colmena', e.x, e.y, e.s + 14)){ capasColmena(e); return; }
-      // Los demas animados conservan su renderer original hasta que su propia capa este mapeada.
-      if (!ANIM_SHEET[idSheet] && spriteSheet(idSheet, e.x, e.y, e.s + (e.sp === 'jefe' ? 14 : 5))) return;
+      if (sheetPersonalizado && dibujarEnemigoHoja(e, congelado)) return;     // con hoja: cuerpo + capas separadas
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
       dibujarBase(e, congelado);
       if (e.jug) dibujarBlindaje(e, congelado);
@@ -2218,7 +2217,7 @@
       if (e.sp === 'masa'){                                  // blob redondo lleno de picos
         var r = s / 2, np = Math.ceil(r * 6.2832);
         for (var i = 0; i < np; i++){ var a = i / np * 6.2832; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
-        if (e.baseOnly) return;
+        if (e.baseOnly || e.cuerpo) return;
         for (var j = 0; j < 14; j++){
           var a2 = j / 14 * 6.2832 + tiempo * 0.25;
           lineaPx(cx + Math.cos(a2) * r, cy + Math.sin(a2) * r, cx + Math.cos(a2) * (r + 4), cy + Math.sin(a2) * (r + 4), col);
@@ -2250,6 +2249,9 @@
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
       if (e.baseOnly) return;
+      if (e.cuerpo){                                          // solo lo estatico; el resto son capas de la hoja
+        if (e.sp === 'sembrador'){ px(x0 + 3, y0 + 3, 2, 2, col); px(x0 + s - 5, y0 + 3, 2, 2, col); px(x0 + 3, y0 + s - 5, 2, 2, col); px(x0 + s - 5, y0 + s - 5, 2, 2, col); }
+      } else {
       if (e.sp === 'saltarin'){                                                         // patas; se agacha antes de saltar
         px(x0 + 1, y0 + s, 1, e.est === 'espera' ? 1 : 3, col); px(x0 + s - 2, y0 + s, 1, e.est === 'espera' ? 1 : 3, col);
         px(x0 + 2, y0 + 2, 1, 1, col); px(x0 + s - 3, y0 + 2, 1, 1, col);
@@ -2273,6 +2275,7 @@
         lineaPx(cx + 1, cy, cx + 1 + ddx / dd * (s / 2 + 4), cy + ddy / dd * (s / 2 + 4), col);
       }
       if (e.sp === 'embestida' && e.est === 'carga') lineaPx(cx, cy, cx + e.dx * 14, cy + e.dy * 14, '#fff');   // avisa hacia donde embiste
+      }
       // picos arriba (silueta): cada pico es una "^" de 1px de trazo
       var n = Math.max(2, Math.floor(s / 5)), w = s / n;
       for (var i3 = 0; i3 < n; i3++){
@@ -2322,7 +2325,7 @@
         }
       }
       if (parpadeo) return;
-      if (spriteSheet('jugador', P.x, P.y, 7)) return;
+      if (pieza('jugador', P.x, P.y, 1)) return;
       for (var y = 0; y < 7; y++) for (var x = 0; x < 7; x++)
         if (Z_PIX[y][x] === 'X') px(x0 + x, y0 + y, 1, 1, VERDE);
       ctx.fillStyle = 'rgba(61,220,132,.12)'; ctx.fillRect(x0 - 2, y0 - 2, 11, 11);    // resplandor tenue
@@ -2336,7 +2339,7 @@
       objetos.forEach(function(o){
         if (o.t < 2.5 && Math.floor(o.t * 6) % 2) return;                // parpadea al acabarse
         var info = OBJETOS.filter(function(q){ return q.id === o.tipo; })[0];
-        if (!spriteSheet(o.tipo, o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), 7)) sprite(SPR[o.tipo], o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), info.color);
+        if (!pieza(o.tipo, o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), 1)) sprite(SPR[o.tipo], o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), info.color);
       });
       var cong = efectos.tiempo > 0;
       enemigos.forEach(function(e){ dibujarEnemigo(e, cong); dibujarEstados(e); });
@@ -2394,7 +2397,7 @@
       balas.forEach(function(b){
         if (b.gran){ px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#ffa23d'); return; }
         px(b.x - b.t / 2 - b.vx * 0.014, b.y - b.t / 2 - b.vy * 0.014, b.t, b.t, 'rgba(61,220,132,.45)');   // estela corta
-        if (!spriteSheet('bala', b.x, b.y, Math.max(3, b.t + 2))) px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#c9ffe0');
+        if (!pieza('bala', b.x, b.y, Math.max(1, b.t / 2))) px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#c9ffe0');
       });
       rayos.forEach(function(r){                                         // rayo: zigzag del borde de arriba al enemigo
         var x = r.x, y = 0, pasos = Math.max(4, Math.floor(r.y / 7));
@@ -2432,5 +2435,5 @@
     mostrarAviso(tactil ? 'Drag to move · <b>auto-fire</b>' : 'Move the mouse · <b>auto-fire</b>');
   }
 
-  window.Juego = { abrir: abrir };
+  window.Juego = { abrir: abrir, hoja: HOJA_PUBLICA };
 })();
