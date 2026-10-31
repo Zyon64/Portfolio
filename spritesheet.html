@@ -1,6 +1,61 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Z · Game sprite sheet</title>
-<style>body{margin:0;padding:28px;background:#070b13;color:#dce8ef;font:14px/1.5 ui-monospace,Consolas,monospace}h1{color:#3ddc84;font-size:23px;margin:0 0 6px}p{color:#a9bcc8;max-width:780px}.rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px;margin-top:20px}.row{padding:9px 11px;border:1px solid #263b54;border-radius:8px;background:#0d1726}.n{color:#3ddc84}.part{color:#c9ffe0}</style>
-<h1>Z · actual game sprite sheet</h1><p>This page documents the exact row order. To get the editable PNG itself, open the game and use <b>Options → Download Sheet</b>. It is generated from the same canvas functions used by the game, so it is not an approximate catalog.</p><p>Every cell is 48×48 px. Column 0 is the body. Columns 3–10 hold directional, live components where applicable (for example, the 8 hair directions of Mass, and Sentinel’s eye plus 8 rotating spikes). The code—not the PNG—keeps their position and movement. Keep the 576×1392 canvas dimensions and cell layout unchanged.</p><div class="rows" id="rows"></div><script>
-const rows=['PLAYER Z','NORMAL','MINION','DASHER','SPLITTER','SPIKY','GHOST','TURRET','MASS','JUMPER','BOMBER','SHIELDER','SEEDER','ORBITAL','WALL','BOSS · CRUSHER','BOSS · SENTINEL | eye | rotating spikes','BOSS · HIVE | orbiting cells','BOSS · KING | crown','BOSS · VOID | orbiting shards','ITEM · HEAL','ITEM · REGEN','ITEM · BOMB','ITEM · TIME STOP','ITEM · SHIELD','ITEM · STORM','ITEM · XP CORE','ITEM · SWEEP','PLAYER BULLET'];
-document.querySelector('#rows').innerHTML=rows.map((r,i)=>'<div class="row"><span class="n">row '+i+'</span> · '+r.replaceAll('|','<span class="part">→</span>')+'</div>').join('');
-</script></html>
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Z · Game sprite sheet</title>
+<style>
+  body{margin:0;padding:28px;background:#050811;color:#dce8ef;font:14px/1.55 ui-monospace,Consolas,monospace}
+  h1{color:#3ddc84;font-size:23px;margin:0 0 6px}
+  h2{color:#9fffc7;font-size:15px;margin:26px 0 8px;letter-spacing:.06em}
+  p,li{color:#a9bcc8;max-width:820px}
+  b{color:#e8f4ee}
+  code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:4px;color:#c9ffe0}
+  .grid{display:grid;gap:6px;margin-top:10px}
+  .celda{position:relative;border:1px solid rgba(255,255,255,.14);border-radius:6px;background:rgba(255,255,255,.03);padding:6px 7px;min-height:54px}
+  .celda .id{color:#9fffc7;font-size:11px;font-weight:700}
+  .celda .pos{color:#7d92a0;font-size:10px}
+  .celda .nota{color:#a9bcc8;font-size:10.5px;margin-top:3px;line-height:1.35}
+  .celda.capa{border-color:rgba(61,220,132,.45)}
+  .celda.vacia{opacity:.25;min-height:0;padding:6px}
+  .leyenda span{display:inline-block;margin-right:16px}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+</style>
+<h1>Z · game sprite sheet</h1>
+<p>The game can use your own art. In the game open <b>Pause → Options</b>: <b>DOWNLOAD SHEET</b> gives you the default art,
+<b>DOWNLOAD GUIDE</b> gives the same image with a grid, names and the safe drawing area of every piece (do not load the guide),
+and <b>LOAD SHEET</b> loads your edited PNG. <b>USE DEFAULT</b> goes back to the built-in art. Your sheet is remembered in this browser.</p>
+
+<h2>How it works</h2>
+<ul>
+  <li>The sheet is <b id="medida"></b> pixels: a grid of <b id="cuadro"></b> cells. One piece per cell.</li>
+  <li>The <b>centre of each cell is the pivot</b>: the enemy's centre, or the point a part rotates and orbits around.</li>
+  <li><b>Animated parts are separate cells</b> (green border below). The game places, rotates, scales and animates them exactly as before; you draw each one once, <b>pointing right (+x)</b>.</li>
+  <li>Bodies are <b>scaled</b> by the real enemy size, so big, small and juggernaut enemies reuse the same drawing and nothing is cropped.</li>
+  <li>Each piece only shows its <b>safe area</b> (a square around the centre, marked green in the guide). Draw inside it.</li>
+  <li>Pieces marked <b>tinted</b> are colour-coded by the game (behaviour, frozen, hit-flash): only their <b>shape</b> (alpha) is used.</li>
+  <li>Pixels are never smoothed. Keep the PNG at the exact size above.</li>
+</ul>
+
+<h2>Layout</h2>
+<p class="leyenda"><span><i class="sw" style="background:rgba(255,255,255,.3)"></i>body / static piece</span><span><i class="sw" style="background:#3ddc84"></i>animated layer (separate cell)</span></p>
+<div class="grid" id="rejilla"></div>
+
+<script src="juego.js"></script>
+<script>
+(function(){
+  var h = window.Juego && window.Juego.hoja; if (!h){ document.body.insertAdjacentHTML('beforeend', '<p>Could not read the game catalog.</p>'); return; }
+  document.getElementById('medida').textContent = (h.celda * h.cols) + ' × ' + (h.celda * h.filas);
+  document.getElementById('cuadro').textContent = h.celda + '×' + h.celda;
+  var rej = document.getElementById('rejilla'); rej.style.gridTemplateColumns = 'repeat(' + h.cols + ', minmax(0,1fr))';
+  var porPos = {};
+  Object.keys(h.piezas).forEach(function(id){ var p = h.piezas[id]; if (!p.virtual) porPos[p.r + ',' + p.c] = { id:id, p:p }; });
+  var capa = /^Layer:/;
+  for (var r = 0; r < h.filas; r++) for (var c = 0; c < h.cols; c++){
+    var q = porPos[r + ',' + c], d = document.createElement('div');
+    if (!q){ d.className = 'celda vacia'; d.innerHTML = '<span class="pos">r' + r + ' c' + c + '</span>'; }
+    else {
+      d.className = 'celda' + (capa.test(q.p.nota) ? ' capa' : '');
+      d.innerHTML = '<div class="id">' + q.p.et + '</div><div class="pos">row ' + r + ' · col ' + c + ' · safe ' + q.p.win + 'px' + (q.p.tint ? ' · tinted' : '') + '</div><div class="nota">' + q.p.nota + '</div>';
+    }
+    rej.appendChild(d);
+  }
+})();
+</script>
+</html>
