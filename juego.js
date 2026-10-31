@@ -226,19 +226,19 @@
     canon:       { r:3, c:1, win:32, s0:12, et:'CANNON',   nota:'Layer: barrel, points right; rotates to aim at you.' },
     escudero:    { r:3, c:2, win:32, s0:12, et:'SHIELDER', nota:'Body only.' },
     escudo:      { r:3, c:3, win:32, s0:12, et:'SHIELD',   nota:'Layer: shield arc, faces right; rotates toward you.' },
-    masa:        { r:3, c:4, win:64, s0:26, et:'MASS',     nota:'Round body without spikes.' },
+    masa:        { r:3, c:4, win:60, s0:26, et:'MASS',     nota:'Round body without spikes.' },
     masaPua:     { r:3, c:5, win:16, s0:26, et:'MASS SPIKE', nota:'Layer: ONE spike, points right. 14 orbit the body.' },
     blindaje:    { r:4, c:0, win:48, s0:16, tint:1, et:'JUGGERNAUT', nota:'Layer: armour drawn over any enemy that is a juggernaut.' },
-    triturador:  { r:5, c:0, win:64, s0:34, et:'BOSS CRUSHER',  nota:'Static boss.' },
-    rey:         { r:5, c:1, win:64, s0:30, et:'BOSS KING',     nota:'Static boss.' },
-    centinela:   { r:6, c:0, win:64, s0:28, et:'BOSS SENTINEL', nota:'Body ring only.' },
+    triturador:  { r:5, c:0, win:60, s0:34, et:'BOSS CRUSHER',  nota:'Static boss.' },
+    rey:         { r:5, c:1, win:60, s0:30, et:'BOSS KING',     nota:'Static boss.' },
+    centinela:   { r:6, c:0, win:60, s0:28, et:'BOSS SENTINEL', nota:'Body ring only.' },
     centPua:     { r:6, c:1, win:16, s0:28, et:'SENTINEL SPIKE', nota:'Layer: ONE spike, points right. 10 orbit the ring.' },
     centOjo:     { r:6, c:2, win:24, s0:28, et:'SENTINEL EYE',  nota:'Layer: pupil, follows you.' },
-    colmena:     { r:7, c:0, win:64, s0:32, et:'BOSS HIVE',     nota:'Hexagon + centre dot.' },
+    colmena:     { r:7, c:0, win:60, s0:32, et:'BOSS HIVE',     nota:'Hexagon + centre dot.' },
     colCelda:    { r:7, c:1, win:8,  s0:32, et:'HIVE CELL',     nota:'Layer: ONE cell. 6 orbit the centre.' },
-    vacioAnillo: { r:8, c:0, win:64, s0:30, et:'VOID RING',     nota:'Layer: dashed ring, slow spin.' },
+    vacioAnillo: { r:8, c:0, win:60, s0:30, et:'VOID RING',     nota:'Layer: dashed ring, slow spin.' },
     vacioEspiral:{ r:8, c:1, win:48, s0:30, et:'VOID SPIRAL',   nota:'Layer: spiral, fast spin.' },
-    vacioOrbitas:{ r:8, c:2, win:64, s0:30, et:'VOID ORBITS',   nota:'Layer: 4 dots, spin the other way.' },
+    vacioOrbitas:{ r:8, c:2, win:60, s0:30, et:'VOID ORBITS',   nota:'Layer: 4 dots, spin the other way.' },
     cura:        { r:9, c:0, win:24, s0:7, et:'HEART',        nota:'Pickup.' },
     curaLenta:   { r:9, c:1, win:24, s0:7, et:'SLOW HEAL',    nota:'Pickup.' },
     bomba:       { r:9, c:2, win:24, s0:7, et:'BOMB',         nota:'Pickup.' },
@@ -2138,6 +2138,28 @@
       celda('vacioOrbitas', function(x, y, h){ for (var i = 0; i < 4; i++){ var a = i * 1.57; px(x + Math.cos(a) * (h.s0 / 2 + 5), y + Math.sin(a) * (h.s0 / 2 + 5), 2, 2, '#d9c2ff'); } });
       // objetos
       OBJETOS.forEach(function(o){ celda(o.id, function(x, y){ sprite(SPR[o.id], x, y, o.color); }); });
+
+      /* GUIAS (siempre presentes en la hoja). Viven en el margen FUERA de la ventana segura de cada
+         pieza, que el juego nunca lee: no se ven en el juego. Marco gris = borde de la celda; marco
+         verde = hasta donde llega a verse el sprite; marcas amarillas = ejes que cruzan el pivote. */
+      ctx.save(); ctx.globalAlpha = 1;
+      function lineaH(x, y, w, c){ ctx.fillStyle = c; ctx.fillRect(x, y, w, 1); }
+      function lineaV(x, y, h2, c){ ctx.fillStyle = c; ctx.fillRect(x, y, 1, h2); }
+      for (var gr = 0; gr < HOJA_FILAS; gr++) for (var gc = 0; gc < HOJA_COLS; gc++){
+        var gx = gc * CELDA, gy = gr * CELDA, borde = 'rgba(255,255,255,.35)';
+        lineaH(gx, gy, CELDA, borde); lineaH(gx, gy + CELDA - 1, CELDA, borde); lineaV(gx, gy, CELDA, borde); lineaV(gx + CELDA - 1, gy, CELDA, borde);
+      }
+      Object.keys(HOJA).forEach(function(id){
+        var h = HOJA[id]; if (h.virtual) return;
+        var gx = h.c * CELDA, gy = h.r * CELDA, m = (CELDA - h.win) / 2, a0 = m - 1, a1 = m + h.win;     // pixeles justo fuera de la ventana
+        var verde = '#3ddc84', amar = '#ffd94d';
+        lineaH(gx + a0, gy + a0, h.win + 2, verde); lineaH(gx + a0, gy + a1, h.win + 2, verde);
+        lineaV(gx + a0, gy + a0, h.win + 2, verde); lineaV(gx + a1, gy + a0, h.win + 2, verde);
+        var mid = CELDA / 2;                                                                                // ticks del pivote (2 px) en los 4 lados
+        lineaV(gx + mid, gy + a0 - 1 < 0 ? gy : gy + a0 - 1, 1, amar); lineaV(gx + mid, gy + a1 + 1, 1, amar);
+        lineaH(gx + (a0 - 1 < 0 ? 0 : a0 - 1), gy + mid, 1, amar); lineaH(gx + a1 + 1, gy + mid, 1, amar);
+      });
+      ctx.restore();
 
       if (conGuia){
         ctx.font = '7px monospace'; ctx.textBaseline = 'top';
