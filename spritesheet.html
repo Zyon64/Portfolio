@@ -4,38 +4,43 @@
   body{margin:0;padding:28px;background:#050811;color:#dce8ef;font:14px/1.55 ui-monospace,Consolas,monospace}
   h1{color:#3ddc84;font-size:23px;margin:0 0 6px}
   h2{color:#9fffc7;font-size:15px;margin:26px 0 8px;letter-spacing:.06em}
-  p,li{color:#a9bcc8;max-width:820px}
+  p,li{color:#a9bcc8;max-width:860px}
   b{color:#e8f4ee}
-  code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:4px;color:#c9ffe0}
-  .grid{display:grid;gap:6px;margin-top:10px}
-  .celda{position:relative;border:1px solid rgba(255,255,255,.14);border-radius:6px;background:rgba(255,255,255,.03);padding:6px 7px;min-height:54px}
-  .celda .id{color:#9fffc7;font-size:11px;font-weight:700}
-  .celda .pos{color:#7d92a0;font-size:10px}
-  .celda .nota{color:#a9bcc8;font-size:10.5px;margin-top:3px;line-height:1.35}
-  .celda.capa{border-color:rgba(61,220,132,.45)}
-  .celda.vacia{opacity:.25;min-height:0;padding:6px}
-  .leyenda span{display:inline-block;margin-right:16px}
-  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+  table{border-collapse:collapse;width:100%;max-width:980px;margin-top:10px;font-size:12px}
+  th{color:#7d92a0;font-weight:400;text-align:left;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.14)}
+  td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.07);color:#a9bcc8;vertical-align:top}
+  td.n{color:#7d92a0}
+  td.id{color:#9fffc7;font-weight:700;white-space:nowrap}
+  tr.capa td.id{color:#3ddc84}
+  tr.capa td.id::after{content:" ◦ layer";color:#4a8f68;font-weight:400;font-size:10px}
+  .tag{display:inline-block;border:1px solid rgba(255,255,255,.2);border-radius:99px;padding:0 7px;margin-left:5px;font-size:10px;color:#c9ffe0}
 </style>
 <h1>Z · game sprite sheet</h1>
 <p>The game can use your own art. In the game open <b>Pause → Options</b>: <b>DOWNLOAD SHEET</b> gives you the default art,
-<b>DOWNLOAD GUIDE</b> gives the same image with a grid, names and the safe drawing area of every piece (do not load the guide),
+<b>DOWNLOAD GUIDE</b> gives the same image with each piece's name written on it (do not load the guide),
 and <b>LOAD SHEET</b> loads your edited PNG. <b>USE DEFAULT</b> goes back to the built-in art. Your sheet is remembered in this browser.</p>
 
 <h2>How it works</h2>
 <ul>
-  <li>The sheet is <b id="medida"></b> pixels: a grid of <b id="cuadro"></b> cells. One piece per cell.</li>
+  <li>The sheet is <b id="medida"></b> pixels: <b id="cuadro"></b> cells, <b id="ncols"></b> columns × <b id="nfilas"></b> rows.</li>
+  <li><b>One row per sprite type.</b> The first cell of the row is the sprite. The cells to its right are <b>frames</b>: if you draw
+      frames 2, 3, 4… (without leaving gaps) that piece <b>becomes an animation</b> and the game cycles through them.</li>
+  <li>If the <b>first cell of a row is empty</b>, the game ignores your sheet for that piece and uses the <b>default art</b>, so nothing breaks.</li>
   <li>The <b>centre of each cell is the pivot</b>: the enemy's centre, or the point a part rotates and orbits around.</li>
-  <li><b>Animated parts are separate cells</b> (green border below). The game places, rotates, scales and animates them exactly as before; you draw each one once, <b>pointing right (+x)</b>.</li>
-  <li>Bodies are <b>scaled</b> by the real enemy size, so big, small and juggernaut enemies reuse the same drawing and nothing is cropped.</li>
-  <li>Each piece only shows its <b>safe area</b>: a square around the centre. The sheet already has guide lines for it, drawn <b>just outside</b> that area so the game never reads them: a <b style="color:#3ddc84">green frame</b> = how far the sprite is visible (anything beyond is cut), <b style="color:#ffd94d">yellow ticks</b> = the axes through the pivot, a <b>grey frame</b> = the cell edge (64×64). Draw inside the green frame.</li>
+  <li><b>Animated parts are their own rows</b> (marked “layer”). The game places, rotates, scales and animates them; you draw each one once, <b>pointing right (+x)</b>.</li>
+  <li>Bodies are <b>scaled</b> by the real enemy size, so big, small and juggernaut enemies reuse the same drawing.</li>
+  <li>Each piece only shows its <b>safe area</b>, a square around the centre. The sheet has guide lines drawn <b>just outside</b> it so the game never reads them:
+      <b style="color:#3ddc84">green frame</b> = how far the sprite is visible (anything beyond is cut), <b style="color:#ffd94d">yellow ticks</b> = the axes through the pivot,
+      <b>grey frame</b> = the cell edge. All 8 frame cells of every row have guides.</li>
+  <li><b>Collisions follow your drawing.</b> The hit area of a body is the silhouette of its pixels (all frames, filled in, hollow outlines count as solid).
+      Your own shape also decides where you can be hit.</li>
+  <li><b>Weapon icons</b> (rows at the bottom) appear when you choose a weapon and in the weapon stat. They can be animated like any other row.</li>
   <li>Pieces marked <b>tinted</b> are colour-coded by the game (behaviour, frozen, hit-flash): only their <b>shape</b> (alpha) is used.</li>
   <li>Pixels are never smoothed. Keep the PNG at the exact size above.</li>
 </ul>
 
-<h2>Layout</h2>
-<p class="leyenda"><span><i class="sw" style="background:rgba(255,255,255,.3)"></i>body / static piece</span><span><i class="sw" style="background:#3ddc84"></i>animated layer (separate cell)</span></p>
-<div class="grid" id="rejilla"></div>
+<h2>Rows</h2>
+<table><thead><tr><th>row</th><th>sprite</th><th>safe area</th><th>notes</th></tr></thead><tbody id="filas"></tbody></table>
 
 <script src="juego.js"></script>
 <script>
@@ -43,19 +48,17 @@ and <b>LOAD SHEET</b> loads your edited PNG. <b>USE DEFAULT</b> goes back to the
   var h = window.Juego && window.Juego.hoja; if (!h){ document.body.insertAdjacentHTML('beforeend', '<p>Could not read the game catalog.</p>'); return; }
   document.getElementById('medida').textContent = (h.celda * h.cols) + ' × ' + (h.celda * h.filas);
   document.getElementById('cuadro').textContent = h.celda + '×' + h.celda;
-  var rej = document.getElementById('rejilla'); rej.style.gridTemplateColumns = 'repeat(' + h.cols + ', minmax(0,1fr))';
-  var porPos = {};
-  Object.keys(h.piezas).forEach(function(id){ var p = h.piezas[id]; if (!p.virtual) porPos[p.r + ',' + p.c] = { id:id, p:p }; });
-  var capa = /^Layer:/;
-  for (var r = 0; r < h.filas; r++) for (var c = 0; c < h.cols; c++){
-    var q = porPos[r + ',' + c], d = document.createElement('div');
-    if (!q){ d.className = 'celda vacia'; d.innerHTML = '<span class="pos">r' + r + ' c' + c + '</span>'; }
-    else {
-      d.className = 'celda' + (capa.test(q.p.nota) ? ' capa' : '');
-      d.innerHTML = '<div class="id">' + q.p.et + '</div><div class="pos">row ' + r + ' · col ' + c + ' · safe ' + q.p.win + 'px' + (q.p.tint ? ' · tinted' : '') + '</div><div class="nota">' + q.p.nota + '</div>';
-    }
-    rej.appendChild(d);
-  }
+  document.getElementById('ncols').textContent = h.cols;
+  document.getElementById('nfilas').textContent = h.filas;
+  var t = document.getElementById('filas');
+  h.orden.forEach(function(id){
+    var p = h.piezas[id], capa = /^Layer:/.test(p.nota);
+    var tr = document.createElement('tr'); if (capa) tr.className = 'capa';
+    tr.innerHTML = '<td class="n">' + p.r + '</td><td class="id">' + p.et + '</td><td>' + p.win + '×' + p.win +
+      (p.tint ? '<span class="tag">tinted</span>' : '') + (p.defFrames > 1 ? '<span class="tag">' + p.defFrames + ' default frames</span>' : '') +
+      '</td><td>' + p.nota + '</td>';
+    t.appendChild(tr);
+  });
 })();
 </script>
 </html>
