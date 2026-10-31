@@ -2480,6 +2480,10 @@
       try { dibujar(); } catch(err2){ if (window.console) console.error('juego (dibujo):', err2); }
       raf = requestAnimationFrame(frame);
     }
+    window.Juego._d = { limpiar:function(){ enemigos.length=0; objetos.length=0; },
+      crear:function(sp,x,y,jug){ var e=crearEnemigo(x,y,sp||'normal'); e.x=x;e.y=y;e.v=0; if(jug){e.jug=true;e.s=Math.round(e.s*1.8);} return e; },
+      jefe:function(jf,x,y){ var J=JEFES[jf]; enemigos.push({sp:'jefe',jf:jf,x:x,y:y,s:J.s,col:J.col,flash:0,fade:false,hp:10,max:10}); },
+      pausar:function(v){ pausado=v; }, t:function(v){ tiempo=v; }, sheet:function(i){ sheetPersonalizado=i; }, exportar:function(g){ return construirHoja(g); } };
     reiniciar();
     ofrecerArmasIniciales();
     raf = requestAnimationFrame(frame);
