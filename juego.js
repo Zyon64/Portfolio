@@ -202,6 +202,56 @@
   };
   var Z_PIX = ['XXXXXXX', '.....X.', '....X..', '...X...', '..X....', '.X.....', 'XXXXXXX'];
 
+  /* Catalogo de piezas de la hoja de sprites (modulo: lo usa tambien spritesheet.html). */
+  var CELDA = 64;
+  var HOJA = {
+    jugador:     { r:0, c:0, win:24, s0:7,  et:'PLAYER',   nota:'The Z. Faint glow included in the default art.' },
+    bala:        { r:0, c:1, win:16, s0:2,  et:'BULLET',   nota:'Your shots. Scaled with bullet size.' },
+    normal:      { r:1, c:0, win:24, s0:9,  tint:1, et:'NORMAL',  nota:'Common block. Tinted by behaviour colour.' },
+    mini:        { r:1, c:1, win:16, s0:6,  tint:1, et:'MINI',    nota:'Small block (splitter children, seeder drops).' },
+    embestida:   { r:1, c:2, win:24, s0:10, et:'DASHER',   nota:'Flashes white while charging (done by the game).' },
+    divisor:     { r:1, c:3, win:32, s0:15, et:'SPLITTER', nota:'Splits into 3 minis on death.' },
+    fantasma:    { r:1, c:4, win:24, s0:10, et:'GHOST',    nota:'Becomes translucent in phase (done by the game).' },
+    sembrador:   { r:1, c:5, win:32, s0:14, et:'SEEDER',   nota:'Corner studs are part of the body.' },
+    orbital:     { r:1, c:6, win:16, s0:5,  et:'ORBITAL',  nota:'Tiny orbiting block.' },
+    muro:        { r:1, c:7, win:24, s0:9,  et:'WALL',     nota:'Static wall block.' },
+    espinoso:    { r:2, c:0, win:32, s0:9,  et:'SPIKY',    nota:'Whole piece spins; tips point right (+x) at rest.' },
+    saltarin:    { r:2, c:1, win:24, s0:8,  et:'JUMPER',   nota:'Body only.' },
+    patas0:      { r:2, c:2, win:24, s0:8,  et:'JUMPER LEGS 1', nota:'Layer: legs while waiting. Same pivot as the body.' },
+    patas1:      { r:2, c:3, win:24, s0:8,  et:'JUMPER LEGS 2', nota:'Layer: legs while jumping.' },
+    bombardero:  { r:2, c:4, win:24, s0:9,  et:'BOMBER',   nota:'Body only.' },
+    mecha0:      { r:2, c:5, win:24, s0:9,  et:'FUSE 1',   nota:'Layer: fuse, frame 1 (flickers 20 times a second).' },
+    mecha1:      { r:2, c:6, win:24, s0:9,  et:'FUSE 2',   nota:'Layer: fuse, frame 2.' },
+    torreta:     { r:3, c:0, win:32, s0:12, et:'TURRET',   nota:'Body only.' },
+    canon:       { r:3, c:1, win:32, s0:12, et:'CANNON',   nota:'Layer: barrel, points right; rotates to aim at you.' },
+    escudero:    { r:3, c:2, win:32, s0:12, et:'SHIELDER', nota:'Body only.' },
+    escudo:      { r:3, c:3, win:32, s0:12, et:'SHIELD',   nota:'Layer: shield arc, faces right; rotates toward you.' },
+    masa:        { r:3, c:4, win:64, s0:26, et:'MASS',     nota:'Round body without spikes.' },
+    masaPua:     { r:3, c:5, win:16, s0:26, et:'MASS SPIKE', nota:'Layer: ONE spike, points right. 14 orbit the body.' },
+    blindaje:    { r:4, c:0, win:48, s0:16, tint:1, et:'JUGGERNAUT', nota:'Layer: armour drawn over any enemy that is a juggernaut.' },
+    triturador:  { r:5, c:0, win:64, s0:34, et:'BOSS CRUSHER',  nota:'Static boss.' },
+    rey:         { r:5, c:1, win:64, s0:30, et:'BOSS KING',     nota:'Static boss.' },
+    centinela:   { r:6, c:0, win:64, s0:28, et:'BOSS SENTINEL', nota:'Body ring only.' },
+    centPua:     { r:6, c:1, win:16, s0:28, et:'SENTINEL SPIKE', nota:'Layer: ONE spike, points right. 10 orbit the ring.' },
+    centOjo:     { r:6, c:2, win:24, s0:28, et:'SENTINEL EYE',  nota:'Layer: pupil, follows you.' },
+    colmena:     { r:7, c:0, win:64, s0:32, et:'BOSS HIVE',     nota:'Hexagon + centre dot.' },
+    colCelda:    { r:7, c:1, win:8,  s0:32, et:'HIVE CELL',     nota:'Layer: ONE cell. 6 orbit the centre.' },
+    vacioAnillo: { r:8, c:0, win:64, s0:30, et:'VOID RING',     nota:'Layer: dashed ring, slow spin.' },
+    vacioEspiral:{ r:8, c:1, win:48, s0:30, et:'VOID SPIRAL',   nota:'Layer: spiral, fast spin.' },
+    vacioOrbitas:{ r:8, c:2, win:64, s0:30, et:'VOID ORBITS',   nota:'Layer: 4 dots, spin the other way.' },
+    cura:        { r:9, c:0, win:24, s0:7, et:'HEART',        nota:'Pickup.' },
+    curaLenta:   { r:9, c:1, win:24, s0:7, et:'SLOW HEAL',    nota:'Pickup.' },
+    bomba:       { r:9, c:2, win:24, s0:7, et:'BOMB',         nota:'Pickup.' },
+    tiempo:      { r:9, c:3, win:24, s0:7, et:'TIME',         nota:'Pickup.' },
+    burbuja:     { r:9, c:4, win:24, s0:7, et:'BUBBLE',       nota:'Pickup.' },
+    rayo:        { r:9, c:5, win:24, s0:7, et:'LIGHTNING',    nota:'Pickup.' },
+    nucleo:      { r:9, c:6, win:24, s0:7, et:'CORE',         nota:'Pickup.' },
+    barrido:     { r:9, c:7, win:24, s0:7, et:'SWEEP',        nota:'Pickup.' },
+    vacio:       { virtual:true, s0:30 }                  // jefe VOID: se compone de las tres capas vacio*
+  };
+  var HOJA_COLS = 8, HOJA_FILAS = 10;
+  var HOJA_PUBLICA = { celda:CELDA, cols:HOJA_COLS, filas:HOJA_FILAS, piezas:HOJA };
+
   /* ---------------------------  ESTILOS (vidrio del portafolio)  --------------------------- */
   var CSS = '' +
   '.jg{position:fixed;inset:0;z-index:100003;background:#000;color:#eaf3ee;overflow:hidden;' +
@@ -1926,53 +1976,6 @@
          dentro de esa ventana (la guia de Options → DOWNLOAD GUIDE la marca en verde).
        - tint = el juego pinta la silueta con el color del enemigo (comportamiento, congelado,
          golpe), porque el color de esas piezas indica algo. Las demas conservan tus colores. */
-    var CELDA = 64;
-    var HOJA = {
-      jugador:     { r:0, c:0, win:24, s0:7,  et:'PLAYER',   nota:'The Z. Faint glow included in the default art.' },
-      bala:        { r:0, c:1, win:16, s0:2,  et:'BULLET',   nota:'Your shots. Scaled with bullet size.' },
-      normal:      { r:1, c:0, win:24, s0:9,  tint:1, et:'NORMAL',  nota:'Common block. Tinted by behaviour colour.' },
-      mini:        { r:1, c:1, win:16, s0:6,  tint:1, et:'MINI',    nota:'Small block (splitter children, seeder drops).' },
-      embestida:   { r:1, c:2, win:24, s0:10, et:'DASHER',   nota:'Flashes white while charging (done by the game).' },
-      divisor:     { r:1, c:3, win:32, s0:15, et:'SPLITTER', nota:'Splits into 3 minis on death.' },
-      fantasma:    { r:1, c:4, win:24, s0:10, et:'GHOST',    nota:'Becomes translucent in phase (done by the game).' },
-      sembrador:   { r:1, c:5, win:32, s0:14, et:'SEEDER',   nota:'Corner studs are part of the body.' },
-      orbital:     { r:1, c:6, win:16, s0:5,  et:'ORBITAL',  nota:'Tiny orbiting block.' },
-      muro:        { r:1, c:7, win:24, s0:9,  et:'WALL',     nota:'Static wall block.' },
-      espinoso:    { r:2, c:0, win:32, s0:9,  et:'SPIKY',    nota:'Whole piece spins; tips point right (+x) at rest.' },
-      saltarin:    { r:2, c:1, win:24, s0:8,  et:'JUMPER',   nota:'Body only.' },
-      patas0:      { r:2, c:2, win:24, s0:8,  et:'JUMPER LEGS 1', nota:'Layer: legs while waiting. Same pivot as the body.' },
-      patas1:      { r:2, c:3, win:24, s0:8,  et:'JUMPER LEGS 2', nota:'Layer: legs while jumping.' },
-      bombardero:  { r:2, c:4, win:24, s0:9,  et:'BOMBER',   nota:'Body only.' },
-      mecha0:      { r:2, c:5, win:24, s0:9,  et:'FUSE 1',   nota:'Layer: fuse, frame 1 (flickers 20 times a second).' },
-      mecha1:      { r:2, c:6, win:24, s0:9,  et:'FUSE 2',   nota:'Layer: fuse, frame 2.' },
-      torreta:     { r:3, c:0, win:32, s0:12, et:'TURRET',   nota:'Body only.' },
-      canon:       { r:3, c:1, win:32, s0:12, et:'CANNON',   nota:'Layer: barrel, points right; rotates to aim at you.' },
-      escudero:    { r:3, c:2, win:32, s0:12, et:'SHIELDER', nota:'Body only.' },
-      escudo:      { r:3, c:3, win:32, s0:12, et:'SHIELD',   nota:'Layer: shield arc, faces right; rotates toward you.' },
-      masa:        { r:3, c:4, win:64, s0:26, et:'MASS',     nota:'Round body without spikes.' },
-      masaPua:     { r:3, c:5, win:16, s0:26, et:'MASS SPIKE', nota:'Layer: ONE spike, points right. 14 orbit the body.' },
-      blindaje:    { r:4, c:0, win:48, s0:16, tint:1, et:'JUGGERNAUT', nota:'Layer: armour drawn over any enemy that is a juggernaut.' },
-      triturador:  { r:5, c:0, win:64, s0:34, et:'BOSS CRUSHER',  nota:'Static boss.' },
-      rey:         { r:5, c:1, win:64, s0:30, et:'BOSS KING',     nota:'Static boss.' },
-      centinela:   { r:6, c:0, win:64, s0:28, et:'BOSS SENTINEL', nota:'Body ring only.' },
-      centPua:     { r:6, c:1, win:16, s0:28, et:'SENTINEL SPIKE', nota:'Layer: ONE spike, points right. 10 orbit the ring.' },
-      centOjo:     { r:6, c:2, win:24, s0:28, et:'SENTINEL EYE',  nota:'Layer: pupil, follows you.' },
-      colmena:     { r:7, c:0, win:64, s0:32, et:'BOSS HIVE',     nota:'Hexagon + centre dot.' },
-      colCelda:    { r:7, c:1, win:8,  s0:32, et:'HIVE CELL',     nota:'Layer: ONE cell. 6 orbit the centre.' },
-      vacioAnillo: { r:8, c:0, win:64, s0:30, et:'VOID RING',     nota:'Layer: dashed ring, slow spin.' },
-      vacioEspiral:{ r:8, c:1, win:48, s0:30, et:'VOID SPIRAL',   nota:'Layer: spiral, fast spin.' },
-      vacioOrbitas:{ r:8, c:2, win:64, s0:30, et:'VOID ORBITS',   nota:'Layer: 4 dots, spin the other way.' },
-      cura:        { r:9, c:0, win:24, s0:7, et:'HEART',        nota:'Pickup.' },
-      curaLenta:   { r:9, c:1, win:24, s0:7, et:'SLOW HEAL',    nota:'Pickup.' },
-      bomba:       { r:9, c:2, win:24, s0:7, et:'BOMB',         nota:'Pickup.' },
-      tiempo:      { r:9, c:3, win:24, s0:7, et:'TIME',         nota:'Pickup.' },
-      burbuja:     { r:9, c:4, win:24, s0:7, et:'BUBBLE',       nota:'Pickup.' },
-      rayo:        { r:9, c:5, win:24, s0:7, et:'LIGHTNING',    nota:'Pickup.' },
-      nucleo:      { r:9, c:6, win:24, s0:7, et:'CORE',         nota:'Pickup.' },
-      barrido:     { r:9, c:7, win:24, s0:7, et:'SWEEP',        nota:'Pickup.' },
-      vacio:       { virtual:true, s0:30 }                  // jefe VOID: se compone de las tres capas vacio*
-    };
-    var HOJA_COLS = 8, HOJA_FILAS = 10;
     var scratch = document.createElement('canvas'); scratch.width = scratch.height = CELDA;
 
     /* Dibuja una pieza de la hoja. (x,y) = pivote en el mundo, k = escala, ang = giro (rad),
