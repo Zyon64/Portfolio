@@ -1977,12 +1977,43 @@
        - tint = el juego pinta la silueta con el color del enemigo (comportamiento, congelado,
          golpe), porque el color de esas piezas indica algo. Las demas conservan tus colores. */
     var scratch = document.createElement('canvas'); scratch.width = scratch.height = CELDA;
+    /* Piezas que giran: se dibujan pixel a pixel (cada pixel de la celda se coloca ya girado y
+       redondeado), igual que el renderer original traza sus lineas. Rotar el bitmap entero rompe las
+       lineas finas de 1 px; asi quedan continuas a cualquier angulo y a cualquier tamaño. */
+    var pixHoja = null, pixDatos = null, pixCache = {};
+    function pixelesDe(id){
+      if (pixHoja !== sheetPersonalizado){ pixHoja = sheetPersonalizado; pixCache = {}; pixDatos = null; }
+      if (pixCache[id]) return pixCache[id];
+      if (!pixDatos){
+        var cv2 = document.createElement('canvas'); cv2.width = sheetPersonalizado.width; cv2.height = sheetPersonalizado.height;
+        var c2 = cv2.getContext('2d'); c2.drawImage(sheetPersonalizado, 0, 0);
+        pixDatos = c2.getImageData(0, 0, cv2.width, cv2.height);
+      }
+      var h = HOJA[id], win = h.win, x0 = h.c * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2, W2 = pixDatos.width, d = pixDatos.data, lista = [];
+      for (var j = 0; j < win; j++) for (var i = 0; i < win; i++){
+        var o = ((y0 + j) * W2 + (x0 + i)) * 4, al = d[o + 3];
+        if (al < 8) continue;
+        lista.push({ u: i - win / 2 + 0.5, v: j - win / 2 + 0.5, a: al / 255, c: 'rgb(' + d[o] + ',' + d[o + 1] + ',' + d[o + 2] + ')' });
+      }
+      return (pixCache[id] = lista);
+    }
 
     /* Dibuja una pieza de la hoja. (x,y) = pivote en el mundo, k = escala, ang = giro (rad),
        tinte = color que reemplaza al de la pieza, alfa = opacidad. */
     function pieza(id, x, y, k, ang, tinte, alfa){
       var h = HOJA[id];
       if (!sheetPersonalizado || !h || h.virtual) return false;
+      if (ang){
+        var lp = pixelesDe(id), cs = Math.cos(ang), sn = Math.sin(ang), kk = k || 1, b = Math.max(1, Math.round(kk)), base = (alfa === undefined ? 1 : alfa);
+        var prev = ctx.globalAlpha;
+        for (var q = 0; q < lp.length; q++){
+          var p = lp[q], rx = p.u * cs - p.v * sn, ry = p.u * sn + p.v * cs;
+          ctx.globalAlpha = base * p.a; ctx.fillStyle = tinte || p.c;
+          ctx.fillRect(Math.round(x + rx * kk - b / 2), Math.round(y + ry * kk - b / 2), b, b);
+        }
+        ctx.globalAlpha = prev;
+        return true;
+      }
       var win = h.win, sx = h.c * CELDA + (CELDA - win) / 2, sy = h.r * CELDA + (CELDA - win) / 2, fuente = sheetPersonalizado;
       if (tinte){
         var t = scratch.getContext('2d');
@@ -1994,12 +2025,7 @@
       }
       var dw = Math.max(1, Math.round(win * (k || 1))), mitad = Math.round(dw / 2);
       if (alfa !== undefined && alfa !== 1){ ctx.save(); ctx.globalAlpha = alfa; }
-      if (ang){
-        ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(ang);
-        ctx.drawImage(fuente, sx, sy, win, win, -mitad, -mitad, dw, dw); ctx.restore();
-      } else {
-        ctx.drawImage(fuente, sx, sy, win, win, Math.round(x) - mitad, Math.round(y) - mitad, dw, dw);
-      }
+      ctx.drawImage(fuente, sx, sy, win, win, Math.round(x) - mitad, Math.round(y) - mitad, dw, dw);
       if (alfa !== undefined && alfa !== 1) ctx.restore();
       return true;
     }
