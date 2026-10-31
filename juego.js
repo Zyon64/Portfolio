@@ -202,55 +202,173 @@
   };
   var Z_PIX = ['XXXXXXX', '.....X.', '....X..', '...X...', '..X....', '.X.....', 'XXXXXXX'];
 
-  /* Catalogo de piezas de la hoja de sprites (modulo: lo usa tambien spritesheet.html). */
-  var CELDA = 64;
-  var HOJA = {
-    jugador:     { r:0, c:0, win:24, s0:7,  et:'PLAYER',   nota:'The Z. Faint glow included in the default art.' },
-    bala:        { r:0, c:1, win:16, s0:2,  et:'BULLET',   nota:'Your shots. Scaled with bullet size.' },
-    normal:      { r:1, c:0, win:24, s0:9,  tint:1, et:'NORMAL',  nota:'Common block. Tinted by behaviour colour.' },
-    mini:        { r:1, c:1, win:16, s0:6,  tint:1, et:'MINI',    nota:'Small block (splitter children, seeder drops).' },
-    embestida:   { r:1, c:2, win:24, s0:10, et:'DASHER',   nota:'Flashes white while charging (done by the game).' },
-    divisor:     { r:1, c:3, win:32, s0:15, et:'SPLITTER', nota:'Splits into 3 minis on death.' },
-    fantasma:    { r:1, c:4, win:24, s0:10, et:'GHOST',    nota:'Becomes translucent in phase (done by the game).' },
-    sembrador:   { r:1, c:5, win:32, s0:14, et:'SEEDER',   nota:'Corner studs are part of the body.' },
-    orbital:     { r:1, c:6, win:16, s0:5,  et:'ORBITAL',  nota:'Tiny orbiting block.' },
-    muro:        { r:1, c:7, win:24, s0:9,  et:'WALL',     nota:'Static wall block.' },
-    espinoso:    { r:2, c:0, win:32, s0:9,  et:'SPIKY',    nota:'Whole piece spins; tips point right (+x) at rest.' },
-    saltarin:    { r:2, c:1, win:24, s0:8,  et:'JUMPER',   nota:'Body only.' },
-    patas0:      { r:2, c:2, win:24, s0:8,  et:'JUMPER LEGS 1', nota:'Layer: legs while waiting. Same pivot as the body.' },
-    patas1:      { r:2, c:3, win:24, s0:8,  et:'JUMPER LEGS 2', nota:'Layer: legs while jumping.' },
-    bombardero:  { r:2, c:4, win:24, s0:9,  et:'BOMBER',   nota:'Body only.' },
-    mecha0:      { r:2, c:5, win:24, s0:9,  et:'FUSE 1',   nota:'Layer: fuse, frame 1 (flickers 20 times a second).' },
-    mecha1:      { r:2, c:6, win:24, s0:9,  et:'FUSE 2',   nota:'Layer: fuse, frame 2.' },
-    torreta:     { r:3, c:0, win:32, s0:12, et:'TURRET',   nota:'Body only.' },
-    canon:       { r:3, c:1, win:32, s0:12, et:'CANNON',   nota:'Layer: barrel, points right; rotates to aim at you.' },
-    escudero:    { r:3, c:2, win:32, s0:12, et:'SHIELDER', nota:'Body only.' },
-    escudo:      { r:3, c:3, win:32, s0:12, et:'SHIELD',   nota:'Layer: shield arc, faces right; rotates toward you.' },
-    masa:        { r:3, c:4, win:60, s0:26, et:'MASS',     nota:'Round body without spikes.' },
-    masaPua:     { r:3, c:5, win:16, s0:26, et:'MASS SPIKE', nota:'Layer: ONE spike, points right. 14 orbit the body.' },
-    blindaje:    { r:4, c:0, win:48, s0:16, tint:1, et:'JUGGERNAUT', nota:'Layer: armour drawn over any enemy that is a juggernaut.' },
-    triturador:  { r:5, c:0, win:60, s0:34, et:'BOSS CRUSHER',  nota:'Static boss.' },
-    rey:         { r:5, c:1, win:60, s0:30, et:'BOSS KING',     nota:'Static boss.' },
-    centinela:   { r:6, c:0, win:60, s0:28, et:'BOSS SENTINEL', nota:'Body ring only.' },
-    centPua:     { r:6, c:1, win:16, s0:28, et:'SENTINEL SPIKE', nota:'Layer: ONE spike, points right. 10 orbit the ring.' },
-    centOjo:     { r:6, c:2, win:24, s0:28, et:'SENTINEL EYE',  nota:'Layer: pupil, follows you.' },
-    colmena:     { r:7, c:0, win:60, s0:32, et:'BOSS HIVE',     nota:'Hexagon + centre dot.' },
-    colCelda:    { r:7, c:1, win:8,  s0:32, et:'HIVE CELL',     nota:'Layer: ONE cell. 6 orbit the centre.' },
-    vacioAnillo: { r:8, c:0, win:60, s0:30, et:'VOID RING',     nota:'Layer: dashed ring, slow spin.' },
-    vacioEspiral:{ r:8, c:1, win:48, s0:30, et:'VOID SPIRAL',   nota:'Layer: spiral, fast spin.' },
-    vacioOrbitas:{ r:8, c:2, win:60, s0:30, et:'VOID ORBITS',   nota:'Layer: 4 dots, spin the other way.' },
-    cura:        { r:9, c:0, win:24, s0:7, et:'HEART',        nota:'Pickup.' },
-    curaLenta:   { r:9, c:1, win:24, s0:7, et:'SLOW HEAL',    nota:'Pickup.' },
-    bomba:       { r:9, c:2, win:24, s0:7, et:'BOMB',         nota:'Pickup.' },
-    tiempo:      { r:9, c:3, win:24, s0:7, et:'TIME',         nota:'Pickup.' },
-    burbuja:     { r:9, c:4, win:24, s0:7, et:'BUBBLE',       nota:'Pickup.' },
-    rayo:        { r:9, c:5, win:24, s0:7, et:'LIGHTNING',    nota:'Pickup.' },
-    nucleo:      { r:9, c:6, win:24, s0:7, et:'CORE',         nota:'Pickup.' },
-    barrido:     { r:9, c:7, win:24, s0:7, et:'SWEEP',        nota:'Pickup.' },
-    vacio:       { virtual:true, s0:30 }                  // jefe VOID: se compone de las tres capas vacio*
+  /* =====================  CATALOGO DE LA HOJA DE SPRITES  =====================
+     (nivel de modulo: tambien lo lee spritesheet.html)
+     UNA FILA POR TIPO DE SPRITE. Las columnas de esa fila son sus FOTOGRAMAS: la primera celda es
+     el sprite; si agregas dibujos en las celdas de la derecha (sin dejar huecos), esa pieza se
+     anima recorriendolos. Si la primera celda de una fila esta vacia, el juego ignora tu hoja
+     para esa pieza y usa el arte por defecto. */
+  var CELDA = 64, HOJA_COLS = 8;                       // 8 fotogramas por fila como maximo
+  var ORDEN = [
+    // id, ventana segura (px), tamaño base s0, nombre, nota, opciones { tint, fps, estado, defFrames }
+    ['jugador',     24, 7,  'PLAYER',        'The Z. Faint glow included in the default art.'],
+    ['bala',        16, 2,  'BULLET',        'Your shots. Scaled with bullet size.', { fps:12 }],
+    ['normal',      24, 9,  'NORMAL',        'Common block. Tinted by behaviour colour.', { tint:1 }],
+    ['mini',        16, 6,  'MINI',          'Small block (splitter children, seeder drops).', { tint:1 }],
+    ['embestida',   24, 10, 'DASHER',        'Flashes white while charging (done by the game).'],
+    ['divisor',     32, 15, 'SPLITTER',      'Splits into 3 minis on death.'],
+    ['fantasma',    24, 10, 'GHOST',         'Becomes translucent in phase (done by the game).'],
+    ['sembrador',   32, 14, 'SEEDER',        'Corner studs are part of the body.'],
+    ['orbital',     16, 5,  'ORBITAL',       'Tiny orbiting block.'],
+    ['muro',        24, 9,  'WALL',          'Static wall block.'],
+    ['espinoso',    32, 9,  'SPIKY',         'Whole piece spins; tips point right (+x) at rest.'],
+    ['saltarin',    24, 8,  'JUMPER',        'Body only.'],
+    ['patas',       24, 8,  'JUMPER LEGS',   'Layer: frame 1 = waiting; frames 2+ = jumping (looped).', { estado:1, defFrames:2 }],
+    ['bombardero',  24, 9,  'BOMBER',        'Body only.'],
+    ['mecha',       24, 9,  'FUSE',          'Layer: fuse. Default has 2 frames that flicker 20 times a second.', { fps:20, defFrames:2 }],
+    ['torreta',     32, 12, 'TURRET',        'Body only.'],
+    ['canon',       32, 12, 'CANNON',        'Layer: barrel, points right; rotates to aim at you.'],
+    ['escudero',    32, 12, 'SHIELDER',      'Body only.'],
+    ['escudo',      32, 12, 'SHIELD',        'Layer: shield arc, faces right; rotates toward you.'],
+    ['masa',        60, 26, 'MASS',          'Round body without spikes.'],
+    ['masaPua',     16, 26, 'MASS SPIKE',    'Layer: ONE spike, points right. 14 orbit the body.'],
+    ['blindaje',    48, 16, 'JUGGERNAUT',    'Layer: armour drawn over any enemy that is a juggernaut.', { tint:1 }],
+    ['triturador',  60, 34, 'BOSS CRUSHER',  'Static boss.'],
+    ['rey',         60, 30, 'BOSS KING',     'Static boss.'],
+    ['centinela',   60, 28, 'BOSS SENTINEL', 'Body ring only.'],
+    ['centPua',     16, 28, 'SENTINEL SPIKE','Layer: ONE spike, points right. 10 orbit the ring.'],
+    ['centOjo',     24, 28, 'SENTINEL EYE',  'Layer: pupil, follows you.'],
+    ['colmena',     60, 32, 'BOSS HIVE',     'Hexagon + centre dot.'],
+    ['colCelda',    8,  32, 'HIVE CELL',     'Layer: ONE cell. 6 orbit the centre.'],
+    ['vacioAnillo', 60, 30, 'VOID RING',     'Layer: dashed ring, slow spin. Also the boss hit area.'],
+    ['vacioEspiral',48, 30, 'VOID SPIRAL',   'Layer: spiral, fast spin.'],
+    ['vacioOrbitas',60, 30, 'VOID ORBITS',   'Layer: 4 dots, spin the other way.'],
+    ['cura',        24, 7,  'HEART',         'Pickup.'],
+    ['curaLenta',   24, 7,  'SLOW HEAL',     'Pickup.'],
+    ['bomba',       24, 7,  'BOMB',          'Pickup.'],
+    ['tiempo',      24, 7,  'TIME',          'Pickup.'],
+    ['burbuja',     24, 7,  'BUBBLE',        'Pickup.'],
+    ['rayo',        24, 7,  'LIGHTNING',     'Pickup.'],
+    ['nucleo',      24, 7,  'CORE',          'Pickup.'],
+    ['barrido',     24, 7,  'SWEEP',         'Pickup.'],
+    ['arma_normal',    32, 0, 'WEAPON STANDARD', 'Icon shown when choosing / holding this weapon.', { fps:6, icono:1 }],
+    ['arma_dirigidas', 32, 0, 'WEAPON HOMING',   'Weapon icon.', { fps:6, icono:1 }],
+    ['arma_s',         32, 0, 'WEAPON SPREAD S', 'Weapon icon.', { fps:6, icono:1 }],
+    ['arma_escopeta',  32, 0, 'WEAPON SHOTGUN',  'Weapon icon.', { fps:6, icono:1 }],
+    ['arma_laser',     32, 0, 'WEAPON LASER',    'Weapon icon.', { fps:6, icono:1 }],
+    ['arma_sniper',    32, 0, 'WEAPON SNIPER',   'Weapon icon.', { fps:6, icono:1 }],
+    ['arma_bumeran',   32, 0, 'WEAPON BOOMERANG','Weapon icon.', { fps:6, icono:1 }],
+    ['arma_granadas',  32, 0, 'WEAPON GRENADES', 'Weapon icon.', { fps:6, icono:1 }]
+  ];
+  var HOJA = {};
+  ORDEN.forEach(function(q, i){
+    var o = q[5] || {};
+    HOJA[q[0]] = { r:i, c:0, win:q[1], s0:q[2], et:q[3], nota:q[4], tint:o.tint, fps:o.fps || 8, estado:o.estado, defFrames:o.defFrames || 1, icono:o.icono };
+  });
+  HOJA.vacio = { virtual:true, s0:30 };                // jefe VOID: se compone de las tres capas vacio*
+  var HOJA_FILAS = ORDEN.length;
+  var HOJA_PUBLICA = { celda:CELDA, cols:HOJA_COLS, filas:HOJA_FILAS, piezas:HOJA, orden:ORDEN.map(function(q){ return q[0]; }) };
+
+  /* Iconos de armas en pixel art (24×12). X = cuerpo, o = brillo, g = sombra, r = proyectil/efecto. */
+  var ARMA_COL = { X:'#8fe9b4', o:'#e9fff3', g:'#2a9e5f', r:'#ffd94d', p:'#ff8a4d' };
+  var ARMA_PIX = {
+    normal:   ['........................',
+               '...gggggggggggggg.......',
+               '...XooooooooooooX..r.r..',
+               '...XXXXXXXXXXXXXX.......',
+               '...XXXXXXg..............',
+               '....XXXXXg..............',
+               '....XXXXXg..............',
+               '....XXXXg...............',
+               '....XXXXg...............',
+               '.....ggg................',
+               '........................',
+               '........................'],
+    dirigidas:['........................',
+               '...gggggggggggggg...r...',
+               '...XooooooooooooX...r...',
+               '...XXXXXXXXXXXXXX.rrrrr.',
+               '...XXXXXXg..........r...',
+               '....XXXXXg..........r...',
+               '....XXXXXg..............',
+               '....XXXXg...............',
+               '....XXXXg...............',
+               '.....ggg................',
+               '........................',
+               '........................'],
+    s:        ['........................',
+               '...gggggggggggggg....r..',
+               '...XooooooooooooX.r.....',
+               '...XXXXXXXXXXXXXX...r.r.',
+               '...XXXXXXg.......r......',
+               '....XXXXXg.........r.r..',
+               '....XXXXXg..............',
+               '....XXXXg...............',
+               '....XXXXg...............',
+               '.....ggg................',
+               '........................',
+               '........................'],
+    escopeta: ['........................',
+               '..gggggggggggggggg......',
+               '..XooooooooooooooX..rr.r',
+               '..XXXXXXXXXXXXXXXX.r..r.',
+               '..XXXXXXXXXXXXXXXX..rr.r',
+               '..XXXXXXXXXg.....r..r...',
+               '...XXXXXXXg.............',
+               '...XXXXXg...............',
+               '...XXXXg................',
+               '....ggg.................',
+               '........................',
+               '........................'],
+    laser:    ['........................',
+               '..gggggggg..............',
+               '..XooooooX..............',
+               '..XXXXXXXXXX............',
+               '..XXXXXXXXXXoooooooooooo',
+               '..XXXXXXXXXXrrrrrrrrrrrr',
+               '..XXXXXg................',
+               '...XXXXg................',
+               '...XXXXg................',
+               '....ggg.................',
+               '........................',
+               '........................'],
+    sniper:   ['........................',
+               '....ggggggg.............',
+               '....XooooooX............',
+               '..gggggggggggggggggggggg',
+               '..XXXXXXXXXXXXXXXXXXXXXX',
+               '..XXXXXXXXXXXXXXXXXXXXXX',
+               '..XXXXXgg...............',
+               '...XXXXg................',
+               '...XXXXg................',
+               '....ggg.................',
+               '........................',
+               '........................'],
+    bumeran:  ['........................',
+               '.......XX...............',
+               '......XXXX........r.....',
+               '.....XXX.XX.............',
+               '....XXX...XX.....r......',
+               '...XXXX....oX...........',
+               '...XXXX....oX.....r.....',
+               '....XXX...XX............',
+               '.....XXX.XX.............',
+               '......XXXX..............',
+               '.......XX...............',
+               '........................'],
+    granadas: ['........................',
+               '.........gg.............',
+               '.......ggXXg............',
+               '.......XXXXXXX..........',
+               '......XXXXXXXXX.........',
+               '.....XXXoXXXXXXX..r.r...',
+               '.....XXoXXXXXXXX........',
+               '.....XXXXXXXXXXX..p.p...',
+               '......XXXXXXXXX.........',
+               '.......gXXXXXg..........',
+               '.........ggg............',
+               '........................']
   };
-  var HOJA_COLS = 8, HOJA_FILAS = 10;
-  var HOJA_PUBLICA = { celda:CELDA, cols:HOJA_COLS, filas:HOJA_FILAS, piezas:HOJA };
 
   /* ---------------------------  ESTILOS (vidrio del portafolio)  --------------------------- */
   var CSS = '' +
@@ -336,6 +454,8 @@
   '  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);outline:none;cursor:text}' +
   '.jg-nombre:focus{box-shadow:inset 0 0 0 1px ' + VERDE + '}' +
   '.jg-btn.off{opacity:.4}' +
+  '.jg-ico{display:block;margin:0 auto 8px;width:64px;height:64px;image-rendering:crisp-edges;image-rendering:pixelated}' +
+  '.jg-ico.mini{display:inline-block;width:22px;height:22px;margin:0 6px -6px 0}' +
   '.jg-cartas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:18px}' +
   '.jg-carta{pointer-events:auto;width:176px;border:0;border-radius:24px;padding:18px 14px;color:#eaf3ee;cursor:pointer;' +
   '  font:inherit;text-align:center;transition:background .2s,scale .3s cubic-bezier(.3,1.5,.5,1)}' +
@@ -629,7 +749,7 @@
             '<button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' +
             '<button class="jg-btn" data-a="salir" aria-label="Exit">X</button></div>' +
             '<div class="jg-stats"><div class="jg-panel">' +
-              '<div class="jg-st"><span>WEAPON</span><b data-n="arma">STANDARD</b></div>' +
+              '<div class="jg-st"><span><canvas class="jg-ico mini" data-id="arma_normal" width="32" height="32"></canvas>WEAPON</span><b data-n="arma">STANDARD</b></div>' +
               '<div class="jg-sep"></div>' +
               '<div class="jg-st"><span>FIRE RATE</span><b data-n="cad">1.8</b></div>' +
               '<div class="jg-st"><span>DAMAGE</span><b data-n="dano">1.0</b></div>' +
@@ -716,6 +836,7 @@
       el('balas').textContent = s.balas; el('lineas').textContent = s.lineas;
       el('perf').textContent = s.perf; el('tam').textContent = s.tam.toFixed(1);
       el('arma').textContent = ARMAS[arma].nombre;
+      var icm = raiz.querySelector('.jg-ico.mini'); if (icm) icm.setAttribute('data-id', 'arma_' + arma);
       el('f_pulso').hidden = !s.pulsoOn; el('f_veneno').hidden = !s.venenoOn; el('f_fuego').hidden = !s.fuegoOn;
       if (s.pulsoOn) el('pulso').textContent = s.pulsoDano.toFixed(1) + ' / ' + s.pulsoInt.toFixed(2) + 's';
       if (s.venenoOn) el('veneno').textContent = s.venenoDps.toFixed(1) + '/s';
@@ -783,7 +904,7 @@
       else if (a === 'sprites') abrirSelectorSheet();
       else if (a === 'descargarSheet') exportarSheet();
       else if (a === 'descargarGuia') exportarGuia();
-      else if (a === 'usarDefecto'){ sheetPersonalizado = null; try { localStorage.removeItem('juegoZ_hoja'); } catch(err){} mostrarAviso('<b>SHEET</b> · default art restored', false, 2000); }
+      else if (a === 'usarDefecto'){ ponerHoja(null); try { localStorage.removeItem('juegoZ_hoja'); } catch(err){} mostrarAviso('<b>SHEET</b> · default art restored', false, 2000); }
       else if (a === 'catalogo') window.open('spritesheet.html', '_blank', 'noopener');
       else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
       else if (a === 'pausa') alternarPausa();
@@ -836,16 +957,16 @@
       modal.hidden = false;
     }
     var sheetPersonalizado = null;
-    try { var guardada = localStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === 512 && imG.height === 640) sheetPersonalizado = imG; }; imG.src = guardada; } } catch(err){}
+    try { var guardada = localStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === CELDA * HOJA_COLS && imG.height === CELDA * HOJA_FILAS) ponerHoja(imG); }; imG.src = guardada; } } catch(err){}
     function abrirSelectorSheet(){ raiz.querySelector('.jg-sheet-input').click(); }
     raiz.querySelector('.jg-sheet-input').addEventListener('change', function(e){
       var f = e.target.files && e.target.files[0]; if (!f) return;
       var im = new Image();
       im.onload = function(){
         if (im.width !== CELDA * HOJA_COLS || im.height !== CELDA * HOJA_FILAS){
-          mostrarAviso('<b>SHEET</b> · needs ' + (CELDA * HOJA_COLS) + '×' + (CELDA * HOJA_FILAS) + ' px (64×64 cells). Download the new one.', true, 3400); return;
+          mostrarAviso('<b>SHEET</b> · needs ' + (CELDA * HOJA_COLS) + '×' + (CELDA * HOJA_FILAS) + ' px (64×64 cells, one row per sprite). Download the new one.', true, 3400); return;
         }
-        sheetPersonalizado = im; mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
+        ponerHoja(im); mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
         try { var c2 = document.createElement('canvas'); c2.width = im.width; c2.height = im.height; c2.getContext('2d').drawImage(im, 0, 0); localStorage.setItem('juegoZ_hoja', c2.toDataURL('image/png')); } catch(err){}
       };
       im.src = URL.createObjectURL(f); e.target.value = '';
@@ -961,11 +1082,11 @@
       armaT = 10;
       var h2 = '<div class="jg-h">BOSS DEFEATED</div><p>Choose a weapon · <b data-n="cuenta">10</b>s <span style="color:#6f8579">(time up = keep current)</span></p><div class="jg-cartas">';
       armaOpc.forEach(function(k, i){
-        h2 += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span>' +
+        h2 += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><canvas class="jg-ico" data-id="arma_' + k + '" width="32" height="32"></canvas><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span>' +
               '<em>' + ARMAS[k].uso + '</em><i>[' + (i + 1) + ']</i></button>';
       });
       caja.innerHTML = h2 + '</div>';
-      modal.hidden = false;
+      modal.hidden = false; pintarIconos();
     }
     function elegirArma(k){
       if (!eligiendo || !ARMAS[k]) return;
@@ -979,8 +1100,8 @@
       eligiendo = true; raiz.classList.add('menu'); sfx.nivel();
       armaOpc = mezclar(Object.keys(ARMAS).slice()).slice(0, 3); armaT = null;
       var h = '<div class="jg-h">CHOOSE YOUR WEAPON</div><p>Start with one of three random weapons</p><div class="jg-cartas">';
-      armaOpc.forEach(function(k, i){ h += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span><em>' + ARMAS[k].uso + '</em><i>[' + (i + 1) + ']</i></button>'; });
-      caja.innerHTML = h + '</div>'; modal.hidden = false;
+      armaOpc.forEach(function(k, i){ h += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><canvas class="jg-ico" data-id="arma_' + k + '" width="32" height="32"></canvas><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span><em>' + ARMAS[k].uso + '</em><i>[' + (i + 1) + ']</i></button>'; });
+      caja.innerHTML = h + '</div>'; modal.hidden = false; pintarIconos();
     }
     function mantenerArma(){
       armaT = null; armaOpc = null; eligiendo = false; sfx.elegir();
@@ -1756,7 +1877,7 @@
           e.x += e.kx * dt; e.y += e.ky * dt;
           var amort = Math.exp(-dt * 6); e.kx *= amort; e.ky *= amort;
         }
-        if (dist < e.s / 2 + 3) herir(e.golpe);
+        if (contactoEnemigo(e, dist)) herir(e.golpe);
         if (fin) return;
       }
       // disparos enemigos (torretas y jefes)
@@ -1764,7 +1885,7 @@
         var q2 = ebalas[eb];
         if (!congelado){ q2.x += q2.vx * dt; q2.y += q2.vy * dt; q2.t -= dt; }
         if (q2.t <= 0 || q2.x < -8 || q2.y < -8 || q2.x > W + 8 || q2.y > H + 8){ ebalas.splice(eb, 1); continue; }
-        if (Math.hypot(q2.x - P.x, q2.y - P.y) < (q2.r || 1.5) + 2.5){ ebalas.splice(eb, 1); herir(q2.d); if (fin) return; }
+        if (jugadorTocadoPor(q2.x, q2.y, (q2.r || 1.5) * 0.7)){ ebalas.splice(eb, 1); herir(q2.d); if (fin) return; }
       }
       if (!congelado){
         // zonas de meteoro: avisan con un circulo y explotan despues
@@ -1900,7 +2021,7 @@
           for (var q = enemigos.length - 1; q >= 0; q--){
             var en = enemigos[q];
             if (bl.golpes.indexOf(en) >= 0 || (en.sp === 'fantasma' && en.fase) || !enPantalla(en)) continue;
-            if (Math.abs(bl.x - en.x) < en.s / 2 + bl.r && Math.abs(bl.y - en.y) < en.s / 2 + bl.r){
+            if (golpeaBarrido(en, bl.x - bl.vx * dt, bl.y - bl.vy * dt, bl.x, bl.y, bl.r)){
               if (bl.gran){ explosion(bl.x, bl.y, bl.rad, s.dano * 3, s); fuera = true; break; }
               var dmg = bl.d;
               if (en.sp === 'escudero'){                       // escudo al frente: casi no le hace dano de ese lado
@@ -1961,50 +2082,77 @@
         px(x0 + i, y0 + j, 1, 1, c === 'o' ? '#fff' : color);
       }
     }
-    /* =====================  HOJA DE SPRITES (v2)  =====================
-       Se puede cargar una hoja propia (Options → LOAD SHEET). Sin hoja, TODO se dibuja con el
-       renderer original (trazos pixel a pixel). Con hoja, cada parte se saca de su celda:
+    /* =====================  HOJA DE SPRITES (v3)  =====================
+       Options → LOAD SHEET carga una hoja propia. Sin hoja, el juego dibuja con el renderer original.
 
-       - Celdas de 64×64. Una pieza = una celda. El centro de la celda (pixel 32,32) es el
-         PIVOTE: ahi va el centro del enemigo, o el punto desde donde sale/rota la pieza.
-       - Las piezas que se animaban (picos que giran, canon, escudo, mecha, patas, ojo, celdas de la
-         colmena, espiral del vacio...) son celdas SEPARADAS del cuerpo. El juego las coloca, rota y
-         anima igual que antes; tu las dibujas una sola vez, mirando hacia la derecha (+x).
-       - Los cuerpos se escalan por el tamaño real del enemigo (s / s0), asi un enemigo grande o
-         un juggernaut usa el mismo dibujo agrandado: nada se recorta ni se desfasa.
-       - Cada pieza muestra solo su "ventana" (win): un cuadrado centrado en la celda. Dibuja
-         dentro de esa ventana (la guia de Options → DOWNLOAD GUIDE la marca en verde).
-       - tint = el juego pinta la silueta con el color del enemigo (comportamiento, congelado,
-         golpe), porque el color de esas piezas indica algo. Las demas conservan tus colores. */
+       - UNA FILA POR TIPO DE SPRITE. La primera celda es el sprite; las celdas a su derecha son
+         fotogramas extra: si las dibujas (sin dejar huecos) esa pieza se anima recorriendolos.
+       - Si la primera celda de una fila esta vacia, esa pieza usa el arte por defecto.
+       - Celdas de 64×64. El centro (pixel 32,32) es el PIVOTE. Cada pieza muestra solo su ventana
+         segura (el marco verde de la hoja).
+       - Las partes animadas (picos que giran, canon, escudo, mecha, patas, ojo...) son filas aparte:
+         el juego las coloca, rota y anima; tu las dibujas una vez, mirando a la derecha (+x).
+       - Los cuerpos se escalan con el tamaño real del enemigo (s / s0).
+       - COLISIONES: la forma del cuerpo (todos sus fotogramas, rellena por dentro) es el area
+         que recibe los disparos y te hace daño. tint = el juego pinta la silueta con el color del enemigo. */
     var scratch = document.createElement('canvas'); scratch.width = scratch.height = CELDA;
-    /* Piezas que giran: se dibujan pixel a pixel (cada pixel de la celda se coloca ya girado y
-       redondeado), igual que el renderer original traza sus lineas. Rotar el bitmap entero rompe las
-       lineas finas de 1 px; asi quedan continuas a cualquier angulo y a cualquier tamaño. */
-    var pixHoja = null, pixDatos = null, pixCache = {};
-    function pixelesDe(id){
-      if (pixHoja !== sheetPersonalizado){ pixHoja = sheetPersonalizado; pixCache = {}; pixDatos = null; }
-      if (pixCache[id]) return pixCache[id];
-      if (!pixDatos){
-        var cv2 = document.createElement('canvas'); cv2.width = sheetPersonalizado.width; cv2.height = sheetPersonalizado.height;
-        var c2 = cv2.getContext('2d'); c2.drawImage(sheetPersonalizado, 0, 0);
-        pixDatos = c2.getImageData(0, 0, cv2.width, cv2.height);
+    var fuenteCustom = null, fuenteDef = null, hojaDefecto = null, mascaras = {};
+
+    function crearFuente(img){ return { img:img, datos:null, n:{}, pix:{} }; }
+    function datosDe(f){
+      if (!f.datos){
+        var c = document.createElement('canvas'); c.width = f.img.width; c.height = f.img.height;
+        var x = c.getContext('2d'); x.drawImage(f.img, 0, 0); f.datos = x.getImageData(0, 0, c.width, c.height);
       }
-      var h = HOJA[id], win = h.win, x0 = h.c * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2, W2 = pixDatos.width, d = pixDatos.data, lista = [];
-      for (var j = 0; j < win; j++) for (var i = 0; i < win; i++){
-        var o = ((y0 + j) * W2 + (x0 + i)) * 4, al = d[o + 3];
-        if (al < 8) continue;
-        lista.push({ u: i - win / 2 + 0.5, v: j - win / 2 + 0.5, a: al / 255, c: 'rgb(' + d[o] + ',' + d[o + 1] + ',' + d[o + 2] + ')' });
-      }
-      return (pixCache[id] = lista);
+      return f.datos;
+    }
+    function hayPixeles(f, id, col, umbral){
+      var h = HOJA[id], d = datosDe(f), win = h.win, x0 = col * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2;
+      for (var j = 0; j < win; j++) for (var i = 0; i < win; i++) if (d.data[((y0 + j) * d.width + x0 + i) * 4 + 3] > umbral) return true;
+      return false;
+    }
+    function framesDe(f, id){                              // fotogramas consecutivos con dibujo, desde la primera celda
+      if (f.n[id] === undefined){ var n = 0; while (n < HOJA_COLS && hayPixeles(f, id, n, 8)) n++; f.n[id] = n; }
+      return f.n[id];
+    }
+    function defecto(){
+      if (!fuenteDef){ hojaDefecto = construirHoja(false); fuenteDef = crearFuente(hojaDefecto); }
+      return fuenteDef;
+    }
+    function fuenteDe(id){                                 // tu hoja si esa fila tiene dibujo; si no, el arte por defecto
+      if (fuenteCustom && framesDe(fuenteCustom, id) > 0) return fuenteCustom;
+      return defecto();
+    }
+    function ponerHoja(im){ sheetPersonalizado = im; fuenteCustom = im ? crearFuente(im) : null; mascaras = {}; }
+    /* Fotograma actual de una pieza. Con mas de uno se anima; ph desfasa para que no vayan todos iguales. */
+    function cuadro(f, id, ph, t){
+      var n = framesDe(f, id); if (n <= 1) return 0;
+      return Math.floor((t === undefined ? tiempo : t) * HOJA[id].fps + (ph || 0) * n) % n;
     }
 
-    /* Dibuja una pieza de la hoja. (x,y) = pivote en el mundo, k = escala, ang = giro (rad),
-       tinte = color que reemplaza al de la pieza, alfa = opacidad. */
-    function pieza(id, x, y, k, ang, tinte, alfa){
+    /* Piezas que giran: pixel a pixel (cada pixel de la celda ya girado y redondeado), igual que el
+       renderer original traza sus lineas. Rotar el bitmap entero rompe las lineas finas de 1 px. */
+    function pixelesDe(f, id, frm){
+      var clave = id + ':' + frm;
+      if (f.pix[clave]) return f.pix[clave];
+      var h = HOJA[id], win = h.win, d = datosDe(f), x0 = frm * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2, lista = [];
+      for (var j = 0; j < win; j++) for (var i = 0; i < win; i++){
+        var o = ((y0 + j) * d.width + (x0 + i)) * 4, al = d.data[o + 3];
+        if (al < 8) continue;
+        lista.push({ u: i - win / 2 + 0.5, v: j - win / 2 + 0.5, a: al / 255, c: 'rgb(' + d.data[o] + ',' + d.data[o + 1] + ',' + d.data[o + 2] + ')' });
+      }
+      return (f.pix[clave] = lista);
+    }
+
+    /* Dibuja una pieza. (x,y) = pivote en el mundo, k = escala, ang = giro (rad), tinte = color que
+       reemplaza al de la pieza, alfa = opacidad, frm = fotograma (por defecto, el que toque). */
+    function pieza(id, x, y, k, ang, tinte, alfa, frm){
       var h = HOJA[id];
       if (!sheetPersonalizado || !h || h.virtual) return false;
+      var f = fuenteDe(id);
+      if (frm === undefined) frm = cuadro(f, id, 0);
       if (ang){
-        var lp = pixelesDe(id), cs = Math.cos(ang), sn = Math.sin(ang), kk = k || 1, b = Math.max(1, Math.round(kk)), base = (alfa === undefined ? 1 : alfa);
+        var lp = pixelesDe(f, id, frm), cs = Math.cos(ang), sn = Math.sin(ang), kk = k || 1, b = Math.max(1, Math.round(kk)), base = (alfa === undefined ? 1 : alfa);
         var prev = ctx.globalAlpha;
         for (var q = 0; q < lp.length; q++){
           var p = lp[q], rx = p.u * cs - p.v * sn, ry = p.u * sn + p.v * cs;
@@ -2014,11 +2162,11 @@
         ctx.globalAlpha = prev;
         return true;
       }
-      var win = h.win, sx = h.c * CELDA + (CELDA - win) / 2, sy = h.r * CELDA + (CELDA - win) / 2, fuente = sheetPersonalizado;
+      var win = h.win, sx = frm * CELDA + (CELDA - win) / 2, sy = h.r * CELDA + (CELDA - win) / 2, fuente = f.img;
       if (tinte){
         var t = scratch.getContext('2d');
         t.clearRect(0, 0, CELDA, CELDA); t.imageSmoothingEnabled = false;
-        t.globalCompositeOperation = 'source-over'; t.drawImage(sheetPersonalizado, sx, sy, win, win, 0, 0, win, win);
+        t.globalCompositeOperation = 'source-over'; t.drawImage(f.img, sx, sy, win, win, 0, 0, win, win);
         t.globalCompositeOperation = 'source-atop'; t.fillStyle = tinte; t.fillRect(0, 0, win, win);
         t.globalCompositeOperation = 'source-over';
         fuente = scratch; sx = 0; sy = 0;
@@ -2030,28 +2178,98 @@
       return true;
     }
 
+    /* ---------- COLISIONES con la forma del sprite ----------
+       Mascara = union de todos los fotogramas del cuerpo, cerrada (1 px) y rellena por dentro: un
+       contorno hueco cuenta como solido. Se usa la hoja del jugador si esa fila tiene dibujo, o el
+       arte por defecto si no. */
+    function mascaraDe(id){
+      if (mascaras[id]) return mascaras[id];
+      var f = fuenteDe(id), h = HOJA[id], n = Math.max(1, framesDe(f, id)), win = h.win, d = datosDe(f), m = new Uint8Array(win * win);
+      for (var fr = 0; fr < n; fr++){
+        var x0 = fr * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2;
+        for (var j = 0; j < win; j++) for (var i = 0; i < win; i++) if (d.data[((y0 + j) * d.width + x0 + i) * 4 + 3] >= 100) m[j * win + i] = 1;
+      }
+      var dil = new Uint8Array(win * win), i2, j2, di, dj;
+      for (j2 = 0; j2 < win; j2++) for (i2 = 0; i2 < win; i2++) if (m[j2 * win + i2])
+        for (dj = -1; dj <= 1; dj++) for (di = -1; di <= 1; di++){ var ii = i2 + di, jj = j2 + dj; if (ii >= 0 && jj >= 0 && ii < win && jj < win) dil[jj * win + ii] = 1; }
+      var fuera = new Uint8Array(win * win), pila = [];                        // relleno desde el borde: lo no alcanzado es interior
+      function sembrar(a, b){ if (a >= 0 && b >= 0 && a < win && b < win && !dil[b * win + a] && !fuera[b * win + a]){ fuera[b * win + a] = 1; pila.push(a, b); } }
+      for (i2 = 0; i2 < win; i2++){ sembrar(i2, 0); sembrar(i2, win - 1); sembrar(0, i2); sembrar(win - 1, i2); }
+      while (pila.length){ var yy = pila.pop(), xx = pila.pop(); sembrar(xx + 1, yy); sembrar(xx - 1, yy); sembrar(xx, yy + 1); sembrar(xx, yy - 1); }
+      var bits = new Uint8Array(win * win), rad = 0;
+      for (j2 = 0; j2 < win; j2++) for (i2 = 0; i2 < win; i2++) if (!fuera[j2 * win + i2]){
+        bits[j2 * win + i2] = 1; rad = Math.max(rad, Math.hypot(i2 - win / 2 + 0.5, j2 - win / 2 + 0.5));
+      }
+      return (mascaras[id] = { win:win, bits:bits, rad:rad });
+    }
+    function idMasa(e){ var id = e.sp === 'jefe' ? e.jf : (e.sp || 'normal'); return id === 'vacio' ? 'vacioAnillo' : id; }
+    /* ¿El punto (x,y) del mundo, con radio rad, toca el cuerpo del enemigo e? */
+    function golpea(e, x, y, rad){
+      var id = idMasa(e), m = mascaraDe(id), h = HOJA[id], k = e.s / (h.s0 || e.s), w = m.win;
+      var dx = x - e.x, dy = y - e.y;
+      rad = (rad || 0) + (e.jug ? 2 : 0);                                      // el blindaje del juggernaut suma un borde
+      var lim = m.rad * k + rad + 1;
+      if (dx * dx + dy * dy > lim * lim) return false;
+      if (e.sp === 'espinoso'){ var a0 = -(tiempo * 3 + e.ph), c0 = Math.cos(a0), s0 = Math.sin(a0), rx = dx * c0 - dy * s0, ry = dx * s0 + dy * c0; dx = rx; dy = ry; }
+      function dentro(px2, py2){ var i = Math.floor(px2 / k + w / 2), j = Math.floor(py2 / k + w / 2); return i >= 0 && j >= 0 && i < w && j < w && m.bits[j * w + i] === 1; }
+      if (dentro(dx, dy)) return true;
+      if (rad > 0.8) for (var q = 0; q < 8; q++){ var an = q * 0.7854; if (dentro(dx + Math.cos(an) * rad, dy + Math.sin(an) * rad)) return true; }
+      return false;
+    }
+    /* Barrido: una bala rapida no atraviesa un enemigo chico entre dos cuadros. */
+    function golpeaBarrido(e, x0, y0, x1, y1, rad){
+      var n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 3));
+      for (var s = 0; s <= n; s++) if (golpea(e, x0 + (x1 - x0) * s / n, y0 + (y1 - y0) * s / n, rad)) return true;
+      return false;
+    }
+    /* Forma del jugador: la Z (union de fotogramas) engrosada 1 px para que no sea imposible de acertar. */
+    var maskJug = null, maskJugDe = null;
+    function mascaraJugador(){
+      if (maskJug && maskJugDe === fuenteDe('jugador')) return maskJug;
+      var f = fuenteDe('jugador'), h = HOJA.jugador, n = Math.max(1, framesDe(f, 'jugador')), win = h.win, d = datosDe(f), m = new Uint8Array(win * win), bits = new Uint8Array(win * win), lista = [], rad = 0;
+      for (var fr = 0; fr < n; fr++){
+        var x0 = fr * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2;
+        for (var j = 0; j < win; j++) for (var i = 0; i < win; i++) if (d.data[((y0 + j) * d.width + x0 + i) * 4 + 3] >= 100) m[j * win + i] = 1;
+      }
+      for (var j2 = 0; j2 < win; j2++) for (var i2 = 0; i2 < win; i2++) if (m[j2 * win + i2])
+        for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++){ var ii = i2 + di, jj = j2 + dj; if (ii >= 0 && jj >= 0 && ii < win && jj < win) bits[jj * win + ii] = 1; }
+      for (var j3 = 0; j3 < win; j3++) for (var i3 = 0; i3 < win; i3++) if (bits[j3 * win + i3]){ lista.push([i3 - win / 2 + 0.5, j3 - win / 2 + 0.5]); rad = Math.max(rad, Math.hypot(i3 - win / 2 + 0.5, j3 - win / 2 + 0.5)); }
+      maskJugDe = f;
+      return (maskJug = { win:win, bits:bits, lista:lista, rad:rad });
+    }
+    function jugadorTocadoPor(x, y, rad){                                       // ¿el punto toca la forma de la Z?
+      var m = mascaraJugador(), w = m.win;
+      function dentro(px2, py2){ var i = Math.floor(px2 - P.x + w / 2), j = Math.floor(py2 - P.y + w / 2); return i >= 0 && j >= 0 && i < w && j < w && m.bits[j * w + i] === 1; }
+      if (dentro(x, y)) return true;
+      if (rad > 0.8) for (var q = 0; q < 8; q++){ var an = q * 0.7854; if (dentro(x + Math.cos(an) * rad, y + Math.sin(an) * rad)) return true; }
+      return false;
+    }
+    function contactoEnemigo(e, dist){
+      var id = idMasa(e), m = mascaraDe(id), h = HOJA[id], k = e.s / (h.s0 || e.s), mj = mascaraJugador();
+      if (dist > m.rad * k + mj.rad + 4) return false;
+      for (var q = 0; q < mj.lista.length; q++) if (golpea(e, P.x + mj.lista[q][0], P.y + mj.lista[q][1], 0)) return true;
+      return false;
+    }
+
     /* Enemigo con hoja: cuerpo escalado + sus capas, con la MISMA logica de animacion del renderer original. */
     function dibujarEnemigoHoja(e, congelado){
       var id = e.sp === 'jefe' ? e.jf : (e.sp || 'normal'), h = HOJA[id];
       if (!h) return false;
-      var k = e.s / h.s0, cx = e.x, cy = e.y, t = tiempo, i, a;
+      var k = e.s / h.s0, cx = e.x, cy = e.y, t = tiempo, i, a, ph = e.ph / 6.2832;
       var flash = e.flash > 0;
       var tinte = congelado ? '#8fd8ff' : (flash ? (e.sp === 'jefe' ? '#ffffff' : '#ffd0d0') : (h.tint ? e.col : null));
       var alfa = e.sp === 'jefe' ? (e.fade ? 0.25 : 1) : (e.sp === 'fantasma' && e.fase ? 0.3 : 1);
       var tCuerpo = tinte;
       if (e.sp === 'embestida' && e.est === 'carga' && Math.floor(t * 20) % 2) tCuerpo = '#ffffff';       // parpadea al cargar
 
-      switch (id){
-        case 'espinoso':                                                   // todo el rombo gira
-          pieza('espinoso', cx, cy, k, t * 3 + e.ph, tCuerpo, alfa); break;
-        case 'vacio':
-          pieza('vacioAnillo',  cx, cy, k,  t * 0.8, tinte, alfa);
-          pieza('vacioEspiral', cx, cy, k,  t * 2,   tinte, alfa);
-          pieza('vacioOrbitas', cx, cy, k, -t * 1.3, tinte, alfa);
-          break;
-        default:
-          pieza(id, cx, cy, k, 0, tCuerpo, alfa);
-      }
+      var fr = function(pid, desfase){ return cuadro(fuenteDe(pid), pid, desfase); };
+      if (id === 'espinoso') pieza('espinoso', cx, cy, k, t * 3 + e.ph, tCuerpo, alfa, fr('espinoso', ph));  // todo el rombo gira
+      else if (id === 'vacio'){
+        pieza('vacioAnillo',  cx, cy, k,  t * 0.8, tinte, alfa);
+        pieza('vacioEspiral', cx, cy, k,  t * 2,   tinte, alfa);
+        pieza('vacioOrbitas', cx, cy, k, -t * 1.3, tinte, alfa);
+      } else pieza(id, cx, cy, k, 0, tCuerpo, alfa, fr(id, ph));
+
       var r = e.s / 2;
       switch (id){
         case 'masa':
@@ -2059,9 +2277,14 @@
           break;
         case 'torreta':   pieza('canon',  cx, cy, k, Math.atan2(P.y - cy, P.x - cx), tinte, alfa); break;
         case 'escudero':  pieza('escudo', cx, cy, k, Math.atan2(P.y - cy, P.x - cx), tinte, alfa); break;
-        case 'saltarin':  pieza(e.est === 'espera' ? 'patas0' : 'patas1', cx, cy, k, 0, tinte, alfa); break;
+        case 'saltarin': {                                                 // frame 1 = espera; del 2 en adelante = salto
+          var fp = fuenteDe('patas'), np = framesDe(fp, 'patas'), fq = 0;
+          if (e.est !== 'espera') fq = np > 1 ? 1 + (Math.floor(t * HOJA.patas.fps + ph * np) % (np - 1)) : 0;
+          pieza('patas', cx, cy, k, 0, tinte, alfa, fq);
+          break;
+        }
         case 'bombardero':
-          pieza(Math.floor(t * 20) % 2 ? 'mecha1' : 'mecha0', cx, cy, k, 0, tinte, alfa);
+          pieza('mecha', cx, cy, k, 0, tinte, alfa);
           if (e.enc && Math.floor(t * 18) % 2) px(cx - e.s / 2 + 1, cy - e.s / 2 + 1, Math.round(e.s) - 2, Math.round(e.s) - 2, 'rgba(255,255,255,.6)');
           break;
         case 'embestida':
@@ -2084,16 +2307,27 @@
       return true;
     }
 
-    /* Construye la hoja por defecto con los MISMOS trazos que usa el renderer original, una
-       pieza por celda y con las partes animadas por separado. Si no se edita nada y se vuelve a
-       cargar, el juego se ve igual que sin hoja. conGuia = rejilla + nombres + ventanas seguras. */
+    /* ---------- iconos de armas (DOM): vienen de la hoja (tuya o por defecto) y se animan si tienen fotogramas ---------- */
+    function pintarIconos(){
+      var lista = raiz.querySelectorAll('canvas.jg-ico');
+      for (var q = 0; q < lista.length; q++){
+        var cv3 = lista[q], id = cv3.getAttribute('data-id'), h = HOJA[id]; if (!h) continue;
+        var f = fuenteDe(id), c3 = cv3.getContext('2d'), frm = cuadro(f, id, 0, performance.now() / 1000), win = h.win;
+        c3.imageSmoothingEnabled = false; c3.clearRect(0, 0, cv3.width, cv3.height);
+        c3.drawImage(f.img, frm * CELDA + (CELDA - win) / 2, h.r * CELDA + (CELDA - win) / 2, win, win, 0, 0, cv3.width, cv3.height);
+      }
+    }
+
+    /* Construye la hoja por defecto con los MISMOS trazos que usa el renderer original, una fila por
+       pieza y con las partes animadas por separado. Si no se edita nada y se vuelve a cargar, el
+       juego se ve igual que sin hoja. conGuia = rejilla + nombres. */
     function construirHoja(conGuia){
       var hoja = document.createElement('canvas');
       hoja.width = CELDA * HOJA_COLS; hoja.height = CELDA * HOJA_FILAS;
       var cc = hoja.getContext('2d'); cc.imageSmoothingEnabled = false;
       var ctxAnt = ctx, hojaAnt = sheetPersonalizado, tAnt = tiempo;
       ctx = cc; sheetPersonalizado = null; tiempo = 0;
-      function celda(id, fn){ var h = HOJA[id]; ctx.save(); ctx.translate(h.c * CELDA, h.r * CELDA); fn(CELDA / 2, CELDA / 2, h); ctx.restore(); }
+      function celda(id, fn, col){ var h = HOJA[id]; ctx.save(); ctx.translate((col || 0) * CELDA, h.r * CELDA); fn(CELDA / 2, CELDA / 2, h); ctx.restore(); }
       function ent(sp, s, col, extra){
         var e = { x:0, y:0, s:s, col:col, flash:0, tipo:0, ph:0, sp:sp, est:'espera', fase:false, enc:false, jf:sp, fade:false, cuerpo:true };
         for (var q in extra) e[q] = extra[q]; return e;
@@ -2111,12 +2345,12 @@
       cuerpo('espinoso', 'espinoso', '#ffd94d'); cuerpo('saltarin', 'saltarin', '#ffb34d'); cuerpo('bombardero', 'bombardero', '#ff6a3d');
       cuerpo('torreta', 'torreta', '#ff5b5b'); cuerpo('escudero', 'escudero', '#9fd0ff'); cuerpo('masa', 'masa', '#ff3b6b');
       // capas (cada parte animada, sola, apuntando a la derecha; pivote = centro de la celda)
-      celda('patas0', function(x, y, h){ var s = h.s0, x0 = x - s / 2, y0 = y - s / 2, c = '#ffb34d';
-        px(x0 + 1, y0 + s, 1, 1, c); px(x0 + s - 2, y0 + s, 1, 1, c); px(x0 + 2, y0 + 2, 1, 1, c); px(x0 + s - 3, y0 + 2, 1, 1, c); });
-      celda('patas1', function(x, y, h){ var s = h.s0, x0 = x - s / 2, y0 = y - s / 2, c = '#ffb34d';
-        px(x0 + 1, y0 + s, 1, 3, c); px(x0 + s - 2, y0 + s, 1, 3, c); px(x0 + 2, y0 + 2, 1, 1, c); px(x0 + s - 3, y0 + 2, 1, 1, c); });
-      [['mecha0', '#ff6a3d'], ['mecha1', '#ffd94d']].forEach(function(q){
-        celda(q[0], function(x, y, h){ var y0 = y - h.s0 / 2; lineaPx(x, y0 - 1, x + 2, y0 - 4, '#bbb'); px(x + 2, y0 - 5, 1, 1, q[1]); }); });
+      [0, 1].forEach(function(fq){
+        celda('patas', function(x, y, h){ var s = h.s0, x0 = x - s / 2, y0 = y - s / 2, c = '#ffb34d', largo = fq ? 3 : 1;
+          px(x0 + 1, y0 + s, 1, largo, c); px(x0 + s - 2, y0 + s, 1, largo, c); px(x0 + 2, y0 + 2, 1, 1, c); px(x0 + s - 3, y0 + 2, 1, 1, c); }, fq);
+      });
+      [['#ff6a3d', 0], ['#ffd94d', 1]].forEach(function(q){
+        celda('mecha', function(x, y, h){ var y0 = y - h.s0 / 2; lineaPx(x, y0 - 1, x + 2, y0 - 4, '#bbb'); px(x + 2, y0 - 5, 1, 1, q[0]); }, q[1]); });
       celda('canon', function(x, y, h){ var L = h.s0 / 2 + 4; lineaPx(x, y, x + L, y, '#ff5b5b'); lineaPx(x + 1, y, x + 1 + L, y, '#ff5b5b'); });
       celda('escudo', function(x, y, h){
         for (var sa = -0.9; sa <= 0.9; sa += 0.12){
@@ -2138,10 +2372,16 @@
       celda('vacioOrbitas', function(x, y, h){ for (var i = 0; i < 4; i++){ var a = i * 1.57; px(x + Math.cos(a) * (h.s0 / 2 + 5), y + Math.sin(a) * (h.s0 / 2 + 5), 2, 2, '#d9c2ff'); } });
       // objetos
       OBJETOS.forEach(function(o){ celda(o.id, function(x, y){ sprite(SPR[o.id], x, y, o.color); }); });
+      // iconos de armas
+      Object.keys(ARMA_PIX).forEach(function(k){
+        celda('arma_' + k, function(x, y){
+          ARMA_PIX[k].forEach(function(fila, j){ for (var i = 0; i < fila.length; i++){ var ch = fila[i]; if (ch !== '.' && ARMA_COL[ch]) px(x - 12 + i, y - 6 + j, 1, 1, ARMA_COL[ch]); } });
+        });
+      });
 
-      /* GUIAS (siempre presentes en la hoja). Viven en el margen FUERA de la ventana segura de cada
-         pieza, que el juego nunca lee: no se ven en el juego. Marco gris = borde de la celda; marco
-         verde = hasta donde llega a verse el sprite; marcas amarillas = ejes que cruzan el pivote. */
+      /* GUIAS (siempre en la hoja). Viven FUERA de la ventana segura de cada pieza, que el juego nunca
+         lee: no se ven en el juego. Gris = borde de celda; verde = hasta donde se ve el sprite;
+         amarillo = ejes por el pivote. Se marcan las 8 celdas de cada fila (los fotogramas posibles). */
       ctx.save(); ctx.globalAlpha = 1;
       function lineaH(x, y, w, c){ ctx.fillStyle = c; ctx.fillRect(x, y, w, 1); }
       function lineaV(x, y, h2, c){ ctx.fillStyle = c; ctx.fillRect(x, y, 1, h2); }
@@ -2151,28 +2391,25 @@
       }
       Object.keys(HOJA).forEach(function(id){
         var h = HOJA[id]; if (h.virtual) return;
-        var gx = h.c * CELDA, gy = h.r * CELDA, m = (CELDA - h.win) / 2, a0 = m - 1, a1 = m + h.win;     // pixeles justo fuera de la ventana
-        var verde = '#3ddc84', amar = '#ffd94d';
-        lineaH(gx + a0, gy + a0, h.win + 2, verde); lineaH(gx + a0, gy + a1, h.win + 2, verde);
-        lineaV(gx + a0, gy + a0, h.win + 2, verde); lineaV(gx + a1, gy + a0, h.win + 2, verde);
-        var mid = CELDA / 2;                                                                                // ticks del pivote (2 px) en los 4 lados
-        lineaV(gx + mid, gy + a0 - 1 < 0 ? gy : gy + a0 - 1, 1, amar); lineaV(gx + mid, gy + a1 + 1, 1, amar);
-        lineaH(gx + (a0 - 1 < 0 ? 0 : a0 - 1), gy + mid, 1, amar); lineaH(gx + a1 + 1, gy + mid, 1, amar);
+        for (var col = 0; col < HOJA_COLS; col++){
+          var gx = col * CELDA, gy = h.r * CELDA, m = (CELDA - h.win) / 2, a0 = m - 1, a1 = m + h.win;
+          var verde = col < h.defFrames ? '#3ddc84' : 'rgba(61,220,132,.55)', amar = '#ffd94d';
+          lineaH(gx + a0, gy + a0, h.win + 2, verde); lineaH(gx + a0, gy + a1, h.win + 2, verde);
+          lineaV(gx + a0, gy + a0, h.win + 2, verde); lineaV(gx + a1, gy + a0, h.win + 2, verde);
+          var mid = CELDA / 2;
+          lineaV(gx + mid, gy + (a0 - 1 < 0 ? 0 : a0 - 1), 1, amar); lineaV(gx + mid, gy + a1 + 1, 1, amar);
+          lineaH(gx + (a0 - 1 < 0 ? 0 : a0 - 1), gy + mid, 1, amar); lineaH(gx + a1 + 1, gy + mid, 1, amar);
+        }
       });
       ctx.restore();
 
       if (conGuia){
         ctx.font = '7px monospace'; ctx.textBaseline = 'top';
-        for (var rr = 0; rr < HOJA_FILAS; rr++) for (var cc2 = 0; cc2 < HOJA_COLS; cc2++){
-          ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.strokeRect(cc2 * CELDA + .5, rr * CELDA + .5, CELDA - 1, CELDA - 1);
-          ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(cc2 * CELDA + CELDA / 2, rr * CELDA, 1, CELDA); ctx.fillRect(cc2 * CELDA, rr * CELDA + CELDA / 2, CELDA, 1);
-        }
         Object.keys(HOJA).forEach(function(id){
           var h = HOJA[id]; if (h.virtual) return;
-          var x0 = h.c * CELDA, y0 = h.r * CELDA, w0 = (CELDA - h.win) / 2;
-          ctx.strokeStyle = 'rgba(61,220,132,.55)'; ctx.strokeRect(x0 + w0 + .5, y0 + w0 + .5, h.win - 1, h.win - 1);
-          ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x0 + 1, y0 + 1, Math.min(CELDA - 2, h.et.length * 4 + 4), 9);
-          ctx.fillStyle = '#9fffc7'; ctx.fillText(h.et, x0 + 3, y0 + 2);
+          var x0 = 0, y0 = h.r * CELDA, w0 = (CELDA - h.win) / 2;
+          ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x0 + 3, y0 + 3, Math.min(CELDA - 6, h.et.length * 4 + 4), 9);
+          ctx.fillStyle = '#9fffc7'; ctx.fillText(h.et, x0 + 5, y0 + 4);
         });
       }
       ctx = ctxAnt; sheetPersonalizado = hojaAnt; tiempo = tAnt;
@@ -2181,7 +2418,7 @@
     function descargar(canvas, nombre){
       var a = document.createElement('a'); a.download = nombre; a.href = canvas.toDataURL('image/png'); a.click();
     }
-    function exportarSheet(){ descargar(construirHoja(false), 'zyon-game-sprites-64px.png'); mostrarAviso('<b>SHEET</b> · downloaded · 64×64 cells', false, 2400); }
+    function exportarSheet(){ descargar(construirHoja(false), 'zyon-game-sprites-64px.png'); mostrarAviso('<b>SHEET</b> · downloaded · one row per sprite', false, 2400); }
     function exportarGuia(){ descargar(construirHoja(true), 'zyon-game-sprites-guide.png'); mostrarAviso('<b>GUIDE</b> · downloaded (do not load it)', false, 2400); }
 
 
