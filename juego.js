@@ -1011,7 +1011,7 @@
     }
 
     function cerrar(){
-      cancelAnimationFrame(raf); duck(1);
+      cancelAnimationFrame(raf); clearInterval(iconosT); duck(1);
       document.removeEventListener('keydown', tecla, true);
       document.removeEventListener('visibilitychange', oculta);
       window.removeEventListener('resize', medir);
@@ -2717,6 +2717,7 @@
       try { dibujar(); } catch(err2){ if (window.console) console.error('juego (dibujo):', err2); }
       raf = requestAnimationFrame(frame);
     }
+    var iconosT = setInterval(pintarIconos, 120);                 // anima los iconos que tengan mas de un fotograma
     reiniciar();
     ofrecerArmasIniciales();
     raf = requestAnimationFrame(frame);
