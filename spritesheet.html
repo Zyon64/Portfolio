@@ -28,7 +28,7 @@ and <b>LOAD SHEET</b> loads your edited PNG. <b>USE DEFAULT</b> goes back to the
   <li>The <b>centre of each cell is the pivot</b>: the enemy's centre, or the point a part rotates and orbits around.</li>
   <li><b>Animated parts are separate cells</b> (green border below). The game places, rotates, scales and animates them exactly as before; you draw each one once, <b>pointing right (+x)</b>.</li>
   <li>Bodies are <b>scaled</b> by the real enemy size, so big, small and juggernaut enemies reuse the same drawing and nothing is cropped.</li>
-  <li>Each piece only shows its <b>safe area</b> (a square around the centre, marked green in the guide). Draw inside it.</li>
+  <li>Each piece only shows its <b>safe area</b>: a square around the centre. The sheet already has guide lines for it, drawn <b>just outside</b> that area so the game never reads them: a <b style="color:#3ddc84">green frame</b> = how far the sprite is visible (anything beyond is cut), <b style="color:#ffd94d">yellow ticks</b> = the axes through the pivot, a <b>grey frame</b> = the cell edge (64×64). Draw inside the green frame.</li>
   <li>Pieces marked <b>tinted</b> are colour-coded by the game (behaviour, frozen, hit-flash): only their <b>shape</b> (alpha) is used.</li>
   <li>Pixels are never smoothed. Keep the PNG at the exact size above.</li>
 </ul>

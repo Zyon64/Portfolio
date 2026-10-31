@@ -831,7 +831,7 @@
       caja.innerHTML = '<div class="jg-h">OPTIONS</div><p>Sound volume</p>' +
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
-        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 64×64 cells. Animated parts are separate cells; the game moves, rotates and scales them. Download the sheet, edit it, load it back.</p>' +
+        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 64×64 cells, animated parts in their own cells. The green frame in each cell marks how far the sprite shows in game (guide lines sit outside it and never appear). Download, edit, load back.</p>' +
         '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="descargarGuia">DOWNLOAD GUIDE</button><button class="jg-btn" data-a="usarDefecto">USE DEFAULT</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
