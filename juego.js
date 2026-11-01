@@ -149,7 +149,11 @@
     { id:'emboscada', desde:3, peso:3, color:'#ff6b8a' },    // apunta a donde VAS a estar
     { id:'flanco',    desde:5, peso:3, color:'#ff8a4d' },    // rodea y entra por el costado
     { id:'cerco',     desde:7, peso:3, color:'#ff5fb0' },    // cada uno toma un lugar alrededor tuyo
-    { id:'timido',    desde:9, peso:2, color:'#d93a3a' }     // te persigue de lejos, huye si te acercas
+    { id:'timido',    desde:9, peso:2, color:'#d93a3a' },    // te persigue de lejos, huye si te acercas
+    { id:'espiral',   desde:4, peso:2, color:'#ff7ad0' },    // se acerca girando en espiral
+    { id:'ondulante', desde:6, peso:2, color:'#ffb347' },    // serpentea de lado a lado mientras avanza
+    { id:'sprint',    desde:8, peso:2, color:'#ffe14d' },    // avanza a rafagas: casi se frena y luego se lanza
+    { id:'orbitador', desde:10, peso:2, color:'#5fe6ff' }    // da vueltas a tu alrededor y luego se lanza de golpe
   ];
   function elegirComportamiento(L){
     var pool = COMPORTAMIENTOS.filter(function(c){ return L >= c.desde; });
@@ -198,7 +202,8 @@
     centinela:  { nombre:'SENTINEL', col:'#ff4dd2', s:28 },     // a distancia: rayos giratorios, espiral de balas, teletransporte
     colmena:    { nombre:'HIVE',     col:'#c8ff6a', s:32 },     // invocador: crias, lluvia de esporas, anillos de gas
     rey:        { nombre:'KING',     col:'#ffd94d', s:30 },     // muros de balas con hueco, coronas de balas, embestidas
-    vacio:      { nombre:'VOID',     col:'#b48cff', s:30 }      // cuchillas orbitales, meteoros avisados, ondas con hueco
+    vacio:      { nombre:'VOID',     col:'#b48cff', s:30 },     // cuchillas orbitales, meteoros avisados, ondas con hueco
+    tempestad:  { nombre:'TEMPEST',  col:'#4dd2ff', s:30 }      // columnas de rayos con huecos, rebotadores de fuego, campos que te empujan
   };
   var Z_PIX = ['XXXXXXX', '.....X.', '....X..', '...X...', '..X....', '.X.....', 'XXXXXXX'];
 
@@ -808,7 +813,7 @@
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
     var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
-    var ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
+    var fuegos, campos, columnas, emp, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
     var tactil = window.matchMedia('(pointer: coarse)').matches;
@@ -828,6 +833,7 @@
       auras = []; auraT = 1; contagioT = 0; ultimoBarrido = -999;
       arma = 'normal'; lasers = []; armaOpc = null; armaT = null; armaPend = false; jefe = null; jefePend = false;
       zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; ultimoJefe = null; el('jefe').hidden = true;
+      fuegos = []; campos = []; columnas = []; emp = { x:0, y:0 };
       hp = stats(m).vida;
       el('efectos').innerHTML = '';
       modal.hidden = true; raiz.classList.remove('menu');
@@ -1139,7 +1145,10 @@
       { id:'saltarin',  desde:7,  p:0.05 },     // se agacha y salta hacia ti en brincos
       { id:'bombardero',desde:9,  p:0.04 },     // se acerca, enciende la mecha y explota
       { id:'escudero',  desde:10, p:0.04 },     // escudo al frente: las balas de frente casi no le hacen nada
-      { id:'sembrador', desde:13, p:0.025 }     // grande y lento, suelta mini bloques cada pocos segundos
+      { id:'sembrador', desde:13, p:0.025 },    // grande y lento, suelta mini bloques cada pocos segundos
+      { id:'rebotador', desde:8,  p:0.035 },    // rebota por toda la pantalla como el logo de un DVD y deja fuego un instante
+      { id:'repulsor',  desde:11, p:0.03 },     // pone campos al azar que te empujan hacia afuera (te sacan del cursor)
+      { id:'tormenta',  desde:13, p:0.025 }     // se pega arriba o abajo y deja caer columnas de rayos con huecos
     ];
     function especieAleatoria(){
       var r = Math.random(), acc = 0;
@@ -1166,6 +1175,9 @@
         case 'bombardero':tam = 9;  vida = d.vida * 0.8; vel = d.vel * 1.1; golpe = d.golpe * 1.3; col = '#ff6a3d'; extra = { enc:false, mecha:0 }; break;
         case 'escudero':  tam = 12; vida = d.vida * 2.2; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#9fd0ff'; break;
         case 'sembrador': tam = 14; vida = d.vida * 4; vel = d.vel * 0.3; col = '#c8ff6a'; extra = { ft:2 }; break;
+        case 'rebotador': tam = 11; vida = d.vida * 1.4; vel = d.vel * 1.3; col = '#ff8a3d'; extra = { rt:0, dentro:false }; break;
+        case 'repulsor':  tam = 13; vida = d.vida * 2.2; vel = d.vel * 0.45; col = '#4dd9ff'; extra = { ft:2 + Math.random() * 2 }; break;
+        case 'tormenta':  tam = 13; vida = d.vida * 2.4; vel = d.vel * 0.4; col = '#ffe14d'; extra = { ft:3 + Math.random() * 2, lado:Math.random() < 0.5 ? 0 : 1 }; break;
         case 'orbital':   tam = 5;  vida = d.vida * 0.35; vel = d.vel * 1.1; col = '#ff8ae0'; extra = { rad:38 + Math.random() * 14 }; break;
         case 'muro':      tam = 9;  vida = d.vida * 0.8; vel = 0; col = '#ff7a7a'; break;
         default:
@@ -1260,12 +1272,26 @@
         crearEnemigo(wx, wy, 'muro').lin = { vx:vx, vy:vy }; creados++;
       }
     }
+    /* Columnas de rayos: hileras verticales que avisan y luego golpean, con 3 huecos de ~44 para pasar; uno de
+       ellos cae cerca de ti para que siempre haya salida. lado = desde donde se disparan ('arriba' / 'abajo'). */
+    function crearColumnas(lado, golpe, ngaps){
+      var paso = 11, n = Math.floor(W / paso), huecos = [], xs = [], i;
+      huecos.push(Math.max(0, Math.min(n - 4, Math.floor((P.x + (Math.random() - 0.5) * 50) / paso) - 2)));
+      while (huecos.length < (ngaps || 3)) huecos.push(Math.floor(Math.random() * Math.max(1, n - 4)));
+      for (i = 0; i < n; i++){
+        var libre = false;
+        for (var g = 0; g < huecos.length; g++) if (i >= huecos[g] && i < huecos[g] + 4) libre = true;
+        if (!libre) xs.push((i + 0.5) * paso);
+      }
+      columnas.push({ xs:xs, w:7, lado:lado, t0:1.15, t:0.5, max:0.5, d:golpe * 0.9 });
+      sfx.carga();
+    }
     function disparoEnemigo(e, ux, uy){
       ebalas.push({ x:e.x, y:e.y, vx:ux * 55, vy:uy * 55, d:e.golpe * 0.6, t:6 });
       sfx.eshot();
     }
     /* ---------- JEFES ---------- */
-    function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; }
+    function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; fuegos = []; campos = []; columnas = []; }
     function jBala(x, y, ang, v, e, r, c){ ebalas.push({ x:x, y:y, vx:Math.cos(ang) * v, vy:Math.sin(ang) * v, d:e.golpe * 0.7, t:7, r:r || 1.6, c:c || '#ff9a9a' }); }
     function jAnillo(x, y, v, gapA, gapL, e){ anillosJ.push({ x:x, y:y, r:6, v:v, gapA:gapA, gapL:gapL, d:e.golpe * 0.8, hit:false }); sfx.zona(); }
     /* Anillo con salida garantizada: el hueco se centra hacia el jugador (+/- hasta 0.8 rad al azar), asi
@@ -1312,10 +1338,11 @@
         if (e.jf === 'centinela') minionsJefe(e, 'torreta', 2);
         if (e.jf === 'rey') minionsJefe(e, 'escudero', 2);
         if (e.jf === 'vacio') minionsJefe(e, 'fantasma', 2);
+        if (e.jf === 'tempestad') minionsJefe(e, 'rebotador', 1);
       }
       var vf = 1 + 0.25 * fase;
       if (e.est === 'entra'){                                 // entra desde arriba
-        var meta = e.jf === 'vacio' ? H * 0.5 : H * (e.jf === 'colmena' ? 0.22 : (e.jf === 'rey' ? 0.2 : 0.28));
+        var meta = e.jf === 'vacio' ? H * 0.5 : H * (e.jf === 'colmena' ? 0.22 : (e.jf === 'rey' ? 0.2 : (e.jf === 'tempestad' ? 0.17 : 0.28)));
         e.y += (meta - e.y) * Math.min(1, dt * 1.4); e.et -= dt;
         if (e.et <= 0){ e.est = 'base'; e.et = 1.6; }
         return;
@@ -1432,6 +1459,35 @@
             if (e.n >= 2 + fase && e.et <= -0.8){ e.est = 'base'; e.et = 1.4; e.aux = 0; }
           } else if (e.est === 'carga'){ jCarga(e, dt, ux, uy, 2 + fase, 'base'); }
           return;
+        /* ---- TEMPEST: columnas de rayos con huecos, rebotadores de fuego y campos que empujan ---- */
+        case 'tempestad':
+          if (e.est === 'base'){
+            e.x += (W / 2 + Math.sin(tiempo * 0.45) * W * 0.3 - e.x) * Math.min(1, dt * 0.8); e.y += (H * 0.17 - e.y) * Math.min(1, dt * 1.2);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'campos', 'meteoros']);
+          } else if (e.est === 'columnas'){                   // hileras de rayos alternando arriba y abajo, con 2-3 huecos
+            if (e.aux === 0){ e.aux = 1; e.n = 0; e.et = 0; }
+            e.et -= dt;
+            if (e.et <= 0 && e.n < 2 + fase){ e.n++; crearColumnas(e.n % 2 ? 'arriba' : 'abajo', e.golpe, fase >= 2 ? 2 : 3); e.et = 2.0; }
+            if (e.n >= 2 + fase && e.et <= -1.2){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+          } else if (e.est === 'rebotadores'){                // invoca bloques que rebotan dejando fuego (tope de minions)
+            minionsJefe(e, 'rebotador', 1 + (fase >= 1 ? 1 : 0)); sfx.divide();
+            e.est = 'base'; e.et = 2.8;
+          } else if (e.est === 'campos'){                     // campos escalonados cerca de ti que te sacan del cursor
+            if (e.aux === 0){
+              var ncp = 2 + fase;
+              for (i = 0; i < ncp; i++){ a = Math.random() * 6.2832; campos.push({ x:Math.max(22, Math.min(W - 22, P.x + Math.cos(a) * (14 + Math.random() * 55))), y:Math.max(22, Math.min(H - 22, P.y + Math.sin(a) * (14 + Math.random() * 55))), r:26 + Math.random() * 10, t0:0.9 + i * 0.6, t:2.4 }); }
+              e.aux = 1; e.et = 3.4; sfx.carga();
+            }
+            e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+          } else if (e.est === 'meteoros'){
+            if (e.aux === 0){
+              var nm2 = 6 + 2 * fase;
+              for (i = 0; i < nm2; i++){ a = Math.random() * 6.2832; jZona(P.x + Math.cos(a) * Math.random() * 85, P.y + Math.sin(a) * Math.random() * 85, 14, 0.9 + i * 0.14, e); }
+              e.aux = 1; e.et = 2.6;
+            }
+            e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+          }
+          return;
         /* ---- VACIO: cuchillas, meteoros y ondas ---- */
         case 'vacio':
           if (e.est === 'base'){
@@ -1514,6 +1570,43 @@
           if (e.est === 'espera'){ if (e.et <= 0){ e.est = 'salto'; e.et = 0.26; e.dx = ux; e.dy = uy; } }
           else { e.x += e.dx * 175 * dt; e.y += e.dy * 175 * dt; if (e.et <= 0){ e.est = 'espera'; e.et = 0.45 + Math.random() * 0.5; } }
           return;
+        case 'rebotador': {                                       // rebota como el logo de DVD y va dejando fuego
+          if (e.vx === undefined){
+            var an0 = Math.atan2(H / 2 - e.y, W / 2 - e.x) + (Math.random() - 0.5) * 1.2, sp0 = Math.max(48, e.v * 1.15);
+            e.vx = Math.cos(an0) * sp0; e.vy = Math.sin(an0) * sp0;
+          }
+          e.x += e.vx * dt; e.y += e.vy * dt;
+          var m2 = e.s / 2;
+          if (e.x > m2 && e.x < W - m2 && e.y > m2 && e.y < H - m2) e.dentro = true;
+          if (e.dentro){
+            if (e.x < m2){ e.x = m2; e.vx = Math.abs(e.vx); } else if (e.x > W - m2){ e.x = W - m2; e.vx = -Math.abs(e.vx); }
+            if (e.y < m2){ e.y = m2; e.vy = Math.abs(e.vy); } else if (e.y > H - m2){ e.y = H - m2; e.vy = -Math.abs(e.vy); }
+            e.rt -= dt;
+            if (e.rt <= 0){ e.rt = 0.09; fuegos.push({ x:e.x, y:e.y, t:1.4, max:1.4, d:e.golpe * 0.5 }); }   // el fuego dura poco: se puede cruzar
+          }
+          return;
+        }
+        case 'repulsor': {                                        // flota a tu alrededor y suelta campos que te empujan
+          var dir2 = dist < 70 ? -1 : (dist > 105 ? 1 : 0);
+          e.x += ux * e.v * dir2 * dt - uy * e.v * 0.6 * dt; e.y += uy * e.v * dir2 * dt + ux * e.v * 0.6 * dt;
+          e.ft -= dt;
+          if (e.ft <= 0 && enPantalla(e)){
+            e.ft = 4.2; var an3 = Math.random() * 6.2832, rr3 = 12 + Math.random() * 62;
+            campos.push({ x:Math.max(22, Math.min(W - 22, P.x + Math.cos(an3) * rr3)), y:Math.max(22, Math.min(H - 22, P.y + Math.sin(an3) * rr3)),
+                          r:24 + Math.random() * 12, t0:0.9, t:2.6 });
+            sfx.carga();
+          }
+          return;
+        }
+        case 'tormenta': {                                        // se pega al borde de arriba o abajo y llama columnas de rayos
+          var ty0 = e.lado ? H - 12 : 12;
+          e.y += (ty0 - e.y) * Math.min(1, dt * 1.5);
+          e.x += Math.max(-1, Math.min(1, (P.x - e.x) / 20)) * e.v * dt;
+          e.x = Math.max(8, Math.min(W - 8, e.x));
+          e.ft -= dt;
+          if (e.ft <= 0 && enPantalla(e)){ e.ft = 6.5; crearColumnas(e.lado ? 'abajo' : 'arriba', e.golpe, 3); }
+          return;
+        }
         case 'bombardero':                                        // se acerca, enciende la mecha cerca y explota
           if (!e.enc){
             e.x += ux * e.v * dt; e.y += uy * e.v * dt;
@@ -1528,13 +1621,38 @@
       if (e.sp === 'orbital') e.rad = Math.max(3, e.rad - dt * 8);   // espiral que se cierra
       var ob = objetivo(e, dist), ex = ob[0] - e.x, ey = ob[1] - e.y, ed = Math.hypot(ex, ey) || 1;
       e.ph += dt * 4;
-      e.x += (ex / ed) * e.v * dt + Math.cos(e.ph) * 3 * dt;
-      e.y += (ey / ed) * e.v * dt + Math.sin(e.ph) * 3 * dt;
+      var vmul = e.vm || 1;
+      e.x += (ex / ed) * e.v * vmul * dt + Math.cos(e.ph) * 3 * dt;
+      e.y += (ey / ed) * e.v * vmul * dt + Math.sin(e.ph) * 3 * dt;
     }
 
     /* Hacia donde va cada enemigo segun su comportamiento (como los fantasmas de Pacman). */
     function objetivo(e, dist){
+      e.vm = 1;                                          // multiplicador de velocidad de este cuadro
       switch (e.beh){
+        case 'espiral': {                                 // un punto girado alrededor de ti, cada vez mas cerca
+          var ae = Math.atan2(e.y - P.y, e.x - P.x) + 0.75, re = Math.max(6, dist * 0.88);
+          return [P.x + Math.cos(ae) * re, P.y + Math.sin(ae) * re];
+        }
+        case 'ondulante': {                               // zigzag perpendicular a la linea hacia ti
+          var qx = -(P.y - e.y) / dist, qy = (P.x - e.x) / dist, of = Math.sin(tiempo * 3.2 + e.rad) * 34 * Math.min(1, dist / 60);
+          return [P.x + qx * of, P.y + qy * of];
+        }
+        case 'sprint': {                                  // 30% del ciclo corre a toda velocidad, el resto casi parado
+          var cyc = (tiempo * 0.75 + e.rad * 0.1) % 1;
+          e.vm = cyc < 0.3 ? 3.2 : 0.2;
+          return [P.x, P.y];
+        }
+        case 'orbitador': {                               // orbita a ~46 u de ti y, pasado un rato, se lanza
+          if (e.t0 === undefined) e.t0 = tiempo + (e.rad % 7) * 0.2;
+          if (tiempo - e.t0 < 2.4 + (e.rad % 5) * 0.2){
+            var an = e.slot / 8 * 6.2832 + tiempo * 0.9;
+            e.vm = 1.7;
+            return [P.x + Math.cos(an) * 46, P.y + Math.sin(an) * 46];
+          }
+          e.vm = 2.0;
+          return [P.x, P.y];
+        }
         case 'emboscada': {                               // apunta a donde vas a estar
           var f = Math.min(1, dist / 40) * 0.9;
           return [P.x + P.vx * f, P.y + P.vy * f];
@@ -1833,7 +1951,8 @@
 
       // el jugador esta SIEMPRE donde esta el cursor (sin suavizado ni limite de velocidad)
       var ox = P.x, oy = P.y;
-      P.x = Math.max(4, Math.min(W - 4, tx)); P.y = Math.max(4, Math.min(H - 4, ty));
+      var decE = Math.exp(-dt * 0.9); emp.x *= decE; emp.y *= decE;                      // el empuje se disipa solo al salir del campo
+      P.x = Math.max(4, Math.min(W - 4, tx + emp.x)); P.y = Math.max(4, Math.min(H - 4, ty + emp.y));
       var ks = 1 - Math.exp(-dt * 8);
       P.vx += ((P.x - ox) / dt - P.vx) * ks; P.vy += ((P.y - oy) / dt - P.vy) * ks;   // velocidad suavizada
 
@@ -1936,6 +2055,36 @@
               if (proy > 0 && proy < ry.largo && Math.abs(-qx2 * Math.sin(ry.ang) + qy2 * Math.cos(ry.ang)) < ry.w / 2 + 2.2){ herir(ry.d); if (fin) return; }
             }
           }
+        }
+        // fuego del rebotador: dura poco y solo quema cuando acaba de nacer
+        for (var fi = fuegos.length - 1; fi >= 0; fi--){
+          var fu = fuegos[fi]; fu.t -= dt;
+          if (fu.t <= 0){ fuegos.splice(fi, 1); continue; }
+          if (jugadorTocadoPor(fu.x, fu.y, 2.4)){ herir(fu.d); if (fin) return; }
+        }
+        // campos de repulsion: avisan, y luego te sacan del cursor (empuje que se disipa al salir)
+        for (var ki = campos.length - 1; ki >= 0; ki--){
+          var cm = campos[ki];
+          if (cm.t0 > 0){ cm.t0 -= dt; if (cm.t0 <= 0) sfx.zona(); continue; }
+          cm.t -= dt;
+          if (cm.t <= 0){ campos.splice(ki, 1); continue; }
+          var cdx = P.x - cm.x, cdy = P.y - cm.y, cdd = Math.hypot(cdx, cdy) || 1;
+          if (cdd < cm.r){
+            var fz = ((1 - cdd / cm.r) * 150 + 55) * dt;
+            emp.x += cdx / cdd * fz; emp.y += cdy / cdd * fz;
+            var em = Math.hypot(emp.x, emp.y); if (em > 90){ emp.x *= 90 / em; emp.y *= 90 / em; }
+          }
+        }
+        // columnas de rayos: avisan, luego caen desde el borde de origen y queman cada columna
+        for (var oi = columnas.length - 1; oi >= 0; oi--){
+          var co = columnas[oi];
+          if (co.t0 > 0){ co.t0 -= dt; if (co.t0 <= 0) sfx.zona(); continue; }
+          co.t -= dt;
+          if (co.t <= 0){ columnas.splice(oi, 1); continue; }
+          var largo = Math.min(H, (co.max - co.t) / 0.1 * H);                          // el rayo cruza la pantalla en 0.1 s
+          var enAlcance = co.lado === 'arriba' ? P.y < largo : P.y > H - largo;
+          if (enAlcance) for (var xi = 0; xi < co.xs.length; xi++) if (Math.abs(P.x - co.xs[xi]) < co.w / 2 + 1.2){ herir(co.d); break; }
+          if (fin) return;
         }
         // cuchillas orbitales del Vacio
         for (var ci = cuchillas.length - 1; ci >= 0; ci--){
@@ -2311,6 +2460,7 @@
           pieza('centOjo', cx + Math.cos(pa) * 5, cy + Math.sin(pa) * 5, k, 0, tinte, alfa);
           break;
         }
+        case 'tempestad': pieza('tempChispas', cx, cy, k, t * 1.1, tinte, alfa); break;
         case 'colmena':
           for (i = 0; i < 6; i++){ a = i / 6 * 6.2832 + t * 0.3; pieza('colCelda', cx + Math.cos(a) * 8, cy + Math.sin(a) * 8, k, 0, tinte, alfa); }
           break;
@@ -2359,6 +2509,7 @@
       cuerpo('orbital', 'orbital', '#ff8ae0'); cuerpo('muro', 'muro', '#ff7a7a');
       cuerpo('espinoso', 'espinoso', '#ffd94d'); cuerpo('saltarin', 'saltarin', '#ffb34d'); cuerpo('bombardero', 'bombardero', '#ff6a3d');
       cuerpo('torreta', 'torreta', '#ff5b5b'); cuerpo('escudero', 'escudero', '#9fd0ff'); cuerpo('masa', 'masa', '#ff3b6b');
+      cuerpo('rebotador', 'rebotador', '#ff8a3d'); cuerpo('repulsor', 'repulsor', '#4dd9ff'); cuerpo('tormenta', 'tormenta', '#ffe14d');
       // capas (cada parte animada, sola, apuntando a la derecha; pivote = centro de la celda)
       [0, 1].forEach(function(fq){
         celda('patas', function(x, y, h){ var s = h.s0, x0 = x - s / 2, y0 = y - s / 2, c = '#ffb34d', largo = fq ? 3 : 1;
@@ -2385,6 +2536,13 @@
       celda('vacioAnillo', function(x, y, h){ var r4 = h.s0 / 2, n4 = Math.ceil(r4 * 6.2832); for (var i = 0; i < n4; i += 2){ var a = i / n4 * 6.2832; px(x + Math.cos(a) * r4, y + Math.sin(a) * r4, 1, 1, '#b48cff'); } });
       celda('vacioEspiral', function(x, y){ for (var i = 0; i < 30; i++){ var a = i * 0.45, rr = 1 + i * 0.45; px(x + Math.cos(a) * rr, y + Math.sin(a) * rr, 1, 1, '#b48cff'); } });
       celda('vacioOrbitas', function(x, y, h){ for (var i = 0; i < 4; i++){ var a = i * 1.57; px(x + Math.cos(a) * (h.s0 / 2 + 5), y + Math.sin(a) * (h.s0 / 2 + 5), 2, 2, '#d9c2ff'); } });
+      celda('tempestad',  function(x, y, h){ dibujarJefe({ x:x, y:y, s:h.s0, col:'#4dd2ff', flash:0, fade:false, jf:'tempestad', baseOnly:true }, false); });
+      celda('tempChispas', function(x, y, h){ for (var i = 0; i < 3; i++){ var a = i * 2.0944; px(x + Math.cos(a) * (h.s0 / 2 + 8), y + Math.sin(a) * (h.s0 / 2 + 8), 2, 2, '#bff4ff'); } });
+      [['#ffd94d', '#ff8a3d', 0], ['#ff8a3d', '#ffd94d', 1], ['#ffd94d', '#ff6a3d', 2]].forEach(function(q, fq){   // 3 fotogramas de llama
+        celda('fuego', function(x, y){
+          px(x - 1, y, 3, 1, q[0]); px(x - 1, y - 1, 3, 1, q[1]); px(x - (fq === 1 ? 1 : 0), y - 2, 1, 1, q[0]); if (fq === 2) px(x + 1, y - 3, 1, 1, q[1]);
+        }, fq);
+      });
       // objetos
       OBJETOS.forEach(function(o){ celda(o.id, function(x, y){ sprite(SPR[o.id], x, y, o.color); }); });
       // iconos de armas
@@ -2477,6 +2635,14 @@
           for (i = 0; i < 5; i++){ var cxk = x0 + 3 + i * (s - 6) / 4, alt = i % 2 === 0 ? 10 : 6; lineaPx(cxk - 3, y0 - 2, cxk, y0 - alt, col); lineaPx(cxk + 3, y0 - 2, cxk, y0 - alt, col); px(cxk - 1, y0 - alt - 1, 2, 2, '#fff'); }
           px(cx, y0 + 4, 1, s - 8, col); px(x0 + 5, cy, s - 10, 1, col);
           break;
+        case 'tempestad': {                                 // rombo con un rayo adentro y chispas que orbitan
+          var rt1 = s / 2 + 2, pv = [[cx, cy - rt1], [cx + rt1, cy], [cx, cy + rt1], [cx - rt1, cy]];
+          for (i = 0; i < 4; i++){ var q1 = pv[i], q2 = pv[(i + 1) % 4]; lineaPx(q1[0], q1[1], q2[0], q2[1], col); lineaPx(q1[0], q1[1], q1[0] + (q1[0] - cx) * 0.3, q1[1] + (q1[1] - cy) * 0.3, col); }
+          lineaPx(cx + 3, cy - 9, cx - 3, cy - 1, '#fff'); lineaPx(cx - 3, cy - 1, cx + 3, cy + 1, '#fff'); lineaPx(cx + 3, cy + 1, cx - 3, cy + 9, '#fff');
+          if (e.baseOnly) break;
+          for (i = 0; i < 3; i++){ a = i * 2.0944 + tiempo * 1.1; px(cx + Math.cos(a) * (rt1 + 6), cy + Math.sin(a) * (rt1 + 6), 2, 2, '#bff4ff'); }
+          break;
+        }
         case 'vacio': {                                     // vacio: circulo con espiral interna y puntos orbitando
           var r4 = s / 2, n4 = Math.ceil(r4 * 6.2832);
           for (i = 0; i < n4; i += 2){ a = i / n4 * 6.2832 + tiempo * 0.8; px(cx + Math.cos(a) * r4, cy + Math.sin(a) * r4, 1, 1, col); }
@@ -2527,6 +2693,13 @@
         }
         return;
       }
+      if (e.sp === 'repulsor'){                              // circulo con puas hacia afuera: empuja
+        var rp = s / 2, nrp = Math.ceil(rp * 6.2832);
+        for (var ir = 0; ir < nrp; ir++){ var ar = ir / nrp * 6.2832; px(cx + Math.cos(ar) * rp, cy + Math.sin(ar) * rp, 1, 1, col); }
+        for (var jr = 0; jr < 4; jr++){ var aj = jr * 1.5708 + 0.7854; lineaPx(cx + Math.cos(aj) * rp, cy + Math.sin(aj) * rp, cx + Math.cos(aj) * (rp + 4), cy + Math.sin(aj) * (rp + 4), col); }
+        px(cx - 1, cy - 1, 2, 2, col);
+        return;
+      }
       if (e.sp === 'espinoso'){                              // rombo giratorio con picos en las puntas
         var rr = s / 2 + 2, rot = tiempo * 3 + e.ph, vs = [];
         for (var v = 0; v < 4; v++){ var av = rot + v * 1.5708; vs.push([cx + Math.cos(av) * rr, cy + Math.sin(av) * rr, av]); }
@@ -2551,6 +2724,8 @@
       px(x0, y0, s, g, col); px(x0, y0 + s - g, s, g, col);
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
+      if (e.sp === 'rebotador') lineaPx(x0 + 2, y0 + s - 3, x0 + s - 3, y0 + 2, col);    // brillo diagonal, como el logo de un DVD
+      if (e.sp === 'tormenta'){ lineaPx(cx + 1, y0 + 2, cx - 2, cy, col); lineaPx(cx - 2, cy, cx + 2, cy + 1, col); lineaPx(cx + 2, cy + 1, cx - 1, y0 + s - 3, col); }   // rayo
       if (e.baseOnly) return;
       if (e.cuerpo){                                          // solo lo estatico; el resto son capas de la hoja
         if (e.sp === 'sembrador'){ px(x0 + 3, y0 + 3, 2, 2, col); px(x0 + s - 5, y0 + 3, 2, 2, col); px(x0 + 3, y0 + s - 5, 2, 2, col); px(x0 + s - 5, y0 + s - 5, 2, 2, col); }
@@ -2663,6 +2838,35 @@
         var info = OBJETOS.filter(function(q){ return q.id === o.tipo; })[0];
         if (!pieza(o.tipo, o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), 1)) sprite(SPR[o.tipo], o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), info.color);
       });
+      // fuego y campos van debajo de los enemigos
+      fuegos.forEach(function(fu){
+        var fr = fu.t / fu.max;
+        if (fr < 0.3 && Math.floor(fu.t * 14) % 2) return;                                      // al final parpadea
+        if (pieza('fuego', fu.x, fu.y - 1, 1, 0, null, fr < 0.5 ? 0.6 : 1)) return;
+        var alto = fr > 0.66 ? 3 : (fr > 0.33 ? 2 : 1), c1 = Math.floor(tiempo * 14 + fu.x) % 2 ? '#ffd94d' : '#ff8a3d';
+        px(fu.x - 1, fu.y, 3, 1, c1);
+        if (alto >= 2) px(fu.x - 1, fu.y - 1, 3, 1, '#ff8a3d');
+        if (alto >= 3) px(fu.x, fu.y - 2, 1, 1, '#ffd94d');
+      });
+      campos.forEach(function(cm){
+        var n1 = Math.ceil(cm.r * 6.2832 / 3);
+        if (cm.t0 > 0){                                                                          // aviso: circulo punteado que parpadea
+          if (Math.floor(cm.t0 * 8) % 2) for (var a1 = 0; a1 < n1; a1++){ var an1 = a1 / n1 * 6.2832; px(cm.x + Math.cos(an1) * cm.r, cm.y + Math.sin(an1) * cm.r, 1, 1, 'rgba(77,217,255,.7)'); }
+          return;
+        }
+        for (var a2 = 0; a2 < n1; a2++){ var an2b = a2 / n1 * 6.2832; px(cm.x + Math.cos(an2b) * cm.r, cm.y + Math.sin(an2b) * cm.r, 1, 1, '#4dd9ff'); }
+        for (var w = 0; w < 3; w++){                                                             // ondas que salen hacia afuera
+          var rw = ((tiempo * 26 + w * cm.r / 3) % cm.r), n3 = Math.ceil(rw * 6.2832 / 2.4);
+          for (var a3 = 0; a3 < n3; a3++){ var an3b = a3 / n3 * 6.2832; px(cm.x + Math.cos(an3b) * rw, cm.y + Math.sin(an3b) * rw, 1, 1, 'rgba(160,235,255,' + (0.8 * (1 - rw / cm.r)).toFixed(2) + ')'); }
+        }
+        for (var a4 = 0; a4 < 6; a4++){                                                          // flechas que apuntan hacia afuera
+          var an4 = a4 * 1.0472 + tiempo * 0.5, ra = cm.r * 0.55;
+          var fx = cm.x + Math.cos(an4) * ra, fy = cm.y + Math.sin(an4) * ra;
+          lineaPx(fx, fy, fx + Math.cos(an4) * 5, fy + Math.sin(an4) * 5, '#bff4ff');
+          lineaPx(fx + Math.cos(an4) * 5, fy + Math.sin(an4) * 5, fx + Math.cos(an4 + 2.5) * 3 + Math.cos(an4) * 5, fy + Math.sin(an4 + 2.5) * 3 + Math.sin(an4) * 5, '#bff4ff');
+          lineaPx(fx + Math.cos(an4) * 5, fy + Math.sin(an4) * 5, fx + Math.cos(an4 - 2.5) * 3 + Math.cos(an4) * 5, fy + Math.sin(an4 - 2.5) * 3 + Math.sin(an4) * 5, '#bff4ff');
+        }
+      });
       var cong = efectos.tiempo > 0;
       enemigos.forEach(function(e){ dibujarEnemigo(e, cong); dibujarEstados(e); });
       zonas.forEach(function(z){                                         // meteoros: circulo de aviso y destello
@@ -2692,6 +2896,19 @@
         } else if (!r.aviso){
           lineaPx(r.x, r.y, ex, ey, '#ffffff'); lineaPx(r.x + 1, r.y, ex + 1, ey, '#ff4dd2'); lineaPx(r.x, r.y + 1, ex, ey + 1, '#ff4dd2');
         }
+      });
+      columnas.forEach(function(co){                                     // columnas de rayos: aviso punteado y haz que cruza
+        var arr = co.lado === 'arriba';
+        if (co.t0 > 0){
+          if (Math.floor(co.t0 * 10) % 2) co.xs.forEach(function(x){ for (var yy = 0; yy < H; yy += 4) px(x, arr ? yy : H - yy, 1, 1, 'rgba(255,225,77,.7)'); });
+          return;
+        }
+        var largo = Math.min(H, (co.max - co.t) / 0.1 * H), fl = Math.floor(tiempo * 40) % 2;
+        co.xs.forEach(function(x){
+          var y0 = arr ? 0 : H - largo;
+          px(x - 3, y0, 1, largo, '#ffe14d'); px(x + 3, y0, 1, largo, '#ffe14d');
+          px(x - 2, y0, 5, largo, fl ? '#ffffff' : '#fff6bd'); px(x - 1, y0, 3, largo, '#ffffff');
+        });
       });
       cuchillas.forEach(function(c){                                     // cuchillas orbitales
         if (c.x === undefined) return;
