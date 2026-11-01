@@ -2968,6 +2968,13 @@
       try { dibujar(); } catch(err2){ if (window.console) console.error('juego (dibujo):', err2); }
       raf = requestAnimationFrame(frame);
     }
+    window.Juego._d = { limpiar:function(){ enemigos.length=0; objetos.length=0; fuegos.length=0; campos.length=0; columnas.length=0; },
+      crear:function(sp,x,y,jug,tam){ var e=crearEnemigo(x,y,sp||'normal'); e.x=x;e.y=y; if(jug){e.jug=true;e.s=e.s*2;} if(tam) e.s=tam; return e; },
+      jefeId:function(id){ var ids=Object.keys(JEFES); ultimoJefe=null; var o=Math.random; Math.random=function(){ return ids.indexOf(id)/ids.length+0.001; }; spawnJefe(); Math.random=o; return jefe; },
+      pausar:function(v){ pausado=v; }, t:function(v){ tiempo=v; }, sheet:function(i){ ponerHoja(i); }, exportar:function(g){ return construirHoja(g); },
+      nivel:function(n){ nivel=n; m.dano=0; }, inv:function(){ inv=999; }, P:function(){ return P; }, tx:function(x,y){ tx=x; ty=y; }, emp:function(){ return emp; },
+      golpea:function(e,x,y,r){ return golpea(e,x,y,r); }, num:function(n,x,y,c){ numeros.push({ x:x, y:y, v:-10, t:.65, max:.65, n:n, c:c||'#fff' }); },
+      armas:function(){ ofrecerArmas(); }, hp:function(){ return hp; }, enem:function(){ return enemigos; }, campos:function(){ return campos; }, col:function(){ return columnas; }, fuegos:function(){ return fuegos; }, sp:function(n){ nivel=n; } };
     var iconosT = setInterval(pintarIconos, 120);                 // anima los iconos que tengan mas de un fotograma
     reiniciar();
     ofrecerArmasIniciales();
