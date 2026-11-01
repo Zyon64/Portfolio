@@ -2979,7 +2979,7 @@
       jefeId:function(id){ var ids=Object.keys(JEFES); ultimoJefe=null; var o=Math.random; Math.random=function(){ return ids.indexOf(id)/ids.length+0.001; }; spawnJefe(); Math.random=o; return jefe; },
       pausar:function(v){ pausado=v; }, inv:function(){ inv=999; }, P:function(){ return P; }, tx:function(x,y){ tx=x; ty=y; }, emp:function(){ return emp; },
       hielo:function(){ return hielo; }, campos:function(){ return campos; }, col:function(){ return columnas; }, nivel:function(n){ nivel=n; }, jefeActual:function(){ return jefe; },
-      ola:function(t){ oleadaT=t; }, xp:function(v){ xp=v; }, armas:function(){ ofrecerArmas(); } };
+      paso:function(dt,n){ for(var i=0;i<n;i++){ actualizar(dt); } }, hpv:function(){ return hp; }, ola:function(t){ oleadaT=t; }, xp:function(v){ xp=v; }, armas:function(){ ofrecerArmas(); } };
     var iconosT = setInterval(pintarIconos, 120);                 // anima los iconos que tengan mas de un fotograma
     reiniciar();
     ofrecerArmasIniciales();
