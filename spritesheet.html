@@ -35,6 +35,8 @@ and <b>LOAD SHEET</b> loads your edited PNG. <b>USE DEFAULT</b> goes back to the
   <li><b>Collisions follow your drawing.</b> The hit area of a body is the silhouette of its pixels (all frames, filled in, hollow outlines count as solid).
       Your own shape also decides where you can be hit.</li>
   <li><b>Weapon icons</b> (rows at the bottom) appear when you choose a weapon and in the weapon stat. They can be animated like any other row.</li>
+  <li><b>Sizes are whole multiples</b> of each piece's base size (x1 normal, x2 heavy and juggernaut), so your pixels scale cleanly. Juggernaut armour has 3 rows (small / medium / large body) and is never scaled. The fast small enemy uses the MINI art.</li>
+  <li>New rows are always added at the <b>end</b>, so a sheet you already edited keeps working: missing rows use the default art.</li>
   <li>Pieces marked <b>tinted</b> are colour-coded by the game (behaviour, frozen, hit-flash): only their <b>shape</b> (alpha) is used.</li>
   <li>Pixels are never smoothed. Keep the PNG at the exact size above.</li>
 </ul>
