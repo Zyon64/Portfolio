@@ -232,7 +232,7 @@
     ['escudo',      32, 12, 'SHIELD',        'Layer: shield arc, faces right; rotates toward you.'],
     ['masa',        60, 26, 'MASS',          'Round body without spikes.'],
     ['masaPua',     16, 26, 'MASS SPIKE',    'Layer: ONE spike, points right. 14 orbit the body.'],
-    ['blindaje',    48, 16, 'JUGGERNAUT',    'Layer: armour drawn over any enemy that is a juggernaut.', { tint:1 }],
+    ['blindaje',    48, 18, 'JUGGERNAUT',    'Layer: armour drawn over a small juggernaut (body ~18 px). Drawn at 1:1, never scaled.', { tint:1 }],
     ['triturador',  60, 34, 'BOSS CRUSHER',  'Static boss.'],
     ['rey',         60, 30, 'BOSS KING',     'Static boss.'],
     ['centinela',   60, 28, 'BOSS SENTINEL', 'Body ring only.'],
@@ -258,7 +258,16 @@
     ['arma_laser',     32, 0, 'WEAPON LASER',    'Weapon icon.', { fps:6, icono:1 }],
     ['arma_sniper',    32, 0, 'WEAPON SNIPER',   'Weapon icon.', { fps:6, icono:1 }],
     ['arma_bumeran',   32, 0, 'WEAPON BOOMERANG','Weapon icon.', { fps:6, icono:1 }],
-    ['arma_granadas',  32, 0, 'WEAPON GRENADES', 'Weapon icon.', { fps:6, icono:1 }]
+    ['arma_granadas',  32, 0, 'WEAPON GRENADES', 'Weapon icon.', { fps:6, icono:1 }],
+    // ---- agregados despues: van al final para no mover las filas de una hoja ya editada ----
+    ['blindaje2',   48, 24, 'JUGGERNAUT M',  'Layer: armour for a medium juggernaut (body ~24 px).', { tint:1 }],
+    ['blindaje3',   48, 30, 'JUGGERNAUT L',  'Layer: armour for a large juggernaut (body 28+ px).', { tint:1 }],
+    ['rebotador',   24, 11, 'BOUNCER',       'Bounces around the screen like a DVD logo, leaving short-lived fire.'],
+    ['repulsor',    32, 13, 'REPULSOR',      'Drops random push fields that shove you outward.'],
+    ['tormenta',    32, 13, 'STORMER',       'Hovers at the top or bottom and calls lightning columns with gaps.'],
+    ['fuego',       16, 0,  'FIRE',          'Fire trail piece (one flame). The default has 3 flickering frames.', { fps:10, defFrames:3 }],
+    ['tempestad',   60, 30, 'BOSS TEMPEST',  'Static boss body.'],
+    ['tempChispas', 60, 30, 'TEMPEST SPARKS','Layer: 3 sparks orbiting the boss.']
   ];
   var HOJA = {};
   ORDEN.forEach(function(q, i){
@@ -864,6 +873,7 @@
       else if (eligiendo && /^[1-3]$/.test(e.key)){
         var c = caja.querySelectorAll('.jg-carta')[+e.key - 1]; if (c) c.click();
       }
+      else if (eligiendo && e.key === '4' && armaOpc && armaT !== null){ mantenerArma(); }
     }
     raiz.addEventListener('input', function(e){
       if (e.target.classList && e.target.classList.contains('jg-rango')){
@@ -897,6 +907,7 @@
         if (SFX_ON) sfx.click();
       }
       else if (a === 'guardar') guardarNombre();
+      else if (a === 'mantener') mantenerArma();
       else if (a === 'omitir') verRanking({ temp:true, s:puntos, d:tactil ? 'm' : 'p', id:'yo' }, 'fin');
       else if (a === 'ranking') verRanking({ temp:true, s:puntaje(nivel, kills, tiempo), d:tactil ? 'm' : 'p', id:'yo' }, 'pausa');
       else if (a === 'todos') verRanking(rankYo, rankModo, !rankTodos);
@@ -957,14 +968,14 @@
       modal.hidden = false;
     }
     var sheetPersonalizado = null;
-    try { var guardada = localStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === CELDA * HOJA_COLS && imG.height === CELDA * HOJA_FILAS) ponerHoja(imG); }; imG.src = guardada; } } catch(err){}
+    try { var guardada = localStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === CELDA * HOJA_COLS && imG.height % CELDA === 0 && imG.height >= CELDA * 48 && imG.height <= CELDA * HOJA_FILAS) ponerHoja(imG); }; imG.src = guardada; } } catch(err){}
     function abrirSelectorSheet(){ raiz.querySelector('.jg-sheet-input').click(); }
     raiz.querySelector('.jg-sheet-input').addEventListener('change', function(e){
       var f = e.target.files && e.target.files[0]; if (!f) return;
       var im = new Image();
       im.onload = function(){
-        if (im.width !== CELDA * HOJA_COLS || im.height !== CELDA * HOJA_FILAS){
-          mostrarAviso('<b>SHEET</b> · needs ' + (CELDA * HOJA_COLS) + '×' + (CELDA * HOJA_FILAS) + ' px (64×64 cells, one row per sprite). Download the new one.', true, 3400); return;
+        if (im.width !== CELDA * HOJA_COLS || im.height % CELDA || im.height < CELDA * 48 || im.height > CELDA * HOJA_FILAS){   // las filas que falten usan el arte por defecto
+          mostrarAviso('<b>SHEET</b> · needs ' + (CELDA * HOJA_COLS) + ' px wide and 48 to ' + HOJA_FILAS + ' rows of 64 px. Download the new sheet.', true, 3400); return;
         }
         ponerHoja(im); mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
         try { var c2 = document.createElement('canvas'); c2.width = im.width; c2.height = im.height; c2.getContext('2d').drawImage(im, 0, 0); localStorage.setItem('juegoZ_hoja', c2.toDataURL('image/png')); } catch(err){}
@@ -1085,7 +1096,7 @@
         h2 += '<button class="jg-carta" data-a="arma" data-k="' + k + '"><canvas class="jg-ico" data-id="arma_' + k + '" width="32" height="32"></canvas><b>' + ARMAS[k].nombre + '</b><span>' + ARMAS[k].desc + '</span>' +
               '<em>' + ARMAS[k].uso + '</em><i>[' + (i + 1) + ']</i></button>';
       });
-      caja.innerHTML = h2 + '</div>';
+      caja.innerHTML = h2 + '</div><div class="jg-modal-acciones"><button class="jg-btn" data-a="mantener">KEEP ' + ARMAS[arma].nombre + ' <span style="opacity:.6">[4]</span></button></div>';
       modal.hidden = false; pintarIconos();
     }
     function elegirArma(k){
@@ -1159,14 +1170,14 @@
         case 'muro':      tam = 9;  vida = d.vida * 0.8; vel = 0; col = '#ff7a7a'; break;
         default:
           sp = null;
-          if (r < d.pesado){ tam = 17; vida = d.vida * 4; vel *= 0.6; tipo = 1; }
+          if (r < d.pesado){ tam = 18; vida = d.vida * 4; vel *= 0.6; tipo = 1; }
           else if (r < d.pesado + d.rapido){ tam = 6; vida = d.vida * 0.6; vel *= 1.6; tipo = 2; }
       }
       // JUGGERNAUT: desde el nivel 10, a veces (4% -> 14%) un enemigo de CUALQUIER tipo sale en su version
       // grande y robusta: 1.8x de tamano, 7x de vida, 40% mas de dano y algo mas lento. Conserva su forma de moverse y atacar.
       var jug = false;
       if (!forzar && nivel >= 10 && sp !== 'masa' && Math.random() < Math.min(0.14, 0.04 + 0.0025 * (nivel - 10))){
-        jug = true; tam = Math.round(tam * 1.8); vida *= 7; golpe *= 1.4; vel *= 0.8;
+        jug = true; tam = tam * 2; vida *= 7; golpe *= 1.4; vel *= 0.8;
       }
       var c = elegirComportamiento(sp === 'orbital' ? 7 : nivel);
       // todo se "congela" aqui: subir de nivel despues NO cambia a los que ya estan vivos
@@ -2138,7 +2149,7 @@
       var h = HOJA[id], win = h.win, d = datosDe(f), x0 = frm * CELDA + (CELDA - win) / 2, y0 = h.r * CELDA + (CELDA - win) / 2, lista = [];
       for (var j = 0; j < win; j++) for (var i = 0; i < win; i++){
         var o = ((y0 + j) * d.width + (x0 + i)) * 4, al = d.data[o + 3];
-        if (al < 8) continue;
+        if (!(al >= 8)) continue;
         lista.push({ u: i - win / 2 + 0.5, v: j - win / 2 + 0.5, a: al / 255, c: 'rgb(' + d.data[o] + ',' + d.data[o + 1] + ',' + d.data[o + 2] + ')' });
       }
       return (f.pix[clave] = lista);
@@ -2202,7 +2213,11 @@
       }
       return (mascaras[id] = { win:win, bits:bits, rad:rad });
     }
-    function idMasa(e){ var id = e.sp === 'jefe' ? e.jf : (e.sp || 'normal'); return id === 'vacio' ? 'vacioAnillo' : id; }
+    /* Arte que le toca a cada enemigo. Los tamaños son siempre multiplos enteros del tamaño base (x1 normal, x2 pesado
+       o juggernaut), asi el sprite se amplia a pixeles exactos. El rapido (6) usa el arte del mini (6). */
+    function artId(e){ if (e.sp === 'jefe') return e.jf; if (!e.sp && e.tipo === 2) return 'mini'; return e.sp || 'normal'; }
+    function idBlindaje(e){ return e.s <= 20 ? 'blindaje' : (e.s <= 26 ? 'blindaje2' : 'blindaje3'); }
+    function idMasa(e){ var id = artId(e); return id === 'vacio' ? 'vacioAnillo' : id; }
     /* ¿El punto (x,y) del mundo, con radio rad, toca el cuerpo del enemigo e? */
     function golpea(e, x, y, rad){
       var id = idMasa(e), m = mascaraDe(id), h = HOJA[id], k = e.s / (h.s0 || e.s), w = m.win;
@@ -2253,7 +2268,7 @@
 
     /* Enemigo con hoja: cuerpo escalado + sus capas, con la MISMA logica de animacion del renderer original. */
     function dibujarEnemigoHoja(e, congelado){
-      var id = e.sp === 'jefe' ? e.jf : (e.sp || 'normal'), h = HOJA[id];
+      var id = artId(e), h = HOJA[id];
       if (!h) return false;
       var k = e.s / h.s0, cx = e.x, cy = e.y, t = tiempo, i, a, ph = e.ph / 6.2832;
       var flash = e.flash > 0;
@@ -2301,7 +2316,7 @@
           break;
       }
       if (e.jug){                                                          // juggernaut: blindaje + barrita de vida
-        pieza('blindaje', cx, cy, e.s / HOJA.blindaje.s0, 0, tinte || e.col, e.sp === 'fantasma' && e.fase ? 0.3 : 1);
+        pieza(idBlindaje(e), cx, cy, 1, 0, tinte || e.col, e.sp === 'fantasma' && e.fase ? 0.3 : 1);
         dibujarBarraBlindaje(e);
       }
       return true;
@@ -2358,7 +2373,7 @@
           px(x + Math.cos(sa) * (h.s0 / 2 + 4), y + Math.sin(sa) * (h.s0 / 2 + 4), 1, 1, '#9fd0ff');
         } });
       celda('masaPua', function(x, y){ lineaPx(x, y, x + 4, y, '#ff3b6b'); });
-      celda('blindaje', function(x, y, h){ var e = { x:x, y:y, s:h.s0, col:'#ff4d4d', flash:0, sp:'normal', fase:false, hp:1, max:1 }; dibujarBlindaje(e, false, true); });
+      ['blindaje', 'blindaje2', 'blindaje3'].forEach(function(bid){ celda(bid, function(x, y, h){ var e = { x:x, y:y, s:h.s0, col:'#ff4d4d', flash:0, sp:'normal', fase:false, hp:1, max:1 }; dibujarBlindaje(e, false, true); }); });
       // jefes
       celda('triturador', function(x, y, h){ dibujarJefe({ x:x, y:y, s:h.s0, col:'#ff6a3d', flash:0, fade:false, jf:'triturador' }, false); });
       celda('rey',        function(x, y, h){ dibujarJefe({ x:x, y:y, s:h.s0, col:'#ffd94d', flash:0, fade:false, jf:'rey' }, false); });
@@ -2575,6 +2590,25 @@
       }
     }
 
+    /* Fuente de pixeles 3×5 para los numeros de dano: nada de texto suavizado. Contorno oscuro de 1 px para que se lea
+       sobre cualquier fondo, y al final parpadean en vez de desvanecerse. */
+    var DIG = { '0':['111','101','101','101','111'], '1':['010','110','010','010','111'], '2':['111','001','111','100','111'], '3':['111','001','111','001','111'],
+                '4':['101','101','111','001','001'], '5':['111','100','111','001','111'], '6':['111','100','111','101','111'], '7':['111','001','001','010','010'],
+                '8':['111','101','111','101','111'], '9':['111','101','111','001','111'] };
+    function numeroPx(no){
+      if (no.t < 0.2 && Math.floor(no.t * 30) % 2) return;                 // parpadeo final
+      var txt = String(no.n), w = txt.length * 4 - 1, x0 = Math.round(no.x - w / 2), y0 = Math.round(no.y - 5);
+      for (var pasada = 0; pasada < 2; pasada++){
+        for (var c = 0; c < txt.length; c++){
+          var g = DIG[txt[c]]; if (!g) continue;
+          for (var j = 0; j < 5; j++) for (var i = 0; i < 3; i++) if (g[j][i] === '1'){
+            var gx = x0 + c * 4 + i, gy = y0 + j;
+            if (pasada === 0){ ctx.fillStyle = '#05080f'; ctx.fillRect(gx - 1, gy, 3, 1); ctx.fillRect(gx, gy - 1, 1, 3); }
+            else { ctx.fillStyle = no.c; ctx.fillRect(gx, gy, 1, 1); }
+          }
+        }
+      }
+    }
     function dibujarEstados(e){
       if (e.pz){                                                             // veneno: gotas verdes
         var f1 = Math.floor(tiempo * 8 + e.ph) % 3;
@@ -2697,7 +2731,7 @@
         }
       });
       parts.forEach(function(p){ px(p.x, p.y, 1, 1, p.c); });
-      numeros.forEach(function(no){ ctx.globalAlpha = Math.max(0, no.t / no.max); ctx.fillStyle = no.c; ctx.font = '5px monospace'; ctx.fillText(String(no.n), Math.round(no.x), Math.round(no.y)); }); ctx.globalAlpha = 1;
+      numeros.forEach(function(no){ numeroPx(no); });
       if (!fin){ dibujarAuras(); dibujarPulsos(); dibujarZ(); }
     }
 
@@ -2717,12 +2751,6 @@
       try { dibujar(); } catch(err2){ if (window.console) console.error('juego (dibujo):', err2); }
       raf = requestAnimationFrame(frame);
     }
-    window.Juego._d = { limpiar:function(){ enemigos.length=0; objetos.length=0; },
-      crear:function(sp,x,y,jug,tam){ var e=crearEnemigo(x,y,sp||'normal'); e.x=x;e.y=y;e.v=0; if(jug){e.jug=true;e.s=Math.round(e.s*1.8);} if(tam) e.s=tam; return e; },
-      jefe:function(jf,x,y){ var J=JEFES[jf]; enemigos.push({sp:'jefe',jf:jf,x:x,y:y,s:J.s,col:J.col,flash:0,fade:false,hp:10,max:10}); },
-      pausar:function(v){ pausado=v; }, t:function(v){ tiempo=v; }, sheet:function(i){ ponerHoja(i); }, exportar:function(g){ return construirHoja(g); },
-      golpea:function(e,x,y,r){ return golpea(e,x,y,r); }, mascara:function(id){ return mascaraDe(id); }, frames:function(id){ return framesDe(fuenteDe(id), id); },
-      icono:pintarIconos, armas:function(){ ofrecerArmas(); }, num:function(n,x,y){ numeros.push({ x:x, y:y, v:-10, t:.65, max:.65, n:n, c:'#fff' }); } };
     var iconosT = setInterval(pintarIconos, 120);                 // anima los iconos que tengan mas de un fotograma
     reiniciar();
     ofrecerArmasIniciales();
