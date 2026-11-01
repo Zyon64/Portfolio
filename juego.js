@@ -268,8 +268,8 @@
     ['blindaje2',   48, 24, 'JUGGERNAUT M',  'Layer: armour for a medium juggernaut (body ~24 px).', { tint:1 }],
     ['blindaje3',   48, 30, 'JUGGERNAUT L',  'Layer: armour for a large juggernaut (body 28+ px).', { tint:1 }],
     ['rebotador',   24, 11, 'BOUNCER',       'Bounces around the screen like a DVD logo, leaving short-lived fire.'],
-    ['repulsor',    32, 13, 'REPULSOR',      'Drops random push fields that shove you outward.'],
-    ['tormenta',    32, 13, 'STORMER',       'Hovers at the top or bottom and calls lightning columns with gaps.'],
+    ['flechaEmpuje', 16, 0, 'PUSH ARROW',    'Layer: arrow shown inside boss push fields. Points right; rotates to point outward.'],
+    ['copoHielo',   24, 0,  'FREEZE FLAKE',  'Snowflake shown in boss freeze fields and over you while frozen. Add frames to animate it.', { fps:5 }],
     ['fuego',       16, 0,  'FIRE',          'Fire trail piece (one flame). The default has 3 flickering frames.', { fps:10, defFrames:3 }],
     ['tempestad',   60, 30, 'BOSS TEMPEST',  'Static boss body.'],
     ['tempChispas', 60, 30, 'TEMPEST SPARKS','Layer: 3 sparks orbiting the boss.']
@@ -428,6 +428,7 @@
   '.jg-btn:hover{background:rgba(255,255,255,.1);scale:1.08}' +
   '.jg-pie{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}' +
   '.jg-amenaza .jg-barra{width:70px}.jg-amenaza .jg-barra u{background:' + ROJO + '}' +
+  '.jg-prox .jg-barra{width:70px}.jg-pjefe .jg-barra u{background:#ff7a4d}.jg-pola .jg-barra u{background:#ffd94d}.jg-prox b{min-width:34px;text-align:right}' +
   '.jg-conteo{position:absolute;left:50%;top:92px;transform:translateX(-50%);min-width:64px;padding:6px 18px;border-radius:999px;' +
   '  background:rgba(127,214,255,.1);box-shadow:0 0 0 1px rgba(127,214,255,.5),0 10px 26px -14px rgba(0,0,0,.8);color:#7fd6ff;' +
   '  font-size:1.5rem;font-weight:700;text-align:center;letter-spacing:.1em}' +
@@ -785,7 +786,9 @@
         '<div class="jg-pie">' +
           '<div class="jg-chip">KILLS <b data-n="kills">0</b></div>' +
           '<div class="jg-chip">TIME <b data-n="tiempo">0:00</b></div>' +
-          '<div class="jg-chip jg-amenaza">THREAT <i class="jg-barra"><u data-n="amenaza"></u></i></div>' +
+          '<div class="jg-chip jg-amenaza" title="Enemies on screen compared with the current limit. Fuller = more crowded.">THREAT <i class="jg-barra"><u data-n="amenaza"></u></i></div>' +
+          '<div class="jg-chip jg-prox jg-pjefe" title="Progress to the next boss (one every 10 levels).">BOSS <i class="jg-barra"><u data-n="jefeprox"></u></i> <b data-n="jefeniv">LV 10</b></div>' +
+          '<div class="jg-chip jg-prox jg-pola" title="Time until the next wave.">WAVE <i class="jg-barra"><u data-n="olabar"></u></i> <b data-n="olat">1:30</b></div>' +
           '<div class="jg-chip jg-mejor">BEST LV <b data-n="mejor">1</b></div>' +
         '</div>' +
       '</div>' +
@@ -814,7 +817,7 @@
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
     var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
-    var fuegos, campos, columnas, emp, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
+    var fuegos, campos, columnas, emp, hielo, hieloInm, hieloRec, hx, hy, oleadaTot, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
     var tactil = window.matchMedia('(pointer: coarse)').matches;
@@ -834,7 +837,7 @@
       auras = []; auraT = 1; contagioT = 0; ultimoBarrido = -999;
       arma = 'normal'; lasers = []; armaOpc = null; armaT = null; armaPend = false; jefe = null; jefePend = false;
       zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; ultimoJefe = null; el('jefe').hidden = true;
-      fuegos = []; campos = []; columnas = []; emp = { x:0, y:0 };
+      fuegos = []; campos = []; columnas = []; emp = { x:0, y:0 }; hielo = 0; hieloInm = 0; hieloRec = 0; hx = 0; hy = 0; oleadaTot = OLEADA_PRIMERA;
       hp = stats(m).vida;
       el('efectos').innerHTML = '';
       modal.hidden = true; raiz.classList.remove('menu');
@@ -1147,9 +1150,7 @@
       { id:'bombardero',desde:9,  p:0.04 },     // se acerca, enciende la mecha y explota
       { id:'escudero',  desde:10, p:0.04 },     // escudo al frente: las balas de frente casi no le hacen nada
       { id:'sembrador', desde:13, p:0.025 },    // grande y lento, suelta mini bloques cada pocos segundos
-      { id:'rebotador', desde:8,  p:0.035 },    // rebota por toda la pantalla como el logo de un DVD y deja fuego un instante
-      { id:'repulsor',  desde:11, p:0.03 },     // pone campos al azar que te empujan hacia afuera (te sacan del cursor)
-      { id:'tormenta',  desde:13, p:0.025 }     // se pega arriba o abajo y deja caer columnas de rayos con huecos
+      { id:'rebotador', desde:8,  p:0.035 }     // rebota por toda la pantalla como el logo de un DVD y deja fuego un instante
     ];
     function especieAleatoria(){
       var r = Math.random(), acc = 0;
@@ -1177,8 +1178,6 @@
         case 'escudero':  tam = 12; vida = d.vida * 2.2; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#9fd0ff'; break;
         case 'sembrador': tam = 14; vida = d.vida * 4; vel = d.vel * 0.3; col = '#c8ff6a'; extra = { ft:2 }; break;
         case 'rebotador': tam = 11; vida = d.vida * 1.4; vel = d.vel * 1.3; col = '#ff8a3d'; extra = { rt:0, dentro:false }; break;
-        case 'repulsor':  tam = 13; vida = d.vida * 2.2; vel = d.vel * 0.45; col = '#4dd9ff'; extra = { ft:2 + Math.random() * 2 }; break;
-        case 'tormenta':  tam = 13; vida = d.vida * 2.4; vel = d.vel * 0.4; col = '#ffe14d'; extra = { ft:3 + Math.random() * 2, lado:Math.random() < 0.5 ? 0 : 1 }; break;
         case 'orbital':   tam = 5;  vida = d.vida * 0.35; vel = d.vel * 1.1; col = '#ff8ae0'; extra = { rad:38 + Math.random() * 14 }; break;
         case 'muro':      tam = 9;  vida = d.vida * 0.8; vel = 0; col = '#ff7a7a'; break;
         default:
@@ -1327,6 +1326,30 @@
         if (e.et <= 0){ e.n++; if (e.n >= cant){ e.est = post; e.et = 1.4; e.aux = 0; } else { e.aux = 0; e.et = 0; } }
       }
     }
+    /* Ataques de jefe compartidos (cada uno sustituye un movimiento que se repetia entre jefes):
+       columnas de rayos con huecos, campos de empuje fuerte y campos de hielo que te congelan. */
+    function atColumnas(e, dt, fase){
+      if (e.aux === 0){ e.aux = 1; e.n = 0; e.et = 0; }
+      e.et -= dt;
+      var tot = 2 + fase;
+      if (e.et <= 0 && e.n < tot){ e.n++; crearColumnas(e.n % 2 ? 'arriba' : 'abajo', e.golpe, fase >= 2 ? 2 : 3); e.et = 2.0; }
+      if (e.n >= tot && e.et <= -1.2){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+    }
+    function crearCampos(tipo, n, r, t0, dur){
+      for (var i = 0; i < n; i++){
+        var a = Math.random() * 6.2832, d = 10 + Math.random() * 55;
+        campos.push({ tipo:tipo, x:Math.max(22, Math.min(W - 22, P.x + Math.cos(a) * d)), y:Math.max(22, Math.min(H - 22, P.y + Math.sin(a) * d)), r:r + Math.random() * 8, t0:t0 + i * 0.6, t:dur });
+      }
+      sfx.carga();
+    }
+    function atEmpuje(e, dt, fase){
+      if (e.aux === 0){ e.aux = 1; crearCampos('empuje', 2 + fase, 27, 0.9, 2.4); e.et = 3.8; }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+    }
+    function atHielo(e, dt, fase){
+      if (e.aux === 0){ e.aux = 1; crearCampos('hielo', 1 + (fase >= 1 ? 1 : 0) + (fase >= 2 ? 1 : 0), 25, 1.1, 3.0); e.et = 4.2; }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+    }
     function moverJefe(e, dt, dist){
       // A mayor nivel, las ventanas entre ataques se consumen antes y el jefe se mueve mas rapido.
       dt *= Math.min(2.2, 1 + Math.max(0, nivel - 10) * 0.035);
@@ -1410,7 +1433,7 @@
         case 'colmena':
           if (e.est === 'base'){
             e.x += (Math.sin(tiempo * 0.5) * 70 + W / 2 - e.x) * Math.min(1, dt * 0.8);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['crias', 'esporas', 'gas']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['crias', 'esporas', 'hielo']);
           } else if (e.est === 'crias'){
             if (contar('orbital') < 8){ for (i = 0; i < 4; i++){ var cr = crearEnemigo(e.x + Math.cos(i * 1.57) * 20, e.y + Math.sin(i * 1.57) * 20, 'orbital'); cr.minionJefe = true; } sfx.divide(); }
             e.est = 'base'; e.et = 2.6;
@@ -1423,17 +1446,13 @@
               if (Math.abs(rx - P.x) > 13) jBala(rx, -3, 1.5708, 44, e, 1.7, '#c8ff6a');
             }
             if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
-          } else if (e.est === 'gas'){                        // anillos de gas con un hueco para pasar
-            if (e.aux === 0){ e.aux = 1; e.et = 0.9; jAnilloJusto(e.x, e.y, 62, e, 1.2 - 0.08 * fase); }
-            else if (e.aux === 1 && (e.et -= dt) <= 0){ jAnilloJusto(e.x, e.y, 62, e, 1.2 - 0.08 * fase); e.aux = 2; e.et = 1.6; }
-            else if (e.aux === 2 && (e.et -= dt) <= 0){ e.est = 'base'; e.et = 1.6; e.aux = 0; }
-          }
+          } else if (e.est === 'hielo'){ atHielo(e, dt, fase); }
           return;
         /* ---- REY: muros de balas y coronas ---- */
         case 'rey':
           if (e.est === 'base'){
             e.x += (P.x - e.x) * Math.min(1, dt * 0.9); e.y += (H * 0.2 - e.y) * Math.min(1, dt * 1.2);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['muros', 'corona', 'carga']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['muros', 'corona', 'columnas']);
           } else if (e.est === 'muros'){                      // hileras de balas que cruzan con un hueco
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
             e.et -= dt;
@@ -1458,42 +1477,26 @@
               e.n++; e.et = 0.55; sfx.zona();
             }
             if (e.n >= 2 + fase && e.et <= -0.8){ e.est = 'base'; e.et = 1.4; e.aux = 0; }
-          } else if (e.est === 'carga'){ jCarga(e, dt, ux, uy, 2 + fase, 'base'); }
+          } else if (e.est === 'columnas'){ atColumnas(e, dt, fase); }
           return;
         /* ---- TEMPEST: columnas de rayos con huecos, rebotadores de fuego y campos que empujan ---- */
         case 'tempestad':
           if (e.est === 'base'){
             e.x += (W / 2 + Math.sin(tiempo * 0.45) * W * 0.3 - e.x) * Math.min(1, dt * 0.8); e.y += (H * 0.17 - e.y) * Math.min(1, dt * 1.2);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'campos', 'meteoros']);
-          } else if (e.est === 'columnas'){                   // hileras de rayos alternando arriba y abajo, con 2-3 huecos
-            if (e.aux === 0){ e.aux = 1; e.n = 0; e.et = 0; }
-            e.et -= dt;
-            if (e.et <= 0 && e.n < 2 + fase){ e.n++; crearColumnas(e.n % 2 ? 'arriba' : 'abajo', e.golpe, fase >= 2 ? 2 : 3); e.et = 2.0; }
-            if (e.n >= 2 + fase && e.et <= -1.2){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
-          } else if (e.est === 'rebotadores'){                // invoca bloques que rebotan dejando fuego (tope de minions)
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'empuje', 'hielo']);
+          } else if (e.est === 'columnas'){ atColumnas(e, dt, fase); }
+          else if (e.est === 'empuje'){ atEmpuje(e, dt, fase); }
+          else if (e.est === 'hielo'){ atHielo(e, dt, fase); }
+          else if (e.est === 'rebotadores'){                  // invoca bloques que rebotan dejando fuego (tope de minions)
             minionsJefe(e, 'rebotador', 1 + (fase >= 1 ? 1 : 0)); sfx.divide();
             e.est = 'base'; e.et = 2.8;
-          } else if (e.est === 'campos'){                     // campos escalonados cerca de ti que te sacan del cursor
-            if (e.aux === 0){
-              var ncp = 2 + fase;
-              for (i = 0; i < ncp; i++){ a = Math.random() * 6.2832; campos.push({ x:Math.max(22, Math.min(W - 22, P.x + Math.cos(a) * (14 + Math.random() * 55))), y:Math.max(22, Math.min(H - 22, P.y + Math.sin(a) * (14 + Math.random() * 55))), r:26 + Math.random() * 10, t0:0.9 + i * 0.6, t:2.4 }); }
-              e.aux = 1; e.et = 3.4; sfx.carga();
-            }
-            e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
-          } else if (e.est === 'meteoros'){
-            if (e.aux === 0){
-              var nm2 = 6 + 2 * fase;
-              for (i = 0; i < nm2; i++){ a = Math.random() * 6.2832; jZona(P.x + Math.cos(a) * Math.random() * 85, P.y + Math.sin(a) * Math.random() * 85, 14, 0.9 + i * 0.14, e); }
-              e.aux = 1; e.et = 2.6;
-            }
-            e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
           }
           return;
         /* ---- VACIO: cuchillas, meteoros y ondas ---- */
         case 'vacio':
           if (e.est === 'base'){
             e.x += (W / 2 + Math.cos(tiempo * 0.4) * 60 - e.x) * Math.min(1, dt); e.y += (H * 0.45 + Math.sin(tiempo * 0.5) * 30 - e.y) * Math.min(1, dt);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['cuchillas', 'meteoros', 'ondas']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['cuchillas', 'empuje', 'ondas']);
           } else if (e.est === 'cuchillas'){
             if (e.aux === 0){
               var nc = 4 + 2 * (fase >= 1 ? 1 : 0);
@@ -1501,13 +1504,7 @@
               e.aux = 1; e.et = 4.2; sfx.carga();
             }
             e.et -= dt; if (e.et <= 0){ cuchillas = []; e.est = 'base'; e.et = 1.4; e.aux = 0; }
-          } else if (e.est === 'meteoros'){
-            if (e.aux === 0){
-              var nm = 8 + 3 * fase;
-              for (i = 0; i < nm; i++){ a = Math.random() * 6.2832; jZona(P.x + Math.cos(a) * Math.random() * 95, P.y + Math.sin(a) * Math.random() * 95, 14, 1.0 + i * 0.14, e); }
-              e.aux = 1; e.et = 2.8;
-            }
-            e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+          } else if (e.est === 'empuje'){ atEmpuje(e, dt, fase);
           } else if (e.est === 'ondas'){
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
             e.et -= dt;
@@ -1585,27 +1582,6 @@
             e.rt -= dt;
             if (e.rt <= 0){ e.rt = 0.09; fuegos.push({ x:e.x, y:e.y, t:1.4, max:1.4, d:e.golpe * 0.5 }); }   // el fuego dura poco: se puede cruzar
           }
-          return;
-        }
-        case 'repulsor': {                                        // flota a tu alrededor y suelta campos que te empujan
-          var dir2 = dist < 70 ? -1 : (dist > 105 ? 1 : 0);
-          e.x += ux * e.v * dir2 * dt - uy * e.v * 0.6 * dt; e.y += uy * e.v * dir2 * dt + ux * e.v * 0.6 * dt;
-          e.ft -= dt;
-          if (e.ft <= 0 && enPantalla(e)){
-            e.ft = 4.2; var an3 = Math.random() * 6.2832, rr3 = 12 + Math.random() * 62;
-            campos.push({ x:Math.max(22, Math.min(W - 22, P.x + Math.cos(an3) * rr3)), y:Math.max(22, Math.min(H - 22, P.y + Math.sin(an3) * rr3)),
-                          r:24 + Math.random() * 12, t0:0.9, t:2.6 });
-            sfx.carga();
-          }
-          return;
-        }
-        case 'tormenta': {                                        // se pega al borde de arriba o abajo y llama columnas de rayos
-          var ty0 = e.lado ? H - 12 : 12;
-          e.y += (ty0 - e.y) * Math.min(1, dt * 1.5);
-          e.x += Math.max(-1, Math.min(1, (P.x - e.x) / 20)) * e.v * dt;
-          e.x = Math.max(8, Math.min(W - 8, e.x));
-          e.ft -= dt;
-          if (e.ft <= 0 && enPantalla(e)){ e.ft = 6.5; crearColumnas(e.lado ? 'abajo' : 'arriba', e.golpe, 3); }
           return;
         }
         case 'bombardero':                                        // se acerca, enciende la mecha cerca y explota
@@ -1952,7 +1928,15 @@
 
       // el jugador esta SIEMPRE donde esta el cursor (sin suavizado ni limite de velocidad)
       var ox = P.x, oy = P.y;
-      var decE = Math.exp(-dt * 0.9); emp.x *= decE; emp.y *= decE;                      // el empuje se disipa solo al salir del campo
+      // empuje (campos del jefe) y congelacion: la Z puede quedar lejos del cursor y vuelve sola
+      if (hieloInm > 0) hieloInm -= dt;
+      if (hielo > 0){                                     // congelado: la Z se queda clavada donde estaba; el cursor ya no la mueve
+        hielo -= dt; emp.x = hx - tx; emp.y = hy - ty;
+        if (hielo <= 0){ hieloInm = 2.4; hieloRec = 0.9; sfx.tiempo(); }
+      } else {
+        if (hieloRec > 0) hieloRec -= dt;
+        var decE = Math.exp(-dt * (hieloRec > 0 ? 5 : 0.7)); emp.x *= decE; emp.y *= decE;
+      }
       P.x = Math.max(4, Math.min(W - 4, tx + emp.x)); P.y = Math.max(4, Math.min(H - 4, ty + emp.y));
       var ks = 1 - Math.exp(-dt * 8);
       P.vx += ((P.x - ox) / dt - P.vx) * ks; P.vy += ((P.y - oy) / dt - P.vy) * ks;   // velocidad suavizada
@@ -1989,7 +1973,7 @@
       // oleadas periodicas
       if (!jefe) oleadaT -= dt;                        // sin oleadas mientras hay un jefe
       if (oleadaT <= 2.5 && !oleadaAvisada){ oleadaAvisada = true; sfx.alarma(); mostrarAviso('<b>WAVE</b> incoming!', true, 2400); }
-      if (oleadaT <= 0){ oleada(); oleadaT = OLEADA_CADA; oleadaAvisada = false; }
+      if (oleadaT <= 0){ oleada(); oleadaT = OLEADA_CADA; oleadaTot = OLEADA_CADA; oleadaAvisada = false; }
 
       // enemigos: cada uno persigue a su manera; congelados no se mueven ni hacen dano
       var congelado = efectos.tiempo > 0;
@@ -2063,17 +2047,24 @@
           if (fu.t <= 0){ fuegos.splice(fi, 1); continue; }
           if (jugadorTocadoPor(fu.x, fu.y, 2.4)){ herir(fu.d); if (fin) return; }
         }
-        // campos de repulsion: avisan, y luego te sacan del cursor (empuje que se disipa al salir)
+        // campos del jefe: avisan, y luego (empuje) te lanzan hacia afuera con fuerza o (hielo) te dejan congelado
         for (var ki = campos.length - 1; ki >= 0; ki--){
           var cm = campos[ki];
           if (cm.t0 > 0){ cm.t0 -= dt; if (cm.t0 <= 0) sfx.zona(); continue; }
           cm.t -= dt;
           if (cm.t <= 0){ campos.splice(ki, 1); continue; }
           var cdx = P.x - cm.x, cdy = P.y - cm.y, cdd = Math.hypot(cdx, cdy) || 1;
-          if (cdd < cm.r){
-            var fz = ((1 - cdd / cm.r) * 150 + 55) * dt;
+          if (cdd >= cm.r) continue;
+          if (cm.tipo === 'hielo'){
+            if (hielo <= 0 && hieloInm <= 0){
+              hielo = 1.7; hx = P.x; hy = P.y; sfx.zap();
+              for (var q4 = 0; q4 < 14; q4++){ var an5 = Math.random() * 6.2832; parts.push({ x:P.x, y:P.y, vx:Math.cos(an5) * 30, vy:Math.sin(an5) * 30, t:0.5, c:'#bfefff' }); }
+              mostrarAviso('<b>FROZEN</b> · you cannot move!', true, 1500);
+            }
+          } else {
+            var fz = ((1 - cdd / cm.r) * 520 + 160) * dt;                           // mucho mas fuerte: te lanza, no solo te corre
             emp.x += cdx / cdd * fz; emp.y += cdy / cdd * fz;
-            var em = Math.hypot(emp.x, emp.y); if (em > 90){ emp.x *= 90 / em; emp.y *= 90 / em; }
+            var em = Math.hypot(emp.x, emp.y); if (em > 230){ emp.x *= 230 / em; emp.y *= 230 / em; }
           }
         }
         // columnas de rayos: avisan, luego caen desde el borde de origen y queman cada columna
@@ -2220,6 +2211,13 @@
       el('hp').textContent = Math.ceil(hp);
       el('hpbarra').style.width = Math.max(0, hp / s.vida * 100) + '%';
       if (jefe) el('jefebarra').style.width = Math.max(0, jefe.hp / jefe.max * 100) + '%';
+      // proximo jefe: avanza con los niveles (10 por jefe) y con la experiencia del nivel actual
+      var sigJ = (Math.floor(nivel / 10) + 1) * 10, fracNiv = Math.min(1, xp / Math.max(1, requiere(nivel)));
+      if (jefe || jefePend){ el('jefeprox').style.width = '100%'; el('jefeniv').textContent = 'NOW'; }
+      else { el('jefeprox').style.width = Math.min(100, ((nivel - (sigJ - 10) + fracNiv) / 10) * 100) + '%'; el('jefeniv').textContent = 'LV ' + sigJ; }
+      // proxima oleada (se detiene mientras hay un jefe)
+      if (jefe){ el('olabar').style.width = Math.max(0, 1 - oleadaT / oleadaTot) * 100 + '%'; el('olat').textContent = '--'; }
+      else { el('olabar').style.width = Math.max(0, Math.min(100, (1 - oleadaT / oleadaTot) * 100)) + '%'; el('olat').textContent = fmt(Math.max(0, oleadaT)); }
       // lista de estados activos: nombre, barra y segundos restantes; desaparece cuando se acaba
       var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d'], ['curaLenta', 'REGEN', '#ff91c9']];
       var tx2 = '';
@@ -2510,7 +2508,7 @@
       cuerpo('orbital', 'orbital', '#ff8ae0'); cuerpo('muro', 'muro', '#ff7a7a');
       cuerpo('espinoso', 'espinoso', '#ffd94d'); cuerpo('saltarin', 'saltarin', '#ffb34d'); cuerpo('bombardero', 'bombardero', '#ff6a3d');
       cuerpo('torreta', 'torreta', '#ff5b5b'); cuerpo('escudero', 'escudero', '#9fd0ff'); cuerpo('masa', 'masa', '#ff3b6b');
-      cuerpo('rebotador', 'rebotador', '#ff8a3d'); cuerpo('repulsor', 'repulsor', '#4dd9ff'); cuerpo('tormenta', 'tormenta', '#ffe14d');
+      cuerpo('rebotador', 'rebotador', '#ff8a3d');
       // capas (cada parte animada, sola, apuntando a la derecha; pivote = centro de la celda)
       [0, 1].forEach(function(fq){
         celda('patas', function(x, y, h){ var s = h.s0, x0 = x - s / 2, y0 = y - s / 2, c = '#ffb34d', largo = fq ? 3 : 1;
@@ -2537,6 +2535,8 @@
       celda('vacioAnillo', function(x, y, h){ var r4 = h.s0 / 2, n4 = Math.ceil(r4 * 6.2832); for (var i = 0; i < n4; i += 2){ var a = i / n4 * 6.2832; px(x + Math.cos(a) * r4, y + Math.sin(a) * r4, 1, 1, '#b48cff'); } });
       celda('vacioEspiral', function(x, y){ for (var i = 0; i < 30; i++){ var a = i * 0.45, rr = 1 + i * 0.45; px(x + Math.cos(a) * rr, y + Math.sin(a) * rr, 1, 1, '#b48cff'); } });
       celda('vacioOrbitas', function(x, y, h){ for (var i = 0; i < 4; i++){ var a = i * 1.57; px(x + Math.cos(a) * (h.s0 / 2 + 5), y + Math.sin(a) * (h.s0 / 2 + 5), 2, 2, '#d9c2ff'); } });
+      celda('flechaEmpuje', function(x, y){ lineaPx(x - 3, y, x + 3, y, '#bff4ff'); lineaPx(x + 3, y, x + 1, y - 2, '#bff4ff'); lineaPx(x + 3, y, x + 1, y + 2, '#bff4ff'); });
+      celda('copoHielo', function(x, y){ for (var i = 0; i < 6; i++){ var a = i * 1.0472; lineaPx(x, y, x + Math.cos(a) * 6, y + Math.sin(a) * 6, '#bfefff'); var bx = x + Math.cos(a) * 3.5, by = y + Math.sin(a) * 3.5; lineaPx(bx, by, bx + Math.cos(a + 1) * 2, by + Math.sin(a + 1) * 2, '#9fe0ff'); lineaPx(bx, by, bx + Math.cos(a - 1) * 2, by + Math.sin(a - 1) * 2, '#9fe0ff'); } px(x, y, 1, 1, '#fff'); });
       celda('tempestad',  function(x, y, h){ dibujarJefe({ x:x, y:y, s:h.s0, col:'#4dd2ff', flash:0, fade:false, jf:'tempestad', baseOnly:true }, false); });
       celda('tempChispas', function(x, y, h){ for (var i = 0; i < 3; i++){ var a = i * 2.0944; px(x + Math.cos(a) * (h.s0 / 2 + 8), y + Math.sin(a) * (h.s0 / 2 + 8), 2, 2, '#bff4ff'); } });
       [['#ffd94d', '#ff8a3d', 0], ['#ff8a3d', '#ffd94d', 1], ['#ffd94d', '#ff6a3d', 2]].forEach(function(q, fq){   // 3 fotogramas de llama
@@ -2694,13 +2694,6 @@
         }
         return;
       }
-      if (e.sp === 'repulsor'){                              // circulo con puas hacia afuera: empuja
-        var rp = s / 2, nrp = Math.ceil(rp * 6.2832);
-        for (var ir = 0; ir < nrp; ir++){ var ar = ir / nrp * 6.2832; px(cx + Math.cos(ar) * rp, cy + Math.sin(ar) * rp, 1, 1, col); }
-        for (var jr = 0; jr < 4; jr++){ var aj = jr * 1.5708 + 0.7854; lineaPx(cx + Math.cos(aj) * rp, cy + Math.sin(aj) * rp, cx + Math.cos(aj) * (rp + 4), cy + Math.sin(aj) * (rp + 4), col); }
-        px(cx - 1, cy - 1, 2, 2, col);
-        return;
-      }
       if (e.sp === 'espinoso'){                              // rombo giratorio con picos en las puntas
         var rr = s / 2 + 2, rot = tiempo * 3 + e.ph, vs = [];
         for (var v = 0; v < 4; v++){ var av = rot + v * 1.5708; vs.push([cx + Math.cos(av) * rr, cy + Math.sin(av) * rr, av]); }
@@ -2726,7 +2719,6 @@
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
       if (e.sp === 'rebotador') lineaPx(x0 + 2, y0 + s - 3, x0 + s - 3, y0 + 2, col);    // brillo diagonal, como el logo de un DVD
-      if (e.sp === 'tormenta'){ lineaPx(cx + 1, y0 + 2, cx - 2, cy, col); lineaPx(cx - 2, cy, cx + 2, cy + 1, col); lineaPx(cx + 2, cy + 1, cx - 1, y0 + s - 3, col); }   // rayo
       if (e.baseOnly) return;
       if (e.cuerpo){                                          // solo lo estatico; el resto son capas de la hoja
         if (e.sp === 'sembrador'){ px(x0 + 3, y0 + 3, 2, 2, col); px(x0 + s - 5, y0 + 3, 2, 2, col); px(x0 + 3, y0 + s - 5, 2, 2, col); px(x0 + s - 5, y0 + s - 5, 2, 2, col); }
@@ -2822,6 +2814,12 @@
           px(P.x + Math.cos(an) * 8, P.y + Math.sin(an) * 8, 1, 1, '#8fa8ff');
         }
       }
+      if (hielo > 0){                                                      // bloque de hielo alrededor de la Z
+        var ix = Math.round(P.x) - 6, iy = Math.round(P.y) - 6;
+        px(ix, iy, 13, 13, 'rgba(159,224,255,.22)');
+        px(ix, iy, 13, 1, '#bfefff'); px(ix, iy + 12, 13, 1, '#bfefff'); px(ix, iy, 1, 13, '#bfefff'); px(ix + 12, iy, 1, 13, '#bfefff');
+        if (!pieza('copoHielo', P.x, P.y - 9, 1, 0, null, 0.9)) px(Math.round(P.x), Math.round(P.y) - 10, 1, 3, '#fff');
+      }
       if (parpadeo) return;
       if (pieza('jugador', P.x, P.y, 1)) return;
       for (var y = 0; y < 7; y++) for (var x = 0; x < 7; x++)
@@ -2850,19 +2848,27 @@
         if (alto >= 3) px(fu.x, fu.y - 2, 1, 1, '#ffd94d');
       });
       campos.forEach(function(cm){
-        var n1 = Math.ceil(cm.r * 6.2832 / 3);
+        var hielo2 = cm.tipo === 'hielo', cF = hielo2 ? '#9fe0ff' : '#4dd9ff', cA = hielo2 ? '159,224,255' : '77,217,255', n1 = Math.ceil(cm.r * 6.2832 / 3);
         if (cm.t0 > 0){                                                                          // aviso: circulo punteado que parpadea
-          if (Math.floor(cm.t0 * 8) % 2) for (var a1 = 0; a1 < n1; a1++){ var an1 = a1 / n1 * 6.2832; px(cm.x + Math.cos(an1) * cm.r, cm.y + Math.sin(an1) * cm.r, 1, 1, 'rgba(77,217,255,.7)'); }
+          if (Math.floor(cm.t0 * 8) % 2) for (var a1 = 0; a1 < n1; a1++){ var an1 = a1 / n1 * 6.2832; px(cm.x + Math.cos(an1) * cm.r, cm.y + Math.sin(an1) * cm.r, 1, 1, 'rgba(' + cA + ',.7)'); }
           return;
         }
-        for (var a2 = 0; a2 < n1; a2++){ var an2b = a2 / n1 * 6.2832; px(cm.x + Math.cos(an2b) * cm.r, cm.y + Math.sin(an2b) * cm.r, 1, 1, '#4dd9ff'); }
+        for (var a2 = 0; a2 < n1; a2++){ var an2b = a2 / n1 * 6.2832; px(cm.x + Math.cos(an2b) * cm.r, cm.y + Math.sin(an2b) * cm.r, 1, 1, cF); }
+        if (hielo2){
+          for (var cn = 0; cn < 14; cn++){                                                       // nieve que cae dentro del campo
+            var sx = ((cn * 53 + 11) % 100) / 100, sy = (tiempo * 0.5 + cn * 0.37) % 1, nx = cm.x + (sx * 2 - 1) * cm.r * 0.8, ny = cm.y + (sy * 2 - 1) * cm.r * 0.8;
+            if (Math.hypot(nx - cm.x, ny - cm.y) < cm.r - 2) px(nx, ny, 1, 1, 'rgba(220,245,255,.85)');
+          }
+          if (!pieza('copoHielo', cm.x, cm.y, 2, tiempo * 0.4, null, 0.9)) for (var ar = 0; ar < 6; ar++){ var aa = ar * 1.0472 + tiempo * 0.4; lineaPx(cm.x, cm.y, cm.x + Math.cos(aa) * 9, cm.y + Math.sin(aa) * 9, '#bfefff'); }
+          return;
+        }
         for (var w = 0; w < 3; w++){                                                             // ondas que salen hacia afuera
           var rw = ((tiempo * 26 + w * cm.r / 3) % cm.r), n3 = Math.ceil(rw * 6.2832 / 2.4);
           for (var a3 = 0; a3 < n3; a3++){ var an3b = a3 / n3 * 6.2832; px(cm.x + Math.cos(an3b) * rw, cm.y + Math.sin(an3b) * rw, 1, 1, 'rgba(160,235,255,' + (0.8 * (1 - rw / cm.r)).toFixed(2) + ')'); }
         }
         for (var a4 = 0; a4 < 6; a4++){                                                          // flechas que apuntan hacia afuera
-          var an4 = a4 * 1.0472 + tiempo * 0.5, ra = cm.r * 0.55;
-          var fx = cm.x + Math.cos(an4) * ra, fy = cm.y + Math.sin(an4) * ra;
+          var an4 = a4 * 1.0472 + tiempo * 0.5, ra = cm.r * 0.55, fx = cm.x + Math.cos(an4) * ra, fy = cm.y + Math.sin(an4) * ra;
+          if (pieza('flechaEmpuje', fx + Math.cos(an4) * 2, fy + Math.sin(an4) * 2, 1, an4)) continue;
           lineaPx(fx, fy, fx + Math.cos(an4) * 5, fy + Math.sin(an4) * 5, '#bff4ff');
           lineaPx(fx + Math.cos(an4) * 5, fy + Math.sin(an4) * 5, fx + Math.cos(an4 + 2.5) * 3 + Math.cos(an4) * 5, fy + Math.sin(an4 + 2.5) * 3 + Math.sin(an4) * 5, '#bff4ff');
           lineaPx(fx + Math.cos(an4) * 5, fy + Math.sin(an4) * 5, fx + Math.cos(an4 - 2.5) * 3 + Math.cos(an4) * 5, fy + Math.sin(an4 - 2.5) * 3 + Math.sin(an4) * 5, '#bff4ff');
