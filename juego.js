@@ -1937,7 +1937,7 @@
         if (hieloRec > 0) hieloRec -= dt;
         // el empuje tiene INERCIA: te lanza con velocidad y sigues deslizandote un buen trecho despues de salir del campo
         emp.x += empV.x * dt; emp.y += empV.y * dt;
-        var fr = Math.exp(-dt * 3.2); empV.x *= fr; empV.y *= fr;
+        var fr = Math.exp(-dt * 2.6); empV.x *= fr; empV.y *= fr;
         var decE = Math.exp(-dt * (hieloRec > 0 ? 5 : 0.7)); emp.x *= decE; emp.y *= decE;
         var em0 = Math.hypot(emp.x, emp.y); if (em0 > 260){ emp.x *= 260 / em0; emp.y *= 260 / em0; }
       }
@@ -2066,7 +2066,7 @@
               mostrarAviso('<b>FROZEN</b> · you cannot move!', true, 1500);
             }
           } else {
-            var ac = ((1 - cdd / cm.r) * 1500 + 700) * dt;                          // aceleracion: te lanza como un resorte, no solo te corre
+            var ac = ((1 - cdd / cm.r) * 1800 + 900) * dt;                          // aceleracion: te lanza como un resorte, no solo te corre
             empV.x += cdx / cdd * ac; empV.y += cdy / cdd * ac;
           }
         }
@@ -2978,11 +2978,6 @@
       try { dibujar(); } catch(err2){ if (window.console) console.error('juego (dibujo):', err2); }
       raf = requestAnimationFrame(frame);
     }
-    window.Juego._d = { limpiar:function(){ enemigos.length=0; objetos.length=0; fuegos.length=0; campos.length=0; columnas.length=0; },
-      jefeId:function(id){ var ids=Object.keys(JEFES); ultimoJefe=null; var o=Math.random; Math.random=function(){ return ids.indexOf(id)/ids.length+0.001; }; spawnJefe(); Math.random=o; return jefe; },
-      pausar:function(v){ pausado=v; }, inv:function(){ inv=999; }, P:function(){ return P; }, tx:function(x,y){ tx=x; ty=y; }, emp:function(){ return emp; },
-      hielo:function(){ return hielo; }, campos:function(){ return campos; }, col:function(){ return columnas; }, nivel:function(n){ nivel=n; }, jefeActual:function(){ return jefe; },
-      paso:function(dt,n){ for(var i=0;i<n;i++){ actualizar(dt); } }, hpv:function(){ return hp; }, ola:function(t){ oleadaT=t; }, xp:function(v){ xp=v; }, armas:function(){ ofrecerArmas(); } };
     var iconosT = setInterval(pintarIconos, 120);                 // anima los iconos que tengan mas de un fotograma
     reiniciar();
     ofrecerArmasIniciales();
