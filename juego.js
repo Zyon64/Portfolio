@@ -925,7 +925,7 @@
       else if (a === 'sprites') abrirSelectorSheet();
       else if (a === 'descargarSheet') exportarSheet();
       else if (a === 'descargarGuia') exportarGuia();
-      else if (a === 'usarDefecto'){ ponerHoja(null); try { localStorage.removeItem('juegoZ_hoja'); } catch(err){} mostrarAviso('<b>SHEET</b> · default art restored', false, 2000); }
+      else if (a === 'usarDefecto'){ ponerHoja(null); try { sessionStorage.removeItem('juegoZ_hoja'); } catch(err){} mostrarAviso('<b>SHEET</b> · default art restored', false, 2000); }
       else if (a === 'catalogo') window.open('spritesheet.html', '_blank', 'noopener');
       else if (a === 'volverpausa'){ pausado = false; alternarPausa(); }
       else if (a === 'pausa') alternarPausa();
@@ -973,12 +973,13 @@
       caja.innerHTML = '<div class="jg-h">OPTIONS</div><p>Sound volume</p>' +
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
-        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 64×64 cells, animated parts in their own cells. The green frame in each cell marks how far the sprite shows in game (guide lines sit outside it and never appear). Download, edit, load back.</p>' +
+        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 64×64 cells, animated parts in their own cells. The green frame in each cell marks how far the sprite shows in game (guide lines sit outside it and never appear). Download, edit, load back. Your sheet only lasts for this browser session; everyone else sees the official art.</p>' +
         '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="descargarGuia">DOWNLOAD GUIDE</button><button class="jg-btn" data-a="usarDefecto">USE DEFAULT</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
     var sheetPersonalizado = null;
-    try { var guardada = localStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === CELDA * HOJA_COLS && imG.height % CELDA === 0 && imG.height >= CELDA * 48 && imG.height <= CELDA * HOJA_FILAS) ponerHoja(imG); }; imG.src = guardada; } } catch(err){}
+    try { localStorage.removeItem('juegoZ_hoja'); } catch(err){}          // antes se guardaba para siempre; ahora solo dura la sesion
+    try { var guardada = sessionStorage.getItem('juegoZ_hoja'); if (guardada){ var imG = new Image(); imG.onload = function(){ if (imG.width === CELDA * HOJA_COLS && imG.height % CELDA === 0 && imG.height >= CELDA * 48 && imG.height <= CELDA * HOJA_FILAS) ponerHoja(imG); }; imG.src = guardada; } } catch(err){}
     function abrirSelectorSheet(){ raiz.querySelector('.jg-sheet-input').click(); }
     raiz.querySelector('.jg-sheet-input').addEventListener('change', function(e){
       var f = e.target.files && e.target.files[0]; if (!f) return;
@@ -988,7 +989,7 @@
           mostrarAviso('<b>SHEET</b> · needs ' + (CELDA * HOJA_COLS) + ' px wide and 48 to ' + HOJA_FILAS + ' rows of 64 px. Download the new sheet.', true, 3400); return;
         }
         ponerHoja(im); mostrarAviso('<b>CUSTOM SHEET</b> · loaded', false, 2200); alternarPausa();
-        try { var c2 = document.createElement('canvas'); c2.width = im.width; c2.height = im.height; c2.getContext('2d').drawImage(im, 0, 0); localStorage.setItem('juegoZ_hoja', c2.toDataURL('image/png')); } catch(err){}
+        try { var c2 = document.createElement('canvas'); c2.width = im.width; c2.height = im.height; c2.getContext('2d').drawImage(im, 0, 0); sessionStorage.setItem('juegoZ_hoja', c2.toDataURL('image/png')); } catch(err){}
       };
       im.src = URL.createObjectURL(f); e.target.value = '';
     });
