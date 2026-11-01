@@ -817,7 +817,7 @@
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
     var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
-    var fuegos, campos, columnas, emp, hielo, hieloInm, hieloRec, hx, hy, oleadaTot, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
+    var fuegos, campos, columnas, emp, empV, hielo, hieloInm, hieloRec, hx, hy, oleadaTot, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
     var tactil = window.matchMedia('(pointer: coarse)').matches;
@@ -837,7 +837,7 @@
       auras = []; auraT = 1; contagioT = 0; ultimoBarrido = -999;
       arma = 'normal'; lasers = []; armaOpc = null; armaT = null; armaPend = false; jefe = null; jefePend = false;
       zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; ultimoJefe = null; el('jefe').hidden = true;
-      fuegos = []; campos = []; columnas = []; emp = { x:0, y:0 }; hielo = 0; hieloInm = 0; hieloRec = 0; hx = 0; hy = 0; oleadaTot = OLEADA_PRIMERA;
+      fuegos = []; campos = []; columnas = []; emp = { x:0, y:0 }; empV = { x:0, y:0 }; hielo = 0; hieloInm = 0; hieloRec = 0; hx = 0; hy = 0; oleadaTot = OLEADA_PRIMERA;
       hp = stats(m).vida;
       el('efectos').innerHTML = '';
       modal.hidden = true; raiz.classList.remove('menu');
@@ -1931,11 +1931,15 @@
       // empuje (campos del jefe) y congelacion: la Z puede quedar lejos del cursor y vuelve sola
       if (hieloInm > 0) hieloInm -= dt;
       if (hielo > 0){                                     // congelado: la Z se queda clavada donde estaba; el cursor ya no la mueve
-        hielo -= dt; emp.x = hx - tx; emp.y = hy - ty;
+        hielo -= dt; emp.x = hx - tx; emp.y = hy - ty; empV.x = 0; empV.y = 0;
         if (hielo <= 0){ hieloInm = 2.4; hieloRec = 0.9; sfx.tiempo(); }
       } else {
         if (hieloRec > 0) hieloRec -= dt;
+        // el empuje tiene INERCIA: te lanza con velocidad y sigues deslizandote un buen trecho despues de salir del campo
+        emp.x += empV.x * dt; emp.y += empV.y * dt;
+        var fr = Math.exp(-dt * 3.2); empV.x *= fr; empV.y *= fr;
         var decE = Math.exp(-dt * (hieloRec > 0 ? 5 : 0.7)); emp.x *= decE; emp.y *= decE;
+        var em0 = Math.hypot(emp.x, emp.y); if (em0 > 260){ emp.x *= 260 / em0; emp.y *= 260 / em0; }
       }
       P.x = Math.max(4, Math.min(W - 4, tx + emp.x)); P.y = Math.max(4, Math.min(H - 4, ty + emp.y));
       var ks = 1 - Math.exp(-dt * 8);
@@ -2062,9 +2066,8 @@
               mostrarAviso('<b>FROZEN</b> · you cannot move!', true, 1500);
             }
           } else {
-            var fz = ((1 - cdd / cm.r) * 520 + 160) * dt;                           // mucho mas fuerte: te lanza, no solo te corre
-            emp.x += cdx / cdd * fz; emp.y += cdy / cdd * fz;
-            var em = Math.hypot(emp.x, emp.y); if (em > 230){ emp.x *= 230 / em; emp.y *= 230 / em; }
+            var ac = ((1 - cdd / cm.r) * 1500 + 700) * dt;                          // aceleracion: te lanza como un resorte, no solo te corre
+            empV.x += cdx / cdd * ac; empV.y += cdy / cdd * ac;
           }
         }
         // columnas de rayos: avisan, luego caen desde el borde de origen y queman cada columna
