@@ -32,8 +32,18 @@
     tam:      { nombre:'BULLET SIZE',  desc:'Bigger bullets, bigger hitbox', tope:10 },
     balas:    { nombre:'EXTRA SHOT',   desc:'+1 bullet per burst',          tope:7 },
     lineas:   { nombre:'EXTRA LINE',   desc:'+1 parallel line of bullets',  tope:4 },
-    perf:     { nombre:'PIERCE',       desc:'Bullets go through +1',        tope:10 },
-    vel:      { nombre:'BULLET SPEED', desc:'Faster bullets',               tope:40 },
+    perf:     { nombre:'PIERCE',       desc:'Bullets go through +1',        tope:10, no:['granadas'] },   // las granadas explotan al primer toque
+    vel:      { nombre:'BULLET SPEED', desc:'Faster bullets',               tope:40, no:['laser'] },      // el laser es instantaneo
+    /* mejoras PROPIAS de cada arma: solo se ofrecen mientras la llevas (sustituyen a las que no le hacen nada) */
+    laserAlcance: { nombre:'BEAM RANGE',   desc:'Longer laser beams',                   tope:8,  arma:['laser'] },
+    laserCarga:   { nombre:'OVERCHARGE',   desc:'Beams hit harder',                     tope:10, arma:['laser'] },
+    granArea:     { nombre:'BLAST RADIUS', desc:'Bigger explosions',                    tope:8,  arma:['granadas'] },
+    granDano:     { nombre:'BIG BOOM',     desc:'Explosions deal more damage',          tope:10, arma:['granadas'] },
+    sniCrit:      { nombre:'HEADSHOT',     desc:'Chance of a 2.5× critical shot',       tope:6,  arma:['sniper'] },
+    escAlcance:   { nombre:'LONG BARREL',  desc:'Pellets fly farther, tighter cone',    tope:8,  arma:['escopeta'] },
+    bumAlc:       { nombre:'LONG THROW',   desc:'Boomerangs reach farther',             tope:8,  arma:['bumeran'] },
+    sDano:        { nombre:'TIGHT SPREAD', desc:'Each fan bullet hits harder',          tope:10, arma:['s'] },
+    homGiro:      { nombre:'SHARP TURN',   desc:'Homing bullets turn faster',           tope:8,  arma:['dirigidas'] },
     vida:     { nombre:'MAX HP',       desc:'+20 maximum health',           tope:999 },
     reg:      { nombre:'REGEN',        desc:'Recover HP over time',         tope:20 },
     cura:     { nombre:'HEAL BOOST',   desc:'Heal pickups restore more',    tope:20 },
@@ -52,9 +62,16 @@
   };
   /* ARBOL OCULTO: que mejoras salen "cerca" de la ultima elegida. */
   var REL = {
-    dano:     ['cad', 'perf', 'tam', 'veneno', 'fuego'],
-    cad:      ['dano', 'balas', 'vel'],
-    tam:      ['dano', 'perf', 'vel'],
+    dano:     ['cad', 'perf', 'tam', 'veneno', 'fuego', 'laserCarga', 'granDano', 'sniCrit', 'sDano'],
+    cad:      ['dano', 'balas', 'vel', 'laserAlcance', 'escAlcance', 'bumAlc', 'homGiro'],
+    tam:      ['dano', 'perf', 'vel', 'granArea'],
+    laserAlcance: ['laserCarga', 'tam', 'balas'],   laserCarga: ['laserAlcance', 'dano', 'perf'],
+    granArea:     ['granDano', 'tam', 'cad'],       granDano:   ['granArea', 'dano', 'balas'],
+    sniCrit:      ['dano', 'cad', 'perf'],
+    escAlcance:   ['cad', 'balas', 'dano'],
+    bumAlc:       ['vel', 'balas', 'dano'],
+    sDano:        ['balas', 'lineas', 'cad'],
+    homGiro:      ['cad', 'balas', 'dano'],
     balas:    ['cad', 'lineas', 'dano'],
     lineas:   ['balas', 'cad', 'vel'],
     perf:     ['dano', 'tam', 'vel'],
@@ -87,6 +104,17 @@
       cura:   25 + 8 * m.cura,                        // HP que da una cura
       suerte: Math.min(0.32, 0.09 * (1 + 0.22 * m.suerte)),   // probabilidad de soltar objeto
       dur:    5 * (1 + 0.2 * m.duracion),             // segundos de los efectos (tiempo, burbuja, rayo)
+      // propias de cada arma
+      laserR:   420 + 60 * m.laserAlcance,            // alcance del laser (unidades)
+      laserMul: 1.4 + 0.3 * m.laserCarga,             // multiplicador de daño del laser
+      granR:    1 + 0.25 * m.granArea,                // factor de radio de la explosion
+      granMul:  3 + 0.6 * m.granDano,                 // multiplicador de daño de la explosion
+      sniCrit:  0.15 * m.sniCrit,                     // probabilidad de critico x2.5
+      escVida:  1 + 0.3 * m.escAlcance,               // alcance de los perdigones
+      escCono:  0.95 / (1 + 0.15 * m.escAlcance),     // apertura del cono
+      bumAlc:   1 + 0.3 * m.bumAlc,                   // alcance del bumeran
+      sMul:     0.85 + 0.2 * m.sDano,                 // daño por bala del abanico
+      homGiro:  8 + 2.5 * m.homGiro,                  // rad/s de giro de las dirigidas
       // aura de pulso
       pulsoOn:  m.pulso > 0,
       pulsoDano:1.2 + 0.3 * m.pulso * (1 + 0.5 * m.dano),             // crece con la mejora Y con tu daño
@@ -121,6 +149,15 @@
       case 'venenoDur':   return f(a.venenoDur, 1) + ' → ' + f(b.venenoDur, 1) + ' s';
       case 'fuego':       return a.fuegoOn ? f(a.fuegoDps, 1) + ' → ' + f(b.fuegoDps, 1) + ' /s' : 'unlock · ' + f(b.fuegoDps, 1) + ' /s';
       case 'fuegoDur':    return f(a.fuegoDur, 1) + ' → ' + f(b.fuegoDur, 1) + ' s';
+      case 'laserAlcance':return Math.round(a.laserR) + ' → ' + Math.round(b.laserR) + ' range';
+      case 'laserCarga':  return '×' + f(a.laserMul, 1) + ' → ×' + f(b.laserMul, 1);
+      case 'granArea':    return '×' + f(a.granR, 2) + ' → ×' + f(b.granR, 2) + ' radius';
+      case 'granDano':    return '×' + f(a.granMul, 1) + ' → ×' + f(b.granMul, 1);
+      case 'sniCrit':     return Math.round(a.sniCrit * 100) + '% → ' + Math.round(b.sniCrit * 100) + '% crit';
+      case 'escAlcance':  return '×' + f(a.escVida, 1) + ' → ×' + f(b.escVida, 1) + ' range';
+      case 'bumAlc':      return '×' + f(a.bumAlc, 1) + ' → ×' + f(b.bumAlc, 1) + ' range';
+      case 'sDano':       return '×' + f(a.sMul, 2) + ' → ×' + f(b.sMul, 2) + ' dmg';
+      case 'homGiro':     return f(a.homGiro, 1) + ' → ' + f(b.homGiro, 1) + ' turn';
     }
     return '';
   }
@@ -859,7 +896,8 @@
 
     function reiniciar(){
       duck(1);
-      m = { cad:0, dano:0, tam:0, balas:0, lineas:0, perf:0, vel:0, vida:0, reg:0, cura:0, suerte:0, duracion:0, pulso:0, pulsoArea:0, pulsoRapido:0, veneno:0, venenoDur:0, fuego:0, fuegoDur:0 };
+      m = { cad:0, dano:0, tam:0, balas:0, lineas:0, perf:0, vel:0, vida:0, reg:0, cura:0, suerte:0, duracion:0, pulso:0, pulsoArea:0, pulsoRapido:0, veneno:0, venenoDur:0, fuego:0, fuegoDur:0,
+            laserAlcance:0, laserCarga:0, granArea:0, granDano:0, sniCrit:0, escAlcance:0, bumAlc:0, sDano:0, homGiro:0 };
       nivel = 1; xp = 0; kills = 0; tiempo = 0; acum = 0; rafaga = 0; rafagaT = 0; spawnT = 0.6; inv = 0; pulsoT = 1.2; pulsos = [];
       pausado = false; eligiendo = false; fin = false; pendientes = 0; ultimaMejora = null;
       oleadaT = OLEADA_PRIMERA; oleadaAvisada = false; rayoT = 0; efectosTxt = ''; slotCerco = 0;
@@ -1079,7 +1117,12 @@
     /* ---------- subida de nivel: arbol oculto de mejoras ---------- */
     function disponibles(){
       // las mejoras con "req" solo salen si ya desbloqueaste la base (sino no harian nada)
-      return Object.keys(MEJORAS).filter(function(k){ return m[k] < MEJORAS[k].tope && (!MEJORAS[k].req || m[MEJORAS[k].req] > 0); });
+      return Object.keys(MEJORAS).filter(function(k){
+        var M = MEJORAS[k];
+        if (M.no && M.no.indexOf(arma) >= 0) return false;            // no le hace nada a tu arma actual: no sale
+        if (M.arma && M.arma.indexOf(arma) < 0) return false;         // propia de otra arma
+        return m[k] < M.tope && (!M.req || m[M.req] > 0);
+      });
     }
     function mezclar(a){
       for (var i = a.length - 1; i > 0; i--){ var j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; }
@@ -1101,6 +1144,15 @@
       while (res.length < 3 && resto.length) res.push(resto.shift());
       return mezclar(res);
     }
+    /* Que hace una mejora general con TU arma (cuando no es lo que dice su texto base). */
+    var DESC_ARMA = {
+      balas:  { sniper:'More damage packed into the single shot', laser:'+1 beam (up to 6)', s:'+2 bullets in the fan', escopeta:'+3 pellets per shot', bumeran:'+1 boomerang (up to 8)', granadas:'+1 grenade per throw (up to 8)' },
+      lineas: { sniper:'Multiplies the shot damage', laser:'+1 parallel beam', s:'Wider fan: more bullets', escopeta:'More pellets per shot', bumeran:'More boomerangs', granadas:'More grenades per throw' },
+      perf:   { laser:'+2 enemies hit per beam', sniper:'Goes through +1 more', bumeran:'Hits +1 more each way' },
+      tam:    { laser:'Wider beams, easier to hit', granadas:'Bigger explosion radius', sniper:'Bigger shot and hitbox' },
+      vel:    { bumeran:'Flies faster and farther', granadas:'Grenades travel faster', escopeta:'Pellets fly faster' }
+    };
+    function descArma(k){ return (DESC_ARMA[k] && DESC_ARMA[k][arma]) || MEJORAS[k].desc; }
     function ofrecer(){
       eligiendo = true; sfx.nivel();
       raiz.classList.add('menu');
@@ -1108,7 +1160,7 @@
       var h = '<div class="jg-h">LEVEL ' + nivel + '</div><p>Choose an upgrade</p><div class="jg-cartas">';
       elegidas.forEach(function(k, i){
         h += '<button class="jg-carta" data-a="mejora" data-k="' + k + '"><b>' + MEJORAS[k].nombre + '</b>' +
-             '<span>' + MEJORAS[k].desc + '</span><em>' + cambio(k, m) + '</em><i>[' + (i + 1) + ']</i></button>';
+             '<span>' + descArma(k) + '</span><em>' + cambio(k, m) + '</em><i>[' + (i + 1) + ']</i></button>';
       });
       caja.innerHTML = h + '</div>';
       modal.hidden = false;
@@ -1751,7 +1803,8 @@
         if (Math.hypot(e.x - x, e.y - y) <= R + e.s / 2) golpear(e, dmg, s);
       });
     }
-    /* Laser: golpea al instante a los enemigos sobre la linea (hasta 3 + 2 × perforacion por rayo). */
+    /* Laser: golpea al instante a los enemigos sobre la linea (hasta 3 + 2 × perforacion por rayo).
+       Mejoras propias: BEAM RANGE (alcance) y OVERCHARGE (daño). BULLET SPEED no le afecta y no se ofrece. */
     function dispararLaser(s){
       sfx.disparo();
       var objs = enemigos.slice().filter(function(e){ return !(e.sp === 'fantasma' && e.fase) && enPantalla(e); });
@@ -1765,12 +1818,12 @@
           enemigos.forEach(function(e){
             if ((e.sp === 'fantasma' && e.fase) || !enPantalla(e)) return;
             var rx = e.x - sx, ry = e.y - sy, proy = rx * ux + ry * uy;
-            if (proy < 0 || proy > 420) return;
+            if (proy < 0 || proy > s.laserR) return;
             if (Math.abs(rx * uy - ry * ux) <= ancho + e.s / 2) tocados.push({ e:e, p:proy });
           });
           tocados.sort(function(a, b){ return a.p - b.p; });
-          var cupo2 = 3 + s.perf * 2, fin2 = 420;
-          tocados.slice(0, cupo2).forEach(function(tt){ golpear(tt.e, s.dano * 1.4, s); });
+          var cupo2 = 3 + s.perf * 2, fin2 = s.laserR;
+          tocados.slice(0, cupo2).forEach(function(tt){ golpear(tt.e, s.dano * s.laserMul, s); });
           if (tocados.length > cupo2) fin2 = tocados[cupo2 - 1].p;
           lasers.push({ x1:sx, y1:sy, x2:sx + ux * fin2, y2:sy + uy * fin2, t:0.1 });
         }
@@ -1783,24 +1836,26 @@
       switch (arma){
         case 's':                                           // abanico (la "S" de Contra)
           n = 3 + 2 * s.balas * s.lineas; sfx.disparo();
-          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (i - (n - 1) / 2) * (1.0 / (n - 1)), s, { d:s.dano * 0.85, vida:1.6 });
+          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (i - (n - 1) / 2) * (1.0 / (n - 1)), s, { d:s.dano * s.sMul, vida:1.6 });
           break;
         case 'escopeta':                                    // cono de perdigones de corto alcance
           n = 6 + 3 * s.balas * s.lineas; sfx.disparo();
-          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (Math.random() - 0.5) * 0.95, s, { d:s.dano * 0.7, vm:0.75 + Math.random() * 0.5, vida:0.4 + Math.random() * 0.2 });
+          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (Math.random() - 0.5) * s.escCono, s, { d:s.dano * 0.7, vm:0.75 + Math.random() * 0.5, vida:(0.4 + Math.random() * 0.2) * s.escVida });
           break;
         case 'laser': dispararLaser(s); break;
         case 'sniper':                                      // un solo disparo con el dano de muchas balas
           sfx.disparo();
-          balaBase(P.x, P.y, base, s, { d:s.dano * 5 * s.balas * s.lineas, vm:1.7, r:s.tam / 2 + 2.4, t:Math.max(2, Math.round(s.tam) + 2), p:s.perf + 3, vida:3, grande:true });
+          var crit = Math.random() < s.sniCrit;                                            // HEADSHOT: critico x2.5
+          if (crit) sfx.zap();
+          balaBase(P.x, P.y, base, s, { d:s.dano * 5 * s.balas * s.lineas * (crit ? 2.5 : 1), crit:crit, vm:1.7, r:s.tam / 2 + 2.4, t:Math.max(2, Math.round(s.tam) + 2), p:s.perf + 3, vida:3, grande:true });
           break;
         case 'bumeran':                                     // va y vuelve; golpea en la ida y en la vuelta
           n = Math.min(8, s.balas * s.lineas); sfx.disparo();
-          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (i - (n - 1) / 2) * 0.35, s, { bum:true, alc:60 + s.vel * 0.12 + i * 6, d:s.dano * 1.2, vm:0.85, vida:8, p:s.perf + 4 });
+          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (i - (n - 1) / 2) * 0.35, s, { bum:true, alc:(60 + s.vel * 0.12 + i * 6) * s.bumAlc, d:s.dano * 1.2, vm:0.85, vida:8, p:s.perf + 4 });
           break;
         case 'granadas':                                    // explotan al impactar: area, 3x dano
           n = Math.min(8, s.balas * s.lineas); sfx.disparo();
-          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (Math.random() - 0.5) * 0.3 + (i - (n - 1) / 2) * 0.12, s, { gran:true, rad:16 + s.tam * 3, vm:0.65, vida:1.3, d:0, p:0, t:Math.max(2, Math.round(s.tam)) });
+          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (Math.random() - 0.5) * 0.3 + (i - (n - 1) / 2) * 0.12, s, { gran:true, rad:(16 + s.tam * 3) * s.granR, vm:0.65, vida:1.3, d:0, p:0, t:Math.max(2, Math.round(s.tam)) });
           break;
       }
     }
@@ -2059,7 +2114,7 @@
         if (dentroJ){
           if (pg.tipo === 'veneno'){ venenoJ = Math.max(venenoJ, 3); }
           else if (pg.tipo === 'lava'){ fuegoJ = Math.max(fuegoJ, 2); }
-          else if (hielo <= 0){ empV.x += Math.cos(pg.ang) * 520 * dt; empV.y += Math.sin(pg.ang) * 520 * dt; }
+          else if (hielo <= 0){ empV.x += Math.cos(pg.ang) * 1100 * dt; empV.y += Math.sin(pg.ang) * 1100 * dt; }
         }
         if (pg.k >= 0.5){                                                                    // cada 0.5 s afecta a los enemigos de adentro
           pg.k -= 0.5;
@@ -2072,7 +2127,7 @@
         }
         if (pg.tipo === 'viento') for (var he3 = 0; he3 < enemigos.length; he3++){
           var en5 = enemigos[he3]; if (en5.sp === 'jefe' || en5.lin) continue;
-          if (Math.hypot(en5.x - pg.x, en5.y - pg.y) < pg.r + en5.s / 2){ en5.kx += Math.cos(pg.ang) * 260 * dt; en5.ky += Math.sin(pg.ang) * 260 * dt; }
+          if (Math.hypot(en5.x - pg.x, en5.y - pg.y) < pg.r + en5.s / 2){ en5.kx += Math.cos(pg.ang) * 520 * dt; en5.ky += Math.sin(pg.ang) * 520 * dt; }
         }
       }
       // tus estados negativos: veneno (3% del HP max por tick) y fuego (5%), cada 0.5 s, sin invulnerabilidad pero si con burbuja
@@ -2297,7 +2352,7 @@
           if (best){
             var sp0 = Math.hypot(bl.vx, bl.vy), a0 = Math.atan2(bl.vy, bl.vx), want = Math.atan2(best.y - bl.y, best.x - bl.x);
             var df = ((want - a0 + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-            a0 += Math.max(-8 * dt, Math.min(8 * dt, df));
+            a0 += Math.max(-s.homGiro * dt, Math.min(s.homGiro * dt, df));
             bl.vx = Math.cos(a0) * sp0; bl.vy = Math.sin(a0) * sp0;
           }
         }
@@ -2316,7 +2371,7 @@
             var en = enemigos[q];
             if (bl.golpes.indexOf(en) >= 0 || (en.sp === 'fantasma' && en.fase) || !enPantalla(en)) continue;
             if (golpeaBarrido(en, bl.x - bl.vx * dt, bl.y - bl.vy * dt, bl.x, bl.y, bl.r)){
-              if (bl.gran){ explosion(bl.x, bl.y, bl.rad, s.dano * 3, s); fuera = true; break; }
+              if (bl.gran){ explosion(bl.x, bl.y, bl.rad, s.dano * s.granMul, s); fuera = true; break; }
               var dmg = bl.d;
               if (en.sp === 'escudero'){                       // escudo al frente: casi no le hace dano de ese lado
                 var fx = P.x - en.x, fy = P.y - en.y, fl = Math.hypot(fx, fy) || 1, qx = bl.x - en.x, qy = bl.y - en.y, ql = Math.hypot(qx, qy) || 1;
@@ -2328,7 +2383,7 @@
               if (bl.golpes.length > bl.p){ fuera = true; break; }       // se acabo la perforacion
             }
           }
-        } else if (bl.gran && bl.vida <= 0) explosion(bl.x, bl.y, bl.rad, s.dano * 3, s);   // la granada tambien explota al final de su trayecto
+        } else if (bl.gran && bl.vida <= 0) explosion(bl.x, bl.y, bl.rad, s.dano * s.granMul, s);   // la granada tambien explota al final de su trayecto
         if (fuera) balas.splice(b, 1);
         if (eligiendo) break;                                            // el juego se detiene al elegir
       }
@@ -3134,6 +3189,7 @@
         lineaPx(l.x1 + 1, l.y1, l.x2 + 1, l.y2, 'rgba(61,220,132,' + (al * 0.6).toFixed(2) + ')');
       });
       balas.forEach(function(b){
+        if (b.crit && Math.floor(tiempo * 30) % 2){ px(b.x - b.t / 2 - 1, b.y - b.t / 2 - 1, b.t + 2, b.t + 2, '#ffe14d'); }
         if (b.gran){ px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#ffa23d'); return; }
         px(b.x - b.t / 2 - b.vx * 0.014, b.y - b.t / 2 - b.vy * 0.014, b.t, b.t, 'rgba(61,220,132,.45)');   // estela corta
         if (!pieza('bala', b.x, b.y, Math.max(1, b.t / 2))) px(b.x - b.t / 2, b.y - b.t / 2, b.t, b.t, '#c9ffe0');
