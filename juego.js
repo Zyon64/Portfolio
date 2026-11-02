@@ -27,10 +27,10 @@
   /* Mejoras: cada una cuenta cuantas veces se eligio (m[clave]). Las curvas 1-exp(-n/k) suben rapido
      y se acercan a un tope, asi escalan a largo plazo sin romper el juego. */
   var MEJORAS = {
-    cad:      { nombre:'FIRE RATE',    desc:'+20% fire rate',               tope:12 },
+    cad:      { nombre:'FIRE RATE',    desc:'+15% fire rate',               tope:14 },
     dano:     { nombre:'DAMAGE',       desc:'Bullets hit harder',           tope:999 },
     tam:      { nombre:'BULLET SIZE',  desc:'Bigger bullets, bigger hitbox', tope:10 },
-    balas:    { nombre:'EXTRA SHOT',   desc:'+1 bullet per burst',          tope:9 },
+    balas:    { nombre:'EXTRA SHOT',   desc:'+1 bullet per burst',          tope:7 },
     lineas:   { nombre:'EXTRA LINE',   desc:'+1 parallel line of bullets',  tope:4 },
     perf:     { nombre:'PIERCE',       desc:'Bullets go through +1',        tope:10 },
     vel:      { nombre:'BULLET SPEED', desc:'Faster bullets',               tope:40 },
@@ -75,7 +75,7 @@
   function stats(m){
     var k = function(n, c){ return 1 - Math.exp(-n / c); };
     return {
-      cad:    Math.min(14, 1.8 * Math.pow(1.2, m.cad)),   // rafagas por segundo: +20% por mejora (tope 14)
+      cad:    Math.min(14, 1.8 * Math.pow(1.15, m.cad)),  // rafagas por segundo: +15% por mejora (tope 14)
       dano:   1 + 0.5 * m.dano,                       // sin tope
       tam:    1 + 0.4 * m.tam,                        // tamaño de bala (unidades): +0.4 por mejora
       balas:  1 + m.balas,                            // balas por rafaga
@@ -125,21 +125,38 @@
     return '';
   }
 
-  /* Dificultad: depende SOLO del nivel, y se "congela" en cada enemigo al aparecer. El ataque sube
-     un poco mas que la vida. */
-  function dificultad(L){
+  /* =============================  DIFICULTAD (modelo completo)  =============================
+     Los enemigos NO tienen formulas sueltas: se calibran contra un JUGADOR DE REFERENCIA y dos
+     curvas de sensacion. Todo se "congela" en cada enemigo al aparecer.
+
+       Capa 1 · referencia(L): DPS y HP maximo que tendria un jugador promedio en el nivel L
+                (una mejora por nivel, ~60% ofensivas repartidas entre cadencia, daño, balas y lineas).
+       Capa 2 · curvas:  TTK(L) = segundos que debe tardar en morir un enemigo comun
+                         HTK(L) = toques de un enemigo comun que debes aguantar
+                vida  = DPS_ref × TTK          golpe = HP_ref ÷ HTK
+                Si subes mejor que el promedio te sientes fuerte; si subes peor, sufres. Eso es lo justo.
+       Capa 3 · presion(t): ritmo de aparicion y maximo de vivos suben con el nivel y un poco con el
+                tiempo de partida (+2% por minuto, tope +60%), para que estancarse no congele el reto.
+     Los multiplicadores de especies, juggernauts (×7) y jefes (×150) son relativos al comun y heredan todo. */
+  function referencia(L){
+    var n = Math.max(0, L - 1), o = 0.6 * n / 4;                           // mejoras ofensivas por rama
+    var cad = Math.min(14, 1.8 * Math.pow(1.15, o)), dano = 1 + 0.5 * o, balas = 1 + Math.min(6, o), lin = 1 + Math.min(3, o * 0.6);
+    return { dps: cad * dano * balas * lin * 0.75,                          // 75%: no todas las balas aciertan
+             hp: 100 + 20 * (0.15 * n) };
+  }
+  function ttkObjetivo(L){ return 0.8 + 0.9 * (1 - Math.exp(-L / 22)); }    // 0.8 s → ~1.7 s
+  function htkObjetivo(L){ return 10 - 4 * (1 - Math.exp(-L / 25)); }       // 10 toques → ~6
+  function dificultad(L, t){
+    var ref = referencia(L), pres = 1 + Math.min(0.6, 0.02 * ((t || 0) / 60));
     return {
-      intervalo: Math.max(0.22, 1.2 / (1 + L * 0.12)),          // segundos entre apariciones
-      // El campo comienza legible: 30 enemigos, y solo gana un hueco cada 5 niveles.
-      // Todas las apariciones (incluidas oleadas) consultan este mismo limite.
-      maxVivos:  30 + Math.floor((L - 1) / 5),
-      // Vida cuadratica: al inicio te sientes superior, pero en niveles altos tus mejoras tienen que
-      // seguirle el paso (L10: 15, L30: 111, L50: 303, L70: 591). Antes crecia solo +1 por nivel.
-      vida:      3 + 0.12 * L * L,
-      vel:       22 + Math.min(44, L * 1.5),                    // unidades/s
-      golpe:     10 + L * 1.6,                                  // HP que quita al tocarte
-      pesado:    Math.min(0.3, Math.max(0, (L - 3) * 0.03)),    // prob. de bloque grande
-      rapido:    Math.min(0.3, Math.max(0, (L - 6) * 0.025))    // prob. de bloque chico y veloz
+      intervalo: Math.max(0.2, 1.2 / (1 + L * 0.1) / pres),                // segundos entre apariciones
+      maxVivos:  Math.min(64, Math.round((30 + (L - 1) / 5) * pres)),      // el campo empieza legible y se llena despacio
+      vida:      Math.max(1, ref.dps * ttkObjetivo(L)),
+      vel:       22 + Math.min(44, L * 1.5),                                // unidades/s
+      golpe:     ref.hp / htkObjetivo(L),                                   // HP que quita al tocarte
+      pesado:    Math.min(0.3, Math.max(0, (L - 3) * 0.03)),                // prob. de bloque grande
+      rapido:    Math.min(0.3, Math.max(0, (L - 6) * 0.025)),               // prob. de bloque chico y veloz
+      presion:   pres
     };
   }
   /* Comportamientos de persecucion (como los fantasmas de Pacman). Los niveles bajos solo traen
@@ -170,6 +187,10 @@
     { id:'tiempo',  peso:16, color:'#7fd6ff' },
     { id:'burbuja', peso:16, color:'#8fa8ff' },
     { id:'rayo',    peso:16, color:'#ffe14d' },
+    { id:'repel',   peso:10, color:'#7dffc9' },          // los enemigos no pueden acercarse a ti (el area te sigue)
+    { id:'puas',    peso:12, color:'#d8d8d8' },          // parches de puas al azar: dañan a los enemigos que pisan
+    { id:'senuelo', peso:9,  color:'#ffd27d' },          // una Z falsa: los enemigos van por ella
+    { id:'orbes',   peso:10, color:'#8fe9ff' },          // 3 orbes giran a tu alrededor y golpean
     { id:'nucleo',  peso:2,  color:'#c783ff' },          // raro: media barra de experiencia
     { id:'barrido', peso:1,  color:'#ffffff' }          // rarisimo: barre toda la pantalla (y con enfriamiento largo)
   ];
@@ -180,6 +201,10 @@
     tiempo:  ['.XXXXX.', 'X..o..X', 'X..o..X', 'X..ooXX', 'X.....X', 'X.....X', '.XXXXX.'],
     burbuja: ['..XXX..', '.X...X.', 'X.o...X', 'X.....X', 'X.....X', '.X...X.', '..XXX..'],
     rayo:    ['...XXX.', '..XXX..', '.XXX...', 'XXXXXX.', '..XXX..', '.XX....', 'X......'],
+    repel:   ['X..X..X', '.XXXXX.', 'X.X.X.X', '.XXoXX.', 'X.X.X.X', '.XXXXX.', 'X..X..X'],
+    puas:    ['X.....X', '.X.X.X.', '..XXX..', 'X.XoX.X', '..XXX..', '.X.X.X.', 'X.....X'],
+    senuelo: ['XXXXXXX', '.....X.', '....X..', '...o...', '..X....', '.X.....', 'XXXXXXX'],
+    orbes:   ['..XX...', '..XX...', '.......', 'X....XX', 'XX..oXX', '.......', '...XX..'],
     nucleo:  ['...X...', '..XXX..', '.XXoXX.', 'XXXXXXX', '.XX.XX.', '..X.X..', '...X...'],
     barrido: ['.......', '.X..X..', '..X..X.', '...X..X', '..X..X.', '.X..X..', '.......']
   };
@@ -272,7 +297,11 @@
     ['copoHielo',   24, 0,  'FREEZE FLAKE',  'Snowflake shown in boss freeze fields and over you while frozen. Add frames to animate it.', { fps:5 }],
     ['fuego',       16, 0,  'FIRE',          'Fire trail piece (one flame). The default has 3 flickering frames.', { fps:10, defFrames:3 }],
     ['tempestad',   60, 30, 'BOSS TEMPEST',  'Static boss body.'],
-    ['tempChispas', 60, 30, 'TEMPEST SPARKS','Layer: 3 sparks orbiting the boss.']
+    ['tempChispas', 60, 30, 'TEMPEST SPARKS','Layer: 3 sparks orbiting the boss.'],
+    ['repel',       24, 7,  'REPEL',         'Pickup.'],
+    ['puas',        24, 7,  'SPIKES',        'Pickup.'],
+    ['senuelo',     24, 7,  'DECOY',         'Pickup.'],
+    ['orbes',       24, 7,  'ORBS',          'Pickup.']
   ];
   var HOJA = {};
   ORDEN.forEach(function(q, i){
@@ -816,7 +845,8 @@
 
     /* ---------- estado ---------- */
     var rafaga = 0, rafagaT = 0;
-    var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
+    var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0, repel:0, orbes:0, senuelo:0, venenoJ:0, fuegoJ:0 };
+    var peligros, peligroT, puasL, senuelo, orbesAng, venenoJ, fuegoJ, dotT;      // terreno peligroso y objetos nuevos
     var fuegos, campos, columnas, emp, empV, hielo, hieloInm, hieloRec, hx, hy, oleadaTot, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
@@ -829,7 +859,8 @@
       nivel = 1; xp = 0; kills = 0; tiempo = 0; acum = 0; rafaga = 0; rafagaT = 0; spawnT = 0.6; inv = 0; pulsoT = 1.2; pulsos = [];
       pausado = false; eligiendo = false; fin = false; pendientes = 0; ultimaMejora = null;
       oleadaT = OLEADA_PRIMERA; oleadaAvisada = false; rayoT = 0; efectosTxt = ''; slotCerco = 0;
-      efectos = { tiempo:0, burbuja:0, rayo:0, curaLenta:0 };
+      efectos = { tiempo:0, burbuja:0, rayo:0, curaLenta:0, repel:0, orbes:0, senuelo:0 };
+      peligros = []; peligroT = 40; puasL = []; senuelo = null; orbesAng = 0; venenoJ = 0; fuegoJ = 0; dotT = 0;
       P = { x: W / 2, y: H / 2, vx:0, vy:0 };
       tx = P.x; ty = P.y;
       enemigos = []; balas = []; parts = []; objetos = []; rayos = []; numeros = []; ebalas = []; barrido = null;
@@ -1164,7 +1195,7 @@
       return null;
     }
     function crearEnemigo(x, y, forzar){
-      var d = dificultad(nivel), r = Math.random(), tam = 9, vida = d.vida, vel = d.vel, tipo = 0, golpe = d.golpe;
+      var d = dificultad(nivel, tiempo), r = Math.random(), tam = 9, vida = d.vida, vel = d.vel, tipo = 0, golpe = d.golpe;
       var sp = forzar || especieAleatoria(), col = null, extra = {};
       switch (sp){
         case 'embestida': tam = 10; vida = d.vida * 1.1; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#ff9a3d';
@@ -1227,7 +1258,7 @@
     /* Tipos de oleada (los raros solo existen en oleadas): anillo por todos los bordes, enjambre de
        orbitales que giran y se cierran, y muro de bloques que cruza la pantalla con un hueco. */
     function oleada(){
-      var cupo = Math.max(0, dificultad(nivel).maxVivos - enemigos.length);
+      var cupo = Math.max(0, dificultad(nivel, tiempo).maxVivos - enemigos.length);
       if (!cupo){ mostrarAviso('<b>WAVE</b> · field is full', true, 1800); return; }
       var tipos = ['anillo'];
       if (nivel >= 7) tipos.push('enjambre');
@@ -1292,7 +1323,7 @@
       sfx.eshot();
     }
     /* ---------- JEFES ---------- */
-    function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; fuegos = []; campos = []; columnas = []; }
+    function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; fuegos = []; campos = []; columnas = []; peligros = []; }
     function jBala(x, y, ang, v, e, r, c){ ebalas.push({ x:x, y:y, vx:Math.cos(ang) * v, vy:Math.sin(ang) * v, d:e.golpe * 0.7, t:7, r:r || 1.6, c:c || '#ff9a9a' }); }
     function jAnillo(x, y, v, gapA, gapL, e){ anillosJ.push({ x:x, y:y, r:6, v:v, gapA:gapA, gapL:gapL, d:e.golpe * 0.8, hit:false }); sfx.zona(); }
     /* Anillo con salida garantizada: el hueco se centra hacia el jugador (+/- hasta 0.8 rad al azar), asi
@@ -1815,6 +1846,13 @@
         });
       });
     }
+    function herirLeve(cant, color){
+      if (efectos.burbuja > 0 || cant <= 0) return;
+      hp -= cant; hud();
+      numeros.push({ x:P.x + (Math.random() - .5) * 4, y:P.y - 6, v:-10, t:.55, max:.55, n:Math.max(1, Math.round(cant)), c:color || '#8cff5a' });
+      parts.push({ x:P.x, y:P.y - 3, vx:(Math.random() - .5) * 10, vy:-14, t:.4, c:color || '#8cff5a' });
+      if (hp <= 0){ hp = 0; hud(); gameOver(); }
+    }
     function herir(cant){
       if (inv > 0 || efectos.burbuja > 0) return;
       hp -= cant; inv = 0.8; sfx.dano();
@@ -1851,7 +1889,8 @@
       // los enemigos muertos junto al jugador NO sueltan objetos (solo los que mueren a distancia)
       var lejos = Math.hypot(e.x - P.x, e.y - P.y) > 28;
       if (lejos && Math.random() < stats(m).suerte){
-        var activo = { tiempo:efectos.tiempo > 0, burbuja:efectos.burbuja > 0, rayo:efectos.rayo > 0, curaLenta:efectos.curaLenta > 0 };
+        var activo = {}; for (var ka in efectos) activo[ka] = efectos[ka] > 0;
+        activo.puas = puasL.length > 0;
         var posibles = OBJETOS.filter(function(o){
           var enSuelo = objetos.filter(function(q){ return q.tipo === o.id; }).length;
           if (enSuelo >= (o.id === 'barrido' ? 1 : 2)) return false;                      // tope de 2 iguales a la vez en el suelo
@@ -1878,6 +1917,14 @@
           var cura = Math.min(s.cura, s.vida - hp);
           if (cura > 0){ hp += cura; hud(); mostrarAviso('<b>+' + Math.round(cura) + ' HP</b>'); }
           anillo(P.x, P.y, 14, 30, 0.35, '#ff8a8a'); sfx.cura();
+          break;
+        }
+        case 'repel':   sfx.burbuja(); efectos.repel += s.dur; mostrarAviso('<b>REPEL</b> · enemies cannot reach you · +' + s.dur.toFixed(1) + 's'); anillo(P.x, P.y, 30, 70, .4, '#7dffc9'); break;
+        case 'orbes':   sfx.rayoOn(); efectos.orbes += s.dur * 1.4; mostrarAviso('<b>ORBS</b> · +' + (s.dur * 1.4).toFixed(1) + 's'); break;
+        case 'senuelo': sfx.nucleo(); efectos.senuelo += s.dur; senuelo = { x:o.x, y:o.y, vx:0, vy:0 }; mostrarAviso('<b>DECOY</b> · enemies chase the fake Z'); anillo(o.x, o.y, 16, 36, .4, '#ffd27d'); break;
+        case 'puas': {                                                      // 6 parches de puas al azar en la pantalla, 12 s
+          sfx.granada(); mostrarAviso('<b>SPIKES</b> · half your damage to enemies that step on them');
+          for (var pu = 0; pu < 6; pu++) puasL.push({ x:12 + Math.random() * (W - 24), y:12 + Math.random() * (H - 24), r:7 + Math.random() * 3, t:12 + s.dur, k:Math.random() * 0.4 });
           break;
         }
         case 'curaLenta': sfx.regen(); efectos.curaLenta += 7; mostrarAviso('<b>REGEN</b> · healing over time'); anillo(P.x, P.y, 14, 30, .35, '#ff91c9'); break;
@@ -1909,12 +1956,13 @@
 
     /* ---------- actualizar ---------- */
     function actualizar(dt){
-      var s = stats(m), d = dificultad(nivel);
+      var s = stats(m), d = dificultad(nivel, tiempo);
       if (limpiarMin){ limpiarMin = false; for (var lm = enemigos.length - 1; lm >= 0; lm--) if (enemigos[lm].minionJefe) enemigos.splice(lm, 1); }
       tiempo += dt;
       if (inv > 0) inv -= dt;
       if (s.reg > 0 && hp < s.vida){ hp = Math.min(s.vida, hp + s.reg * dt); }
-      ['tiempo', 'burbuja', 'rayo', 'curaLenta'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });
+      ['tiempo', 'burbuja', 'rayo', 'curaLenta', 'repel', 'orbes', 'senuelo'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });
+      if (efectos.senuelo <= 0) senuelo = null;
       if (efectos.curaLenta > 0 && hp < s.vida) hp = Math.min(s.vida, hp + 8 * dt);
       // tiempo detenido: sonido general bajo + tic-tac + conteo en pantalla hasta que se acabe
       var cn = el('conteo');
@@ -1980,6 +2028,91 @@
       if (oleadaT <= 2.5 && !oleadaAvisada){ oleadaAvisada = true; sfx.alarma(); mostrarAviso('<b>WAVE</b> incoming!', true, 2400); }
       if (oleadaT <= 0){ oleada(); oleadaT = OLEADA_CADA; oleadaTot = OLEADA_CADA; oleadaAvisada = false; }
 
+      /* ---- TERRENO PELIGROSO: desde el nivel 5 aparecen areas en el suelo (avisan 1.2 s y duran 10-16 s).
+         veneno: te envenena (y a los enemigos) mientras estas dentro · lava: quema fuerte a ambos ·
+         viento: empuja a ti y a los enemigos en una direccion. Nunca nacen encima de ti. ---- */
+      if (nivel >= 5 && efectos.tiempo <= 0){
+        peligroT -= dt;
+        if (peligroT <= 0){
+          peligroT = Math.max(12, 30 - nivel * 0.4) + Math.random() * 10;
+          if (peligros.length < 3){
+            var tp = ['veneno', 'lava', 'viento'][(Math.random() * (nivel >= 9 ? 3 : (nivel >= 7 ? 2 : 1))) | 0], hx2, hy2, intentos = 0;
+            do { hx2 = 20 + Math.random() * (W - 40); hy2 = 20 + Math.random() * (H - 40); intentos++; } while (Math.hypot(hx2 - P.x, hy2 - P.y) < 42 && intentos < 20);
+            var rr2 = tp === 'viento' ? 30 + Math.random() * 12 : 16 + Math.random() * 10 + Math.min(10, nivel * 0.3);
+            peligros.push({ tipo:tp, x:hx2, y:hy2, r:rr2, t0:1.2, t:10 + Math.random() * 6, max:0, ang:Math.random() * 6.2832, k:0 });
+            peligros[peligros.length - 1].max = peligros[peligros.length - 1].t;
+          }
+        }
+      }
+      var d2 = dificultad(nivel, tiempo);
+      for (var hi = peligros.length - 1; hi >= 0; hi--){
+        var pg = peligros[hi];
+        if (pg.t0 > 0){ pg.t0 -= dt; if (pg.t0 <= 0) sfx.zona(); continue; }
+        pg.t -= dt; pg.k += dt;
+        if (pg.t <= 0){ peligros.splice(hi, 1); continue; }
+        if (pg.tipo === 'viento') pg.ang += Math.sin(tiempo * 0.7 + pg.x) * 0.25 * dt;       // el viento gira despacio
+        var dentroJ = Math.hypot(P.x - pg.x, P.y - pg.y) < pg.r;
+        if (dentroJ){
+          if (pg.tipo === 'veneno'){ venenoJ = Math.max(venenoJ, 3); }
+          else if (pg.tipo === 'lava'){ fuegoJ = Math.max(fuegoJ, 2); }
+          else if (hielo <= 0){ empV.x += Math.cos(pg.ang) * 520 * dt; empV.y += Math.sin(pg.ang) * 520 * dt; }
+        }
+        if (pg.k >= 0.5){                                                                    // cada 0.5 s afecta a los enemigos de adentro
+          pg.k -= 0.5;
+          for (var he2 = 0; he2 < enemigos.length; he2++){
+            var en4 = enemigos[he2]; if (en4.sp === 'jefe' || en4.lin) continue;
+            if (Math.hypot(en4.x - pg.x, en4.y - pg.y) >= pg.r + en4.s / 2) continue;
+            if (pg.tipo === 'veneno'){ if (!en4.pz) en4.pz = { t:3, d:d2.vida * 0.05, k:0 }; }
+            else if (pg.tipo === 'lava'){ if (!en4.fg) en4.fg = { t:2, d:d2.vida * 0.1, k:0 }; }
+          }
+        }
+        if (pg.tipo === 'viento') for (var he3 = 0; he3 < enemigos.length; he3++){
+          var en5 = enemigos[he3]; if (en5.sp === 'jefe' || en5.lin) continue;
+          if (Math.hypot(en5.x - pg.x, en5.y - pg.y) < pg.r + en5.s / 2){ en5.kx += Math.cos(pg.ang) * 260 * dt; en5.ky += Math.sin(pg.ang) * 260 * dt; }
+        }
+      }
+      // tus estados negativos: veneno (3% del HP max por tick) y fuego (6%), cada 0.5 s, sin invulnerabilidad pero si con burbuja
+      if (venenoJ > 0 || fuegoJ > 0){
+        dotT -= dt;
+        if (dotT <= 0){
+          dotT = 0.5;
+          var dotDmg = (venenoJ > 0 ? s.vida * 0.03 : 0) + (fuegoJ > 0 ? s.vida * 0.06 : 0);
+          herirLeve(dotDmg, fuegoJ > 0 ? '#ff7a3d' : '#8cff5a'); if (fin) return;
+        }
+        if (venenoJ > 0) venenoJ -= dt; if (fuegoJ > 0) fuegoJ -= dt;
+      } else dotT = 0;
+      // REPEL: los enemigos (no jefes) no pueden entrar en un radio de 34 que te sigue
+      if (efectos.repel > 0){
+        var RR = 34;
+        for (var hr = 0; hr < enemigos.length; hr++){
+          var en6 = enemigos[hr]; if (en6.sp === 'jefe' || en6.lin) continue;
+          var rdx = en6.x - P.x, rdy = en6.y - P.y, rdd = Math.hypot(rdx, rdy) || 0.01, rmin = RR + en6.s / 2;
+          if (rdd < rmin){ en6.x = P.x + rdx / rdd * rmin; en6.y = P.y + rdy / rdd * rmin; en6.kx += rdx / rdd * 90; en6.ky += rdy / rdd * 90; }
+        }
+      }
+      // ORBES: 3 orbes giran a tu alrededor y golpean (1.5× tu daño, 0.35 s de enfriamiento por enemigo)
+      if (efectos.orbes > 0){
+        orbesAng += dt * 3.2;
+        for (var ho = 0; ho < 3; ho++){
+          var oa = orbesAng + ho * 2.0944, oxp = P.x + Math.cos(oa) * 16, oyp = P.y + Math.sin(oa) * 16;
+          for (var ho2 = enemigos.length - 1; ho2 >= 0; ho2--){
+            var en7 = enemigos[ho2]; if ((en7.sp === 'fantasma' && en7.fase) || !enPantalla(en7)) continue;
+            if ((en7.orbT || 0) > tiempo) continue;
+            if (golpea(en7, oxp, oyp, 1.5)){ en7.orbT = tiempo + 0.35; golpear(en7, s.dano * 1.5, s); sfx.golpe(); }
+          }
+        }
+      }
+      // PUAS: parches que dañan la mitad de tu daño cada 0.4 s a los enemigos que los pisan
+      for (var hp2 = puasL.length - 1; hp2 >= 0; hp2--){
+        var pq = puasL[hp2]; pq.t -= dt; pq.k += dt;
+        if (pq.t <= 0){ puasL.splice(hp2, 1); continue; }
+        if (pq.k < 0.4) continue;
+        pq.k -= 0.4;
+        for (var hp3 = enemigos.length - 1; hp3 >= 0; hp3--){
+          var en8 = enemigos[hp3]; if (en8.sp === 'jefe' || (en8.sp === 'fantasma' && en8.fase)) continue;
+          if (Math.hypot(en8.x - pq.x, en8.y - pq.y) < pq.r + en8.s / 2) golpear(en8, s.dano * 0.5, s);
+        }
+      }
       // enemigos: cada uno persigue a su manera; congelados no se mueven ni hacen dano
       var congelado = efectos.tiempo > 0;
       for (var i2 = enemigos.length - 1; i2 >= 0; i2--){
@@ -1992,7 +2125,8 @@
           e.x += e.lin.vx * dt; e.y += e.lin.vy * dt;
           if (e.x < -30 || e.y < -30 || e.x > W + 30 || e.y > H + 30){ enemigos.splice(i2, 1); continue; }
         } else {
-          moverEnemigo(e, dt, dist);
+          if (senuelo){ var Pr = P; P = senuelo; moverEnemigo(e, dt, Math.hypot(P.x - e.x, P.y - e.y) || 1); P = Pr; }
+          else moverEnemigo(e, dt, dist);
           if (e.explota){ explotarBombardero(e); continue; }
           e.x += e.kx * dt; e.y += e.ky * dt;
           var amort = Math.exp(-dt * 6); e.kx *= amort; e.ky *= amort;
@@ -2223,7 +2357,9 @@
       if (jefe){ el('olabar').style.width = Math.max(0, 1 - oleadaT / oleadaTot) * 100 + '%'; el('olat').textContent = '--'; }
       else { el('olabar').style.width = Math.max(0, Math.min(100, (1 - oleadaT / oleadaTot) * 100)) + '%'; el('olat').textContent = fmt(Math.max(0, oleadaT)); }
       // lista de estados activos: nombre, barra y segundos restantes; desaparece cuando se acaba
-      var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d'], ['curaLenta', 'REGEN', '#ff91c9']];
+      var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d'], ['curaLenta', 'REGEN', '#ff91c9'],
+                  ['repel', 'REPEL', '#7dffc9'], ['orbes', 'ORBS', '#8fe9ff'], ['senuelo', 'DECOY', '#ffd27d'], ['venenoJ', 'POISONED', '#8cff5a'], ['fuegoJ', 'BURNING', '#ff7a3d']];
+      efectos.venenoJ = venenoJ; efectos.fuegoJ = fuegoJ;                                  // tus estados negativos tambien se listan
       var tx2 = '';
       DEFE.forEach(function(d3){
         var k3 = d3[0];
@@ -2679,10 +2815,19 @@
       var cx = Math.round(e.x), cy = Math.round(e.y), w = Math.round(e.s), f = Math.max(0, e.hp / e.max);
       px(cx - w / 2, cy - e.s / 2 - 9, w, 1, 'rgba(255,255,255,.25)'); px(cx - w / 2, cy - e.s / 2 - 9, Math.max(1, w * f), 1, '#ffffff');
     }
+    var jugCv = document.createElement('canvas'); jugCv.width = jugCv.height = 64;
+    function dibujarJugEscalado(e, congelado){
+      var c2 = jugCv.getContext('2d'), ctxAnt = ctx;
+      c2.clearRect(0, 0, 64, 64); c2.imageSmoothingEnabled = false;
+      var e2 = Object.create(e); e2.s = e.s / 2;                             // misma entidad, mitad de tamaño
+      ctx = c2; ctx.save(); ctx.translate(32 - Math.round(e.x), 32 - Math.round(e.y));
+      try { dibujarBase(e2, congelado); } finally { ctx.restore(); ctx = ctxAnt; }
+      ctx.drawImage(jugCv, 0, 0, 64, 64, Math.round(e.x) - 64, Math.round(e.y) - 64, 128, 128);   // ×2 exacto
+    }
     function dibujarEnemigo(e, congelado){
       if (sheetPersonalizado && dibujarEnemigoHoja(e, congelado)) return;     // con hoja: cuerpo + capas separadas
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
-      dibujarBase(e, congelado);
+      if (e.jug) dibujarJugEscalado(e, congelado); else dibujarBase(e, congelado);
       if (e.jug) dibujarBlindaje(e, congelado);
     }
     function dibujarBase(e, congelado){
@@ -2824,6 +2969,8 @@
         px(ix, iy, 13, 1, '#bfefff'); px(ix, iy + 12, 13, 1, '#bfefff'); px(ix, iy, 1, 13, '#bfefff'); px(ix + 12, iy, 1, 13, '#bfefff');
         if (!pieza('copoHielo', P.x, P.y - 9, 1, 0, null, 0.9)) px(Math.round(P.x), Math.round(P.y) - 10, 1, 3, '#fff');
       }
+      if (venenoJ > 0 && Math.floor(tiempo * 10) % 3 === 0) px(P.x - 4, P.y - 4, 9, 9, 'rgba(140,255,90,.18)');
+      if (fuegoJ > 0){ var fc = Math.floor(tiempo * 12) % 2; px(P.x - 2, P.y - 6, 1, 2, fc ? '#ffd94d' : '#ff7a3d'); px(P.x + 2, P.y - 7, 1, 3, fc ? '#ff7a3d' : '#ffd94d'); }
       if (parpadeo) return;
       if (pieza('jugador', P.x, P.y, 1)) return;
       for (var y = 0; y < 7; y++) for (var x = 0; x < 7; x++)
@@ -2840,6 +2987,44 @@
         if (o.t < 2.5 && Math.floor(o.t * 6) % 2) return;                // parpadea al acabarse
         var info = OBJETOS.filter(function(q){ return q.id === o.tipo; })[0];
         if (!pieza(o.tipo, o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), 1)) sprite(SPR[o.tipo], o.x, o.y + Math.round(Math.sin(tiempo * 4 + o.x)), info.color);
+      });
+      // terreno peligroso: va debajo de todo. Aviso = contorno punteado parpadeante.
+      peligros.forEach(function(pg){
+        var n1 = Math.ceil(pg.r * 6.2832 / 3), a1, an1, col1 = pg.tipo === 'veneno' ? '#8cff5a' : (pg.tipo === 'lava' ? '#ff7a3d' : '#bfe8ff');
+        if (pg.t0 > 0){
+          if (Math.floor(pg.t0 * 8) % 2) for (a1 = 0; a1 < n1; a1++){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, col1); }
+          return;
+        }
+        var fin2 = pg.t < 2 && Math.floor(pg.t * 8) % 2;                                   // al acabarse parpadea
+        if (fin2) return;
+        if (pg.tipo === 'veneno'){
+          ctx.globalAlpha = 0.16; ctx.fillStyle = col1; ctx.beginPath(); ctx.arc(Math.round(pg.x), Math.round(pg.y), pg.r, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+          for (a1 = 0; a1 < n1; a1 += 2){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, col1); }
+          for (var bq = 0; bq < 9; bq++){                                                   // burbujas que suben
+            var bs = ((bq * 37 + 5) % 100) / 100, bt = (tiempo * 0.35 + bq * 0.23) % 1, bxp = pg.x + (bs * 2 - 1) * pg.r * 0.75, byp = pg.y + (1 - bt * 2) * pg.r * 0.75;
+            if (Math.hypot(bxp - pg.x, byp - pg.y) < pg.r - 2) px(bxp, byp, bt > 0.8 ? 2 : 1, bt > 0.8 ? 2 : 1, 'rgba(200,255,160,.85)');
+          }
+        } else if (pg.tipo === 'lava'){
+          ctx.globalAlpha = 0.22; ctx.fillStyle = '#ff5a2b'; ctx.beginPath(); ctx.arc(Math.round(pg.x), Math.round(pg.y), pg.r, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+          for (a1 = 0; a1 < n1; a1++){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, Math.floor(tiempo * 6 + a1) % 3 ? '#ff7a3d' : '#ffd94d'); }
+          for (var lq = 0; lq < 12; lq++){                                                  // grietas brillantes que titilan
+            var ls = ((lq * 53 + 11) % 100) / 100, lt = ((lq * 29 + 7) % 100) / 100, lxp = pg.x + (ls * 2 - 1) * pg.r * 0.7, lyp = pg.y + (lt * 2 - 1) * pg.r * 0.7;
+            if (Math.hypot(lxp - pg.x, lyp - pg.y) < pg.r - 3) px(lxp, lyp, 2, 1, Math.floor(tiempo * 5 + lq) % 2 ? '#ffd94d' : '#ffb347');
+          }
+        } else {
+          for (a1 = 0; a1 < n1; a1 += 2){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, 'rgba(191,232,255,.55)'); }
+          var cs = Math.cos(pg.ang), sn = Math.sin(pg.ang);
+          for (var wq = 0; wq < 10; wq++){                                                  // rafagas de viento que recorren el area
+            var ws = ((wq * 41 + 3) % 100) / 100, wt = (tiempo * 0.9 + wq * 0.17) % 1, u = (wt * 2 - 1) * pg.r, v = (ws * 2 - 1) * pg.r * 0.9;
+            var wx = pg.x + u * cs - v * sn, wy = pg.y + u * sn + v * cs;
+            if (Math.hypot(wx - pg.x, wy - pg.y) < pg.r - 1) lineaPx(wx, wy, wx + cs * 4, wy + sn * 4, 'rgba(220,245,255,' + (0.9 - Math.abs(wt * 2 - 1) * 0.6).toFixed(2) + ')');
+          }
+        }
+      });
+      puasL.forEach(function(pq){                                                            // puas: X de 1 px en el suelo
+        if (pq.t < 2 && Math.floor(pq.t * 8) % 2) return;
+        var c = Math.floor(tiempo * 4 + pq.k * 10) % 2 ? '#d8d8d8' : '#9a9a9a', r0 = Math.round(pq.r);
+        for (var i = -r0; i <= r0; i += 3){ for (var j = -r0; j <= r0; j += 3){ if (i * i + j * j > r0 * r0) continue; px(pq.x + i, pq.y + j, 1, 1, c); px(pq.x + i + 1, pq.y + j + 1, 1, 1, c); px(pq.x + i - 1, pq.y + j + 1, 1, 1, c); } }
       });
       // fuego y campos van debajo de los enemigos
       fuegos.forEach(function(fu){
@@ -2958,6 +3143,21 @@
           x = nx; y = ny;
         }
       });
+      if (senuelo){                                                                          // Z falsa: parpadea en ambar
+        var sx0 = Math.round(senuelo.x - 3), sy0 = Math.round(senuelo.y - 3);
+        if (!(efectos.senuelo < 1.5 && Math.floor(efectos.senuelo * 8) % 2))
+          for (var sy = 0; sy < 7; sy++) for (var sx = 0; sx < 7; sx++) if (Z_PIX[sy][sx] === 'X') px(sx0 + sx, sy0 + sy, 1, 1, Math.floor(tiempo * 6) % 2 ? '#ffd27d' : '#ffb347');
+      }
+      if (efectos.repel > 0 && !fin){                                                        // anillo de repel con flechas hacia afuera
+        var nr = 40;
+        for (var ri2 = 0; ri2 < nr; ri2++){ var ra2 = ri2 / nr * 6.2832 - tiempo * 0.8; if (ri2 % 2) px(P.x + Math.cos(ra2) * 34, P.y + Math.sin(ra2) * 34, 1, 1, '#7dffc9'); }
+        for (var rj = 0; rj < 6; rj++){ var rb = rj * 1.0472 + tiempo * 0.8; lineaPx(P.x + Math.cos(rb) * 29, P.y + Math.sin(rb) * 29, P.x + Math.cos(rb) * 33, P.y + Math.sin(rb) * 33, 'rgba(125,255,201,.7)'); }
+      }
+      if (efectos.orbes > 0 && !fin) for (var oq = 0; oq < 3; oq++){                         // orbes
+        var oa2 = orbesAng + oq * 2.0944, ox2 = P.x + Math.cos(oa2) * 16, oy2 = P.y + Math.sin(oa2) * 16;
+        px(ox2 - 1, oy2 - 1, 3, 3, '#8fe9ff'); px(ox2, oy2, 1, 1, '#ffffff');
+        px(ox2 - Math.cos(oa2 + 1.3) * 2 - 0.5, oy2 - Math.sin(oa2 + 1.3) * 2 - 0.5, 1, 1, 'rgba(143,233,255,.5)');
+      }
       parts.forEach(function(p){ px(p.x, p.y, 1, 1, p.c); });
       numeros.forEach(function(no){ numeroPx(no); });
       if (!fin){ dibujarAuras(); dibujarPulsos(); dibujarZ(); }
