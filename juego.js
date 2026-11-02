@@ -135,8 +135,9 @@
                          HTK(L) = toques de un enemigo comun que debes aguantar
                 vida  = DPS_ref × TTK          golpe = HP_ref ÷ HTK
                 Si subes mejor que el promedio te sientes fuerte; si subes peor, sufres. Eso es lo justo.
-       Capa 3 · presion(t): ritmo de aparicion y maximo de vivos suben con el nivel y un poco con el
-                tiempo de partida (+2% por minuto, tope +60%), para que estancarse no congele el reto.
+       Capa 3 · presion: el ritmo de aparicion tasaObjetivo(L) es la dificultad real (cantidad), y sube
+                ademas un poco con el tiempo de partida (+2% por minuto, tope +60%) para que estancarse no
+                congele el reto. Las oleadas y los jefes suman picos encima de esta base.
      Los multiplicadores de especies, juggernauts (×7) y jefes (×150) son relativos al comun y heredan todo. */
   function referencia(L){
     var n = Math.max(0, L - 1), o = 0.6 * n / 4;                           // mejoras ofensivas por rama
@@ -144,13 +145,15 @@
     return { dps: cad * dano * balas * lin * 0.42,                          // 42%: balas y lineas extra se desperdician en parte
              hp: 100 + 20 * (0.15 * n) };
   }
-  /* El TTK nunca supera el intervalo de aparicion: matar al menos tan rapido como llegan es la condicion de equilibrio. */
-  function ttkObjetivo(L){ return 0.55 + 0.45 * (1 - Math.exp(-L / 22)); }  // 0.55 s → ~1.0 s
+  /* Ritmo de aparicion (enemigos por segundo): 1.2/s al inicio → ~3/s. La PRESION real del juego es esta cantidad.
+     El TTK se deriva de ella: debes poder matar un 15% mas rapido de lo que llegan, o la pantalla se llena sin remedio. */
+  function tasaObjetivo(L){ return 1.1 + 1.9 * (1 - Math.exp(-L / 25)); }
+  function ttkObjetivo(L){ return 0.85 / tasaObjetivo(L); }                  // 0.73 s → ~0.3 s por enemigo comun
   function htkObjetivo(L){ return 10 - 4 * (1 - Math.exp(-L / 25)); }       // 10 toques → ~6
   function dificultad(L, t){
     var ref = referencia(L), pres = 1 + Math.min(0.6, 0.02 * ((t || 0) / 60));
     return {
-      intervalo: Math.max(0.2, 1.2 / (1 + L * 0.1) / pres),                // segundos entre apariciones
+      intervalo: 1 / (tasaObjetivo(L) * pres),                             // segundos entre apariciones (de a uno)
       maxVivos:  Math.min(64, Math.round((30 + (L - 1) / 5) * pres)),      // el campo empieza legible y se llena despacio
       vida:      Math.max(1, ref.dps * ttkObjetivo(L)),
       vel:       22 + Math.min(44, L * 1.5),                                // unidades/s
@@ -2000,7 +2003,7 @@
       if (spawnT <= 0 && efectos.tiempo <= 0){
         spawnT = d.intervalo * (0.7 + Math.random() * 0.6) * (jefe ? 4 : 1);
         if (enemigos.length < (jefe ? 6 : d.maxVivos)){
-          var n = 1 + (nivel > 8 && Math.random() < 0.5 ? 1 : 0) + (nivel > 16 && Math.random() < 0.5 ? 1 : 0);
+          var n = 1;                                                               // de a uno: el ritmo ya lo fija tasaObjetivo
           var huecos = (jefe ? 6 : d.maxVivos) - enemigos.length;
           for (var i = 0; i < n && i < huecos; i++) aparecerBorde();
         }
