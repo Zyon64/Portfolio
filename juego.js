@@ -2855,18 +2855,14 @@
     }
     /* Blindaje de juggernaut: aro punteado exterior, hombreras con picos y remaches, mas una barrita de vida
        encima, para reconocerlo de un vistazo sea del tipo que sea. */
+    /* Blindaje del juggernaut: SOLO un aro punteado fino alrededor del cuerpo (y la barrita de vida). Nada encima del
+       sprite: asi el grande se ve exactamente como el chico, solo que al doble. */
     function dibujarBlindaje(e, congelado, soloForma){
-      var cx = Math.round(e.x), cy = Math.round(e.y), r = e.s / 2 + 3, i;
+      var cx = Math.round(e.x), cy = Math.round(e.y), r = e.s / 2 + 4, i;
       var col = e.flash > 0 ? '#ffffff' : (congelado ? '#8fd8ff' : e.col);
       if (e.sp === 'fantasma' && e.fase) ctx.globalAlpha = 0.3;
-      var n = Math.ceil(r * 6.2832 / 2);
-      for (i = 0; i < n; i += 2){ var a = i / n * 6.2832; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
-      for (i = 0; i < 4; i++){
-        var ah = i * 1.5708 + 0.7854;
-        lineaPx(cx + Math.cos(ah) * r, cy + Math.sin(ah) * r, cx + Math.cos(ah) * (r + 4), cy + Math.sin(ah) * (r + 4), col);
-        px(cx + Math.cos(ah) * (r - 4), cy + Math.sin(ah) * (r - 4), 2, 2, col);
-      }
-      px(cx - 1, cy - 1, 3, 3, col);
+      var n = Math.ceil(r * 6.2832 / 3);
+      for (i = 0; i < n; i++){ var a = i / n * 6.2832 + tiempo * 0.4; px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, col); }
       ctx.globalAlpha = 1;
       if (!soloForma) dibujarBarraBlindaje(e);
     }
@@ -3221,6 +3217,7 @@
       parts.forEach(function(p){ px(p.x, p.y, 1, 1, p.c); });
       numeros.forEach(function(no){ numeroPx(no); });
       if (!fin){ dibujarAuras(); dibujarPulsos(); dibujarZ(); }
+      if (!tactil) px(tx, ty, 1, 1, 'rgba(255,255,255,.35)');                       // donde esta el cursor: un solo pixel, tenue
     }
 
     /* ---------- bucle ---------- */
