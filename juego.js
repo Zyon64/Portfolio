@@ -141,10 +141,11 @@
   function referencia(L){
     var n = Math.max(0, L - 1), o = 0.6 * n / 4;                           // mejoras ofensivas por rama
     var cad = Math.min(14, 1.8 * Math.pow(1.15, o)), dano = 1 + 0.5 * o, balas = 1 + Math.min(6, o), lin = 1 + Math.min(3, o * 0.6);
-    return { dps: cad * dano * balas * lin * 0.75,                          // 75%: no todas las balas aciertan
+    return { dps: cad * dano * balas * lin * 0.42,                          // 42%: balas y lineas extra se desperdician en parte
              hp: 100 + 20 * (0.15 * n) };
   }
-  function ttkObjetivo(L){ return 0.8 + 0.9 * (1 - Math.exp(-L / 22)); }    // 0.8 s → ~1.7 s
+  /* El TTK nunca supera el intervalo de aparicion: matar al menos tan rapido como llegan es la condicion de equilibrio. */
+  function ttkObjetivo(L){ return 0.55 + 0.45 * (1 - Math.exp(-L / 22)); }  // 0.55 s → ~1.0 s
   function htkObjetivo(L){ return 10 - 4 * (1 - Math.exp(-L / 25)); }       // 10 toques → ~6
   function dificultad(L, t){
     var ref = referencia(L), pres = 1 + Math.min(0.6, 0.02 * ((t || 0) / 60));
