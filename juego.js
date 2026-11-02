@@ -2071,12 +2071,12 @@
           if (Math.hypot(en5.x - pg.x, en5.y - pg.y) < pg.r + en5.s / 2){ en5.kx += Math.cos(pg.ang) * 260 * dt; en5.ky += Math.sin(pg.ang) * 260 * dt; }
         }
       }
-      // tus estados negativos: veneno (3% del HP max por tick) y fuego (6%), cada 0.5 s, sin invulnerabilidad pero si con burbuja
+      // tus estados negativos: veneno (3% del HP max por tick) y fuego (5%), cada 0.5 s, sin invulnerabilidad pero si con burbuja
       if (venenoJ > 0 || fuegoJ > 0){
         dotT -= dt;
         if (dotT <= 0){
           dotT = 0.5;
-          var dotDmg = (venenoJ > 0 ? s.vida * 0.03 : 0) + (fuegoJ > 0 ? s.vida * 0.06 : 0);
+          var dotDmg = (venenoJ > 0 ? s.vida * 0.03 : 0) + (fuegoJ > 0 ? s.vida * 0.05 : 0);
           herirLeve(dotDmg, fuegoJ > 0 ? '#ff7a3d' : '#8cff5a'); if (fin) return;
         }
         if (venenoJ > 0) venenoJ -= dt; if (fuegoJ > 0) fuegoJ -= dt;
@@ -3012,19 +3012,19 @@
             if (Math.hypot(lxp - pg.x, lyp - pg.y) < pg.r - 3) px(lxp, lyp, 2, 1, Math.floor(tiempo * 5 + lq) % 2 ? '#ffd94d' : '#ffb347');
           }
         } else {
-          for (a1 = 0; a1 < n1; a1 += 2){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, 'rgba(191,232,255,.55)'); }
+          for (a1 = 0; a1 < n1; a1 += 2){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, 'rgba(191,232,255,.8)'); }
           var cs = Math.cos(pg.ang), sn = Math.sin(pg.ang);
           for (var wq = 0; wq < 10; wq++){                                                  // rafagas de viento que recorren el area
             var ws = ((wq * 41 + 3) % 100) / 100, wt = (tiempo * 0.9 + wq * 0.17) % 1, u = (wt * 2 - 1) * pg.r, v = (ws * 2 - 1) * pg.r * 0.9;
             var wx = pg.x + u * cs - v * sn, wy = pg.y + u * sn + v * cs;
-            if (Math.hypot(wx - pg.x, wy - pg.y) < pg.r - 1) lineaPx(wx, wy, wx + cs * 4, wy + sn * 4, 'rgba(220,245,255,' + (0.9 - Math.abs(wt * 2 - 1) * 0.6).toFixed(2) + ')');
+            if (Math.hypot(wx - pg.x, wy - pg.y) < pg.r - 1) lineaPx(wx, wy, wx + cs * 6, wy + sn * 6, 'rgba(230,248,255,' + (1 - Math.abs(wt * 2 - 1) * 0.5).toFixed(2) + ')');
           }
         }
       });
       puasL.forEach(function(pq){                                                            // puas: X de 1 px en el suelo
         if (pq.t < 2 && Math.floor(pq.t * 8) % 2) return;
         var c = Math.floor(tiempo * 4 + pq.k * 10) % 2 ? '#d8d8d8' : '#9a9a9a', r0 = Math.round(pq.r);
-        for (var i = -r0; i <= r0; i += 3){ for (var j = -r0; j <= r0; j += 3){ if (i * i + j * j > r0 * r0) continue; px(pq.x + i, pq.y + j, 1, 1, c); px(pq.x + i + 1, pq.y + j + 1, 1, 1, c); px(pq.x + i - 1, pq.y + j + 1, 1, 1, c); } }
+        for (var i = -r0; i <= r0; i += 3){ for (var j = -r0; j <= r0; j += 3){ if (i * i + j * j > r0 * r0) continue; if (((i + j) / 3) % 2) continue; px(pq.x + i, pq.y + j, 1, 1, c); px(pq.x + i + 1, pq.y + j + 1, 1, 1, c); px(pq.x + i - 1, pq.y + j + 1, 1, 1, c); px(pq.x + i + 1, pq.y + j - 1, 1, 1, c); px(pq.x + i - 1, pq.y + j - 1, 1, 1, c); } }
       });
       // fuego y campos van debajo de los enemigos
       fuegos.forEach(function(fu){
