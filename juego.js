@@ -855,9 +855,9 @@
             '<div class="jg-efectos" data-n="efectos"></div>' +
           '</div>' +
           '<div class="jg-der">' +
-            '<div class="jg-fila"><button class="jg-btn' + (SFX_ON ? '' : ' off') + '" data-a="sonido" aria-label="Sound">♪</button>' +
+            '<div class="jg-fila">' + (tactil ? '<button class="jg-btn' + (SFX_ON ? '' : ' off') + '" data-a="sonido" aria-label="Sound">♪</button>' : '') +   // en PC: todo desde Esc
             (tactil ? '<button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' : '') +           // en PC se pausa con Esc
-            '<button class="jg-btn" data-a="salir" aria-label="Exit">X</button></div>' +
+            (tactil ? '<button class="jg-btn" data-a="salir" aria-label="Exit">X</button>' : '') + '</div>' +
             '<div class="jg-stats"><div class="jg-panel">' +
               '<div class="jg-st"><span><canvas class="jg-ico mini" data-id="arma_normal" width="32" height="32"></canvas>WEAPON</span><b data-n="arma">STANDARD</b></div>' +
               '<div class="jg-sep"></div>' +

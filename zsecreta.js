@@ -95,7 +95,7 @@
     if (window.Juego) return Promise.resolve();
     return new Promise(function(res){
       var s = document.createElement('script');
-      s.src = 'juego.js?v=20a41f85'; s.onload = res; s.onerror = res; // version nueva: activa todas las capas funcionales desde cache limpia
+      s.src = 'juego.js?v=924b30ef'; s.onload = res; s.onerror = res; // version nueva: activa todas las capas funcionales desde cache limpia
       document.head.appendChild(s);
     });
   }
