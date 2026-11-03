@@ -1507,13 +1507,14 @@
     function atLava(e, dt, fase){
       if (e.aux === 0){
         e.aux = 1; e.et = 2.0;
-        var paso = 34, fx = 0.2 + Math.random() * 0.6, fy = 0.2 + Math.random() * 0.6, ancho = 30 - 3 * fase, n = 0;
+        var paso = 36, fx = 0.2 + Math.random() * 0.6, fy = 0.2 + Math.random() * 0.6, ancho = 30 - 3 * fase, celdas = [];
         for (var gx = paso / 2; gx < W; gx += paso) for (var gy = paso / 2; gy < H; gy += paso){
           if (Math.abs(gx - W * fx) < ancho || Math.abs(gy - H * fy) < ancho) continue;                 // los caminos quedan libres
           if (Math.hypot(gx - P.x, gy - P.y) < 26) continue;                                           // nunca encima de ti
-          if (n++ >= 26) break;
-          peligros.push({ tipo:'lava', x:gx + (Math.random() - 0.5) * 8, y:gy + (Math.random() - 0.5) * 8, r:13, t0:1.4, t:5 + 1.5 * fase, max:5 + 1.5 * fase, ang:0, k:0 });
+          celdas.push([gx, gy]);
         }
+        celdas = mezclar(celdas).slice(0, 28 + 4 * fase);                                             // repartidas por TODO el escenario
+        celdas.forEach(function(c){ peligros.push({ tipo:'lava', x:c[0] + (Math.random() - 0.5) * 8, y:c[1] + (Math.random() - 0.5) * 8, r:13, t0:1.4, t:5 + 1.5 * fase, max:5 + 1.5 * fase, ang:0, k:0 }); });
         sfx.alarma(); mostrarAviso('<b>LAVA</b> · find the paths', true, 1500);
       }
       e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
@@ -1700,7 +1701,7 @@
       var ids = Object.keys(JEFES), id;
       do { id = ids[(Math.random() * ids.length) | 0]; } while (id === ultimoJefe && ids.length > 1);
       ultimoJefe = id;
-      var def = JEFES[id], d = dificultad(nivel, tiempo, Math.pow(ajusteBuild(nivel, stats(m), arma), 1.3)), vidaJ = d.vida * (150 + 4 * nivel);   // los jefes escalan con la curva, con el nivel y con tu build
+      var def = JEFES[id], d = dificultad(nivel, tiempo, Math.pow(ajusteBuild(nivel, stats(m), arma), 1.1)), vidaJ = d.vida * (150 + 4 * nivel);   // los jefes escalan con la curva, con el nivel y con tu build
       jefe = { x:W / 2, y:-30, s:def.s, hp:vidaJ, max:vidaJ, v:d.vel * 0.8, golpe:d.golpe * 1.4, flash:0, tipo:3, ph:0, sp:'jefe', jf:id,
                kx:0, ky:0, beh:'directo', col:def.col, slot:0, rad:30, nombre:def.nombre, est:'entra', et:2.0, fase:0, aux:0, n:0 };
       enemigos.push(jefe);
@@ -2151,7 +2152,11 @@
         case 'senuelo': sfx.nucleo(); efectos.senuelo += s.dur * 1.8; senuelo = { x:o.x, y:o.y, vx:0, vy:0 }; mostrarAviso('<b>DECOY</b> · enemies chase the fake Z'); anillo(o.x, o.y, 16, 36, .4, '#ffd27d'); break;
         case 'puas': {                                                      // 6 parches de puas al azar en la pantalla, 12 s
           sfx.granada(); mostrarAviso('<b>SPIKES</b> · half your damage to enemies that step on them');
-          for (var pu = 0; pu < 6; pu++) puasL.push({ x:12 + Math.random() * (W - 24), y:12 + Math.random() * (H - 24), r:7 + Math.random() * 3, t:12 + s.dur, k:Math.random() * 0.4 });
+          for (var pu = 0, intentosP = 0; pu < 6 && intentosP < 60; intentosP++){                   // nunca detras del HUD
+            var pxp = 12 + Math.random() * (W - 24), pyp = 12 + Math.random() * (H - 24), zh = zonasHud(), okP = true;
+            for (var zq = 0; zq < zh.length; zq++) if (pxp >= zh[zq][0] && pxp <= zh[zq][2] && pyp >= zh[zq][1] && pyp <= zh[zq][3]) okP = false;
+            if (okP){ puasL.push({ x:pxp, y:pyp, r:7 + Math.random() * 3, t:12 + s.dur, k:Math.random() * 0.4 }); pu++; }
+          }
           break;
         }
         case 'curaLenta': sfx.regen(); efectos.curaLenta += 7; mostrarAviso('<b>REGEN</b> · healing over time'); anillo(P.x, P.y, 14, 30, .35, '#ff91c9'); break;
