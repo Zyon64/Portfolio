@@ -1985,7 +1985,7 @@
           sfx.disparo();
           var crit = Math.random() < s.sniCrit;                                            // HEADSHOT: critico x2.5
           if (crit) sfx.zap();
-          balaBase(P.x, P.y, base, s, { d:s.dano * 5 * s.balas * s.lineas * (crit ? 2.5 : 1), crit:crit, vm:1.7, r:s.tam / 2 + 2.4, t:Math.max(2, Math.round(s.tam) + 2), p:s.perf + 3, vida:3, grande:true });
+          balaBase(P.x, P.y, base, s, { d:s.dano * 5 * s.balas * s.lineas * (crit ? 2.5 : 1), crit:crit, vm:3.2, r:s.tamPx / 2 + 2.4, t:s.tamPx + 2, p:s.perf + 3, vida:3, grande:true });   // sniper: bala MUY rapida
           break;
         case 'bumeran':                                     // va y vuelve; golpea en la ida y en la vuelta
           n = Math.min(16, s.balas * s.lineas); sfx.disparo();
