@@ -278,12 +278,13 @@
   /* Cada 10 niveles llega un JEFE al azar. Todos son distintos entre si y distintos a los enemigos comunes:
      varios ataques, fases al 66% y 33% de vida, y pocos minions (para poder esquivar). */
   var JEFES = {
-    triturador: { nombre:'CRUSHER',  col:'#ff6a3d', s:34 },     // cuerpo a cuerpo: saltos con onda, embestidas, temblores
-    centinela:  { nombre:'SENTINEL', col:'#ff4dd2', s:28 },     // a distancia: rayos giratorios, espiral de balas, teletransporte
-    colmena:    { nombre:'HIVE',     col:'#c8ff6a', s:32 },     // invocador: crias, lluvia de esporas, anillos de gas
-    rey:        { nombre:'KING',     col:'#ffd94d', s:30 },     // muros de balas con hueco, coronas de balas, embestidas
-    vacio:      { nombre:'VOID',     col:'#b48cff', s:30 },     // cuchillas orbitales, meteoros avisados, ondas con hueco
-    tempestad:  { nombre:'TEMPEST',  col:'#4dd2ff', s:30 }      // columnas de rayos con huecos, rebotadores de fuego, campos que te empujan
+    /* Cada jefe tiene 4 ataques UNICOS (ninguno se repite entre jefes), agrupados por tematica: */
+    triturador: { nombre:'CRUSHER',  col:'#ff6a3d', s:34 },     // TIERRA: salto con onda, embestidas, temblor de meteoros, lava con caminos
+    centinela:  { nombre:'SENTINEL', col:'#ff4dd2', s:28 },     // LASER: rayos giratorios, espiral de balas, teletransporte, mira de francotirador
+    colmena:    { nombre:'HIVE',     col:'#c8ff6a', s:32 },     // BIOLOGICO: crias, lluvia de esporas, charcos de veneno, hechizo de sapo
+    rey:        { nombre:'KING',     col:'#ffd94d', s:30 },     // FORMACIONES: muros de balas, coronas, ola serpenteante, abanicos
+    vacio:      { nombre:'VOID',     col:'#b48cff', s:30 },     // GRAVEDAD: cuchillas orbitales, ondas con hueco, estacas de empuje, bumeranes
+    tempestad:  { nombre:'TEMPEST',  col:'#4dd2ff', s:30 }      // CLIMA: columnas de rayos, rebotadores de fuego, vientos que empujan, hielo
   };
   var Z_PIX = ['XXXXXXX', '.....X.', '....X..', '...X...', '..X....', '.X.....', 'XXXXXXX'];
 
@@ -1482,9 +1483,9 @@
       if (e.aux === 0){ e.aux = 1; e.et = 3.0 + 0.5 * fase; e.tt = 0; e.n = 0; e.lado = (Math.random() * 4) | 0; e.f0 = Math.random() * 6.28; sfx.alarma(); }
       e.et -= dt; e.tt -= dt;
       if (e.tt <= 0){
-        e.tt = 0.3; e.n++;
-        var horiz = e.lado === 0 || e.lado === 2, largo = horiz ? W : H, cuantos = Math.floor(largo / 7), hueco = 7 - (fase >= 2 ? 1 : 0);
-        var centro = Math.floor((0.5 + 0.34 * Math.sin(e.f0 + e.n * 0.55)) * cuantos), v = 40 + 4 * fase;
+        e.tt = 0.42; e.n++;
+        var horiz = e.lado === 0 || e.lado === 2, largo = horiz ? W : H, cuantos = Math.floor(largo / 7), hueco = 11 - (fase >= 2 ? 1 : 0);
+        var centro = Math.floor((0.5 + 0.3 * Math.sin(e.f0 + e.n * 0.28)) * cuantos), v = 36 + 3 * fase;   // el hueco se desplaza despacio: se puede seguir
         for (var i = 0; i < cuantos; i++){
           if (Math.abs(i - centro) <= hueco / 2) continue;
           var pos = (i + 0.5) * largo / cuantos;
@@ -1523,6 +1524,67 @@
       }
       e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
     }
+    /* MIRA (SENTINEL): el francotirador a gran escala. Apunta 3 lineas hacia ti 0.9 s y dispara 3 balas rapidisimas; lo repite. */
+    function atMira(e, dt, fase){
+      if (e.aux === 0){ e.aux = 1; e.n = 0; e.et = 0; }
+      e.et -= dt;
+      if (e.et <= 0){
+        if (e.n >= 2 + fase){ e.est = 'base'; e.et = 1.4; e.aux = 0; return; }
+        if (!e.apuntando){
+          e.apuntando = true; e.base0 = Math.atan2(P.y - e.y, P.x - e.x);
+          for (var i = -1; i <= 1; i++) jAviso(e.x, e.y, e.base0 + i * 0.3, 0.9);
+          sfx.carga(); e.et = 0.9;
+        } else {
+          e.apuntando = false; e.n++;
+          for (var k = -1; k <= 1; k++) ebalas.push({ x:e.x, y:e.y, vx:Math.cos(e.base0 + k * 0.3) * 150, vy:Math.sin(e.base0 + k * 0.3) * 150, d:e.golpe * 0.8, t:4, r:2, c:'#ffd0f5' });
+          sfx.eshot(); e.et = 0.7;
+        }
+      }
+    }
+    /* CHARCOS (HIVE): charcos de veneno alrededor tuyo (a 30-75 de distancia, nunca encima) que duran unos segundos. */
+    function atCharcos(e, dt, fase){
+      if (e.aux === 0){
+        e.aux = 1; e.et = 1.6;
+        var nC = 5 + 2 * fase;
+        for (var i = 0; i < nC; i++){
+          var a = i / nC * 6.2832 + Math.random() * 0.5, dd = 30 + Math.random() * 45;
+          peligros.push({ tipo:'veneno', x:Math.max(16, Math.min(W - 16, P.x + Math.cos(a) * dd)), y:Math.max(16, Math.min(H - 16, P.y + Math.sin(a) * dd)), r:14 + Math.random() * 4, t0:1.1, t:6 + fase, max:6 + fase, ang:0, k:0 });
+        }
+        sfx.carga();
+      }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
+    }
+    /* HECHIZO (HIVE): la bruja a gran escala: un abanico de orbes lentos que te vuelven sapo. */
+    function atHechizo(e, dt, fase){
+      if (e.aux === 0){
+        e.aux = 1; e.et = 1.2;
+        var nH = 3 + 2 * (fase >= 1 ? 1 : 0), b0 = Math.atan2(P.y - e.y, P.x - e.x);
+        for (var i = 0; i < nH; i++){ var an = b0 + (i - (nH - 1) / 2) * 0.28; ebalas.push({ x:e.x, y:e.y, vx:Math.cos(an) * 38, vy:Math.sin(an) * 38, d:0, t:7, r:3, c:'#d9a6ff', sapo:true }); }
+        sfx.carga();
+      }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.6; e.aux = 0; }
+    }
+    /* ABANICOS (KING): el tirador de abanicos a gran escala: cada 0.5 s un abanico de 7 balas hacia ti, durante 2.4 s. */
+    function atAbanicos(e, dt, fase){
+      if (e.aux === 0){ e.aux = 1; e.et = 2.4 + 0.4 * fase; e.tt = 0; }
+      e.et -= dt; e.tt -= dt;
+      if (e.tt <= 0){
+        e.tt = 0.5; var b0 = Math.atan2(P.y - e.y, P.x - e.x), nA = 7;
+        for (var i = 0; i < nA; i++){ var an = b0 + (i - (nA - 1) / 2) * 0.26; jBala(e.x, e.y, an, 44 + 3 * fase, e, 1.5, '#ffe98a'); }
+        sfx.eshot();
+      }
+      if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+    }
+    /* BUMERANES (VOID): el lanzador a gran escala: 4 (6) bumeranes grandes en todas direcciones que vuelven al jefe. */
+    function atBumeranes(e, dt, fase){
+      if (e.aux === 0){
+        e.aux = 1; e.et = 3.2;
+        var nB = 4 + 2 * (fase >= 1 ? 1 : 0), b0 = Math.atan2(P.y - e.y, P.x - e.x);
+        for (var i = 0; i < nB; i++){ var an = b0 + i * 6.2832 / nB; ebalas.push({ x:e.x, y:e.y, vx:Math.cos(an) * 72, vy:Math.sin(an) * 72, d:e.golpe * 0.8, t:9, r:3, c:'#d9c2ff', bum:true, due:e, rec:0, alc:120 + 20 * fase, ret:false }); }
+        sfx.eshot();
+      }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.6; e.aux = 0; }
+    }
     function atHielo(e, dt, fase){
       if (e.aux === 0){ e.aux = 1; crearCampos('hielo', 1 + (fase >= 1 ? 1 : 0) + (fase >= 2 ? 1 : 0), 25, 1.1, 3.0); e.et = 4.2; }
       e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
@@ -1553,7 +1615,7 @@
         case 'triturador':
           if (e.est === 'base'){
             e.x += ux * e.v * vf * dt; e.y += uy * e.v * vf * dt; e.et -= dt;
-            if (e.et <= 0) elegirAtaque(e, ['salto', 'carga', 'temblor', 'estaca']);
+            if (e.et <= 0) elegirAtaque(e, ['salto', 'carga', 'temblor', 'lava']);
           } else if (e.est === 'salto'){                      // marca el lugar, se eleva y cae con una onda expansiva
             if (e.aux === 0){ e.tx = P.x; e.ty = P.y; jZona(e.tx, e.ty, 46, 1.0, e); e.et = 1.0; e.aux = 1; sfx.carga(); }
             e.et -= dt;
@@ -1563,7 +1625,7 @@
               anillo(e.x, e.y, 36, 60, 0.4, '#ff9a3d'); e.est = 'base'; e.et = 1.8; e.aux = 0;
             }
           } else if (e.est === 'carga'){ jCarga(e, dt, ux, uy, 2 + fase, 'base'); }
-          else if (e.est === 'estaca'){ atEstaca(e, dt, fase); }
+          else if (e.est === 'lava'){ atLava(e, dt, fase); }
           else if (e.est === 'temblor'){                      // meteoros avisados cerca de ti
             if (e.aux === 0){
               var nz = 7 + 2 * fase;
@@ -1579,8 +1641,8 @@
             var dir = dist < 62 ? -1 : (dist > 95 ? 1 : 0);
             e.x += ux * e.v * dir * dt + -uy * e.v * 0.6 * dt; e.y += uy * e.v * dir * dt + ux * e.v * 0.6 * dt;
             e.x = Math.max(14, Math.min(W - 14, e.x)); e.y = Math.max(14, Math.min(H - 14, e.y));
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['haces', 'espiral', 'parpadeo', 'ola']);
-          } else if (e.est === 'ola'){ atOla(e, dt, fase); }
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['haces', 'espiral', 'parpadeo', 'mira']);
+          } else if (e.est === 'mira'){ atMira(e, dt, fase); }
           else if (e.est === 'haces'){                      // 3 rayos giratorios con aviso previo
             if (e.aux === 0){
               var base0 = Math.atan2(uy, ux), sg = Math.random() < 0.5 ? 1 : -1, nr = 3 + (fase >= 2 ? 1 : 0);
@@ -1612,8 +1674,9 @@
         case 'colmena':
           if (e.est === 'base'){
             e.x += (Math.sin(tiempo * 0.5) * 70 + W / 2 - e.x) * Math.min(1, dt * 0.8);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['crias', 'esporas', 'hielo', 'lava']);
-          } else if (e.est === 'lava'){ atLava(e, dt, fase); }
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['crias', 'esporas', 'charcos', 'hechizo']);
+          } else if (e.est === 'charcos'){ atCharcos(e, dt, fase); }
+          else if (e.est === 'hechizo'){ atHechizo(e, dt, fase); }
           else if (e.est === 'crias'){
             if (contar('orbital') < 8){ for (i = 0; i < 4; i++){ var cr = crearEnemigo(e.x + Math.cos(i * 1.57) * 20, e.y + Math.sin(i * 1.57) * 20, 'orbital'); cr.minionJefe = true; } sfx.divide(); }
             e.est = 'base'; e.et = 2.6;
@@ -1626,13 +1689,13 @@
               if (Math.abs(rx - P.x) > 13) jBala(rx, -3, 1.5708, 44, e, 1.7, '#c8ff6a');
             }
             if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
-          } else if (e.est === 'hielo'){ atHielo(e, dt, fase); }
+          }
           return;
         /* ---- REY: muros de balas y coronas ---- */
         case 'rey':
           if (e.est === 'base'){
             e.x += (P.x - e.x) * Math.min(1, dt * 0.9); e.y += (H * 0.2 - e.y) * Math.min(1, dt * 1.2);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['muros', 'corona', 'columnas', 'ola']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['muros', 'corona', 'ola', 'abanicos']);
           } else if (e.est === 'ola'){ atOla(e, dt, fase); }
           else if (e.est === 'muros'){                      // hileras de balas que cruzan con un hueco
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
@@ -1658,16 +1721,14 @@
               e.n++; e.et = 0.55; sfx.zona();
             }
             if (e.n >= 2 + fase && e.et <= -0.8){ e.est = 'base'; e.et = 1.4; e.aux = 0; }
-          } else if (e.est === 'columnas'){ atColumnas(e, dt, fase); }
+          } else if (e.est === 'abanicos'){ atAbanicos(e, dt, fase); }
           return;
         /* ---- TEMPEST: columnas de rayos con huecos, rebotadores de fuego y campos que empujan ---- */
         case 'tempestad':
           if (e.est === 'base'){
             e.x += (W / 2 + Math.sin(tiempo * 0.45) * W * 0.3 - e.x) * Math.min(1, dt * 0.8); e.y += (H * 0.17 - e.y) * Math.min(1, dt * 1.2);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'empuje', 'hielo', 'ola', 'lava']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'empuje', 'hielo']);
           } else if (e.est === 'columnas'){ atColumnas(e, dt, fase); }
-          else if (e.est === 'ola'){ atOla(e, dt, fase); }
-          else if (e.est === 'lava'){ atLava(e, dt, fase); }
           else if (e.est === 'empuje'){ atEmpuje(e, dt, fase); }
           else if (e.est === 'hielo'){ atHielo(e, dt, fase); }
           else if (e.est === 'rebotadores'){                  // invoca bloques que rebotan dejando fuego (tope de minions)
@@ -1679,9 +1740,9 @@
         case 'vacio':
           if (e.est === 'base'){
             e.x += (W / 2 + Math.cos(tiempo * 0.4) * 60 - e.x) * Math.min(1, dt); e.y += (H * 0.45 + Math.sin(tiempo * 0.5) * 30 - e.y) * Math.min(1, dt);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['cuchillas', 'empuje', 'ondas', 'estaca', 'lava']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['cuchillas', 'ondas', 'estaca', 'bumeranes']);
           } else if (e.est === 'estaca'){ atEstaca(e, dt, fase); }
-          else if (e.est === 'lava'){ atLava(e, dt, fase); }
+          else if (e.est === 'bumeranes'){ atBumeranes(e, dt, fase); }
           else if (e.est === 'cuchillas'){
             if (e.aux === 0){
               var nc = 4 + 2 * (fase >= 1 ? 1 : 0);
@@ -1689,7 +1750,6 @@
               e.aux = 1; e.et = 4.2; sfx.carga();
             }
             e.et -= dt; if (e.et <= 0){ cuchillas = []; e.est = 'base'; e.et = 1.4; e.aux = 0; }
-          } else if (e.est === 'empuje'){ atEmpuje(e, dt, fase);
           } else if (e.est === 'ondas'){
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
             e.et -= dt;
@@ -2051,8 +2111,8 @@
     function herirLeve(cant, color){
       if (efectos.burbuja > 0 || cant <= 0) return;
       hp -= cant; hud();
-      numeros.push({ x:P.x + (Math.random() - .5) * 4, y:P.y - 6, v:-10, t:.55, max:.55, n:Math.max(1, Math.round(cant)), c:color || '#8cff5a' });
-      parts.push({ x:P.x, y:P.y - 3, vx:(Math.random() - .5) * 10, vy:-14, t:.4, c:color || '#8cff5a' });
+      numeros.push({ x:P.x + (Math.random() - .5) * 4, y:P.y - 6, v:-10, t:.55, max:.55, n:Math.max(1, Math.round(cant)), c:color || '#b06cff' });
+      parts.push({ x:P.x, y:P.y - 3, vx:(Math.random() - .5) * 10, vy:-14, t:.4, c:color || '#b06cff' });
       if (hp <= 0){ hp = 0; hud(); gameOver(); }
     }
     function herir(cant){
@@ -2313,7 +2373,7 @@
         if (dotT <= 0){
           dotT = 0.5;
           var dotDmg = (venenoJ > 0 ? s.vida * 0.03 : 0) + (fuegoJ > 0 ? s.vida * 0.05 : 0);
-          herirLeve(dotDmg, fuegoJ > 0 ? '#ff7a3d' : '#8cff5a'); if (fin) return;
+          herirLeve(dotDmg, fuegoJ > 0 ? '#ff7a3d' : '#b06cff'); if (fin) return;
         }
         if (venenoJ > 0) venenoJ -= dt; if (fuegoJ > 0) fuegoJ -= dt;
       } else dotT = 0;
@@ -2637,7 +2697,7 @@
       else { el('olabar').style.width = Math.max(0, Math.min(100, (1 - oleadaT / oleadaTot) * 100)) + '%'; el('olat').textContent = fmt(Math.max(0, oleadaT)); }
       // lista de estados activos: nombre, barra y segundos restantes; desaparece cuando se acaba
       var DEFE = [['tiempo', 'TIME STOP', '#7fd6ff'], ['burbuja', 'SHIELD', '#8fa8ff'], ['rayo', 'STORM', '#ffe14d'], ['curaLenta', 'REGEN', '#ff91c9'],
-                  ['repel', 'REPEL', '#7dffc9'], ['orbes', 'ORBS', '#8fe9ff'], ['senuelo', 'DECOY', '#ffd27d'], ['venenoJ', 'POISONED', '#8cff5a'], ['fuegoJ', 'BURNING', '#ff7a3d']];
+                  ['repel', 'REPEL', '#7dffc9'], ['orbes', 'ORBS', '#8fe9ff'], ['senuelo', 'DECOY', '#ffd27d'], ['venenoJ', 'POISONED', '#b06cff'], ['fuegoJ', 'BURNING', '#ff7a3d']];
       efectos.venenoJ = venenoJ; efectos.fuegoJ = fuegoJ;                                  // tus estados negativos tambien se listan
       var tx2 = '';
       DEFE.forEach(function(d3){
@@ -3209,7 +3269,7 @@
     function dibujarEstados(e){
       if (e.pz){                                                             // veneno: gotas verdes
         var f1 = Math.floor(tiempo * 8 + e.ph) % 3;
-        px(e.x - 2 + f1, e.y - e.s / 2 - 3, 1, 1, '#7dff7d'); px(e.x + 1 - f1, e.y + e.s / 2 + 1, 1, 2, '#3ddc84');
+        px(e.x - 2 + f1, e.y - e.s / 2 - 3, 1, 1, '#d9a6ff'); px(e.x + 1 - f1, e.y + e.s / 2 + 1, 1, 2, '#b06cff');
       }
       if (e.fg){                                                             // fuego: llamas naranjas
         var c1 = Math.floor(tiempo * 12 + e.ph) % 2 ? '#ffd94d' : '#ff8a3d';
@@ -3249,7 +3309,7 @@
         px(ix, iy, 13, 1, '#bfefff'); px(ix, iy + 12, 13, 1, '#bfefff'); px(ix, iy, 1, 13, '#bfefff'); px(ix + 12, iy, 1, 13, '#bfefff');
         if (!pieza('copoHielo', P.x, P.y - 9, 1, 0, null, 0.9)) px(Math.round(P.x), Math.round(P.y) - 10, 1, 3, '#fff');
       }
-      if (venenoJ > 0 && Math.floor(tiempo * 10) % 3 === 0) px(P.x - 4, P.y - 4, 9, 9, 'rgba(140,255,90,.18)');
+      if (venenoJ > 0 && Math.floor(tiempo * 10) % 3 === 0) px(P.x - 4, P.y - 4, 9, 9, 'rgba(176,108,255,.22)');
       if (sapo > 0){ px(P.x - 5, P.y - 5, 11, 11, 'rgba(176,108,255,.22)'); px(P.x - 3, P.y - 7, 2, 2, '#b06cff'); px(P.x + 2, P.y - 7, 2, 2, '#b06cff'); }
       if (fuegoJ > 0){ var fc = Math.floor(tiempo * 12) % 2; px(P.x - 2, P.y - 6, 1, 2, fc ? '#ffd94d' : '#ff7a3d'); px(P.x + 2, P.y - 7, 1, 3, fc ? '#ff7a3d' : '#ffd94d'); }
       if (parpadeo) return;
@@ -3271,7 +3331,7 @@
       });
       // terreno peligroso: va debajo de todo. Aviso = contorno punteado parpadeante.
       peligros.forEach(function(pg){
-        var n1 = Math.ceil(pg.r * 6.2832 / 3), a1, an1, col1 = pg.tipo === 'veneno' ? '#8cff5a' : (pg.tipo === 'lava' ? '#ff7a3d' : '#bfe8ff');
+        var n1 = Math.ceil(pg.r * 6.2832 / 3), a1, an1, col1 = pg.tipo === 'veneno' ? '#b06cff' : (pg.tipo === 'lava' ? '#ff7a3d' : '#bfe8ff');
         if (pg.t0 > 0){
           if (Math.floor(pg.t0 * 8) % 2) for (a1 = 0; a1 < n1; a1++){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, col1); }
           return;
@@ -3283,7 +3343,7 @@
           for (a1 = 0; a1 < n1; a1 += 2){ an1 = a1 / n1 * 6.2832; px(pg.x + Math.cos(an1) * pg.r, pg.y + Math.sin(an1) * pg.r, 1, 1, col1); }
           for (var bq = 0; bq < 9; bq++){                                                   // burbujas que suben
             var bs = ((bq * 37 + 5) % 100) / 100, bt = (tiempo * 0.35 + bq * 0.23) % 1, bxp = pg.x + (bs * 2 - 1) * pg.r * 0.75, byp = pg.y + (1 - bt * 2) * pg.r * 0.75;
-            if (Math.hypot(bxp - pg.x, byp - pg.y) < pg.r - 2) px(bxp, byp, bt > 0.8 ? 2 : 1, bt > 0.8 ? 2 : 1, 'rgba(200,255,160,.85)');
+            if (Math.hypot(bxp - pg.x, byp - pg.y) < pg.r - 2) px(bxp, byp, bt > 0.8 ? 2 : 1, bt > 0.8 ? 2 : 1, 'rgba(225,190,255,.9)');
           }
         } else if (pg.tipo === 'lava'){
           ctx.globalAlpha = 0.22; ctx.fillStyle = '#ff5a2b'; ctx.beginPath(); ctx.arc(Math.round(pg.x), Math.round(pg.y), pg.r, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
