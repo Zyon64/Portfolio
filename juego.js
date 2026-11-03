@@ -1159,9 +1159,11 @@
        otra rama (para poder cambiar de camino). Sin eleccion previa: 3 al azar. */
     function ofertas(){
       var disp = disponibles(), res = [];
+      // la ultima mejora elegida tiene 50% de volver a salir, si aun aplica (tope y arma actual)
+      if (ultimaMejora && disp.indexOf(ultimaMejora) >= 0 && Math.random() < 0.5) res.push(ultimaMejora);
       if (ultimaMejora && REL[ultimaMejora]){
-        var cerca = mezclar(REL[ultimaMejora].filter(function(k){ return disp.indexOf(k) >= 0; }));
-        res = cerca.slice(0, 2);
+        var cerca = mezclar(REL[ultimaMejora].filter(function(k){ return disp.indexOf(k) >= 0 && res.indexOf(k) < 0; }));
+        res = res.concat(cerca.slice(0, res.length ? 1 : 2));
         var otras = mezclar(disp.filter(function(k){
           return res.indexOf(k) < 0 && REL[ultimaMejora].indexOf(k) < 0 && k !== ultimaMejora;
         }));
@@ -2326,7 +2328,7 @@
       if (efectos.orbes > 0){
         orbesAng += dt * 3.2;
         for (var ho = 0; ho < 3; ho++){
-          var oa = orbesAng + ho * 2.0944, oxp = P.x + Math.cos(oa) * 16, oyp = P.y + Math.sin(oa) * 16;
+          var oa = orbesAng + ho * 2.0944, oxp = P.x + Math.cos(oa) * 30, oyp = P.y + Math.sin(oa) * 30;   // lejos de la Z: cubren sin acercarte
           for (var ho2 = enemigos.length - 1; ho2 >= 0; ho2--){
             var en7 = enemigos[ho2]; if ((en7.sp === 'fantasma' && en7.fase) || !enPantalla(en7)) continue;
             if ((en7.orbT || 0) > tiempo) continue;
@@ -3449,7 +3451,7 @@
         for (var rj = 0; rj < 6; rj++){ var rb = rj * 1.0472 + tiempo * 0.8; lineaPx(P.x + Math.cos(rb) * 29, P.y + Math.sin(rb) * 29, P.x + Math.cos(rb) * 33, P.y + Math.sin(rb) * 33, 'rgba(125,255,201,.7)'); }
       }
       if (efectos.orbes > 0 && !fin) for (var oq = 0; oq < 3; oq++){                         // orbes
-        var oa2 = orbesAng + oq * 2.0944, ox2 = P.x + Math.cos(oa2) * 16, oy2 = P.y + Math.sin(oa2) * 16;
+        var oa2 = orbesAng + oq * 2.0944, ox2 = P.x + Math.cos(oa2) * 30, oy2 = P.y + Math.sin(oa2) * 30;
         if (!pieza('orbe', ox2, oy2, 1)){ px(ox2 - 1, oy2 - 1, 3, 3, '#8fe9ff'); px(ox2, oy2, 1, 1, '#ffffff'); }
         px(ox2 - Math.cos(oa2 + 1.3) * 2 - 0.5, oy2 - Math.sin(oa2 + 1.3) * 2 - 0.5, 1, 1, 'rgba(143,233,255,.5)');
       }
