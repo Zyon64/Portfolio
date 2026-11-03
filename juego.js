@@ -20,7 +20,8 @@
 
   /* ---------------------------  PROGRESION (todo en un lugar)  --------------------------- */
   /* Kills necesarias para pasar del nivel L al siguiente: 3, 5, 10, 15, 20... (+5 cada nivel). */
-  function requiere(L){ return L <= 1 ? 3 : 5 * (L - 1); }
+  /* Antes crecia sin tope (nivel 50 = 245 kills): era cansino. Ahora 3, 8, 10, 12... y se frena en 45. */
+  function requiere(L){ return L <= 1 ? 3 : Math.min(45, 4 + 2 * L); }
 
   var OLEADA_PRIMERA = 90, OLEADA_CADA = 120;      // segundos
 
@@ -29,7 +30,7 @@
   var MEJORAS = {
     cad:      { nombre:'FIRE RATE',    desc:'+15% fire rate',               tope:14 },
     dano:     { nombre:'DAMAGE',       desc:'Bullets hit harder',           tope:999 },
-    tam:      { nombre:'BULLET SIZE',  desc:'Bigger bullets, bigger hitbox', tope:10 },
+    tam:      { nombre:'BULLET SIZE',  desc:'+1 bullet size and hitbox',     tope:10 },
     balas:    { nombre:'EXTRA SHOT',   desc:'+1 bullet per burst',          tope:7 },
     lineas:   { nombre:'EXTRA LINE',   desc:'+1 parallel line of bullets',  tope:4 },
     perf:     { nombre:'PIERCE',       desc:'Bullets go through +1',        tope:10, no:['granadas'] },   // las granadas explotan al primer toque
@@ -94,7 +95,8 @@
     return {
       cad:    Math.min(14, 1.8 * Math.pow(1.15, m.cad)),  // rafagas por segundo: +15% por mejora (tope 14)
       dano:   1 + 0.5 * m.dano,                       // sin tope
-      tam:    1 + 0.4 * m.tam,                        // tamaño de bala (unidades): +0.4 por mejora
+      tam:    1 + m.tam,                              // tamaño de bala que se MUESTRA (+1 por mejora)
+      tamPx:  1 + 2 * m.tam,                          // tamaño real en pixeles: crece de a 2 para que el cambio se vea
       balas:  1 + m.balas,                            // balas por rafaga
       lineas: 1 + m.lineas,                           // lineas paralelas de balas
       perf:   m.perf,                                 // enemigos que atraviesa
@@ -132,7 +134,7 @@
     switch (clave){
       case 'cad':      return f(a.cad, 1) + ' → ' + f(b.cad, 1) + ' /s';
       case 'dano':     return f(a.dano, 1) + ' → ' + f(b.dano, 1);
-      case 'tam':      return f(a.tam, 1) + ' → ' + f(b.tam, 1);
+      case 'tam':      return a.tam + ' → ' + b.tam;
       case 'balas':    return a.balas + ' → ' + b.balas;
       case 'lineas':   return a.lineas + ' → ' + b.lineas + ' lines';
       case 'perf':     return a.perf + ' → ' + b.perf;
@@ -184,15 +186,27 @@
   }
   /* Ritmo de aparicion (enemigos por segundo): 1.2/s al inicio → ~3/s. La PRESION real del juego es esta cantidad.
      El TTK se deriva de ella: debes poder matar un 15% mas rapido de lo que llegan, o la pantalla se llena sin remedio. */
-  function tasaObjetivo(L){ return 1.1 + 1.9 * (1 - Math.exp(-L / 25)); }
+  function tasaObjetivo(L){ return 1.3 + 2.5 * (1 - Math.exp(-L / 25)); }           // mas enemigos: 1.3/s → ~3.8/s
   function ttkObjetivo(L){ return 0.85 / tasaObjetivo(L); }                  // 0.73 s → ~0.3 s por enemigo comun
   function htkObjetivo(L){ return 10 - 4 * (1 - Math.exp(-L / 25)); }       // 10 toques → ~6
-  function dificultad(L, t){
+  /* AJUSTE POR BUILD: si tu daño real supera al del jugador de referencia (glass cannon), los enemigos reciben parte
+     de ese exceso (vida × ratio^0.6, tope ×4). Si estas por debajo, bajan hasta ×0.75. Nunca es injusto: solo acerca
+     el reto a lo que tu realmente pegas. Se calcula al nacer cada enemigo. */
+  var ARMA_FUERZA = { normal:1, dirigidas:1.05, s:1.6, escopeta:1.5, laser:1.6, sniper:1.4, bumeran:1.3, granadas:1.6 };
+  function ajusteBuild(L, s, arma){
+    var real = s.cad * (ARMAS[arma] ? ARMAS[arma].fc : 1) * s.dano * s.balas * s.lineas * 0.42 * (ARMA_FUERZA[arma] || 1) * (1 + 0.15 * s.perf);
+    if (s.pulsoOn) real += s.pulsoDano / s.pulsoInt * 2;
+    if (s.venenoOn) real *= 1.15; if (s.fuegoOn) real *= 1.25;
+    var ratio = real / referencia(L).dps;
+    return ratio >= 1 ? Math.min(4, Math.pow(ratio, 0.6)) : Math.max(0.75, Math.pow(ratio, 0.5));
+  }
+  function dificultad(L, t, ajuste){
     var ref = referencia(L), pres = 1 + Math.min(0.6, 0.02 * ((t || 0) / 60));
+    ajuste = ajuste || 1;
     return {
       intervalo: 1 / (tasaObjetivo(L) * pres),                             // segundos entre apariciones (de a uno)
-      maxVivos:  Math.min(64, Math.round((30 + (L - 1) / 5) * pres)),      // el campo empieza legible y se llena despacio
-      vida:      Math.max(1, ref.dps * ttkObjetivo(L)),
+      maxVivos:  Math.min(80, Math.round((36 + (L - 1) / 4) * pres)),      // el campo empieza legible y se llena despacio
+      vida:      Math.max(1, ref.dps * ttkObjetivo(L) * ajuste),
       vel:       22 + Math.min(44, L * 1.5),                                // unidades/s
       golpe:     ref.hp / htkObjetivo(L),                                   // HP que quita al tocarte
       pesado:    Math.min(0.3, Math.max(0, (L - 3) * 0.03)),                // prob. de bloque grande
@@ -342,7 +356,15 @@
     ['repel',       24, 7,  'REPEL',         'Pickup.'],
     ['puas',        24, 7,  'SPIKES',        'Pickup.'],
     ['senuelo',     24, 7,  'DECOY',         'Pickup.'],
-    ['orbes',       24, 7,  'ORBS',          'Pickup.']
+    ['orbes',       24, 7,  'ORBS',          'Pickup.'],
+    ['abanico',     32, 11, 'FAN SHOOTER',   'Shoots fans of 5 bullets. Level 14+.'],
+    ['francotirador', 32, 10, 'SNIPER',      'Aims with a line, then fires a very fast bullet. Level 18+.'],
+    ['brujo',       32, 11, 'WITCH',         'Casts a slow orb that turns you into a frog. Level 22+.'],
+    ['bumerante',   32, 11, 'THROWER',       'Throws a boomerang that comes back. Level 24+.'],
+    ['minador',     32, 12, 'MINER',         'Wanders and drops mines. Level 27+.'],
+    ['mina',        16, 0,  'MINE',          'Mine on the floor (the red light is drawn by the game).'],
+    ['pua',         16, 0,  'SPIKE PATCH',   'One spike patch from the SPIKES pickup.'],
+    ['orbe',        16, 0,  'ORB',           'One orb from the ORBS pickup. Three orbit you.']
   ];
   var HOJA = {};
   ORDEN.forEach(function(q, i){
@@ -832,7 +854,7 @@
           '</div>' +
           '<div class="jg-der">' +
             '<div class="jg-fila"><button class="jg-btn' + (SFX_ON ? '' : ' off') + '" data-a="sonido" aria-label="Sound">♪</button>' +
-            '<button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' +
+            (tactil ? '<button class="jg-btn" data-a="pausa" aria-label="Pause">II</button>' : '') +           // en PC se pausa con Esc
             '<button class="jg-btn" data-a="salir" aria-label="Exit">X</button></div>' +
             '<div class="jg-stats"><div class="jg-panel">' +
               '<div class="jg-st"><span><canvas class="jg-ico mini" data-id="arma_normal" width="32" height="32"></canvas>WEAPON</span><b data-n="arma">STANDARD</b></div>' +
@@ -888,6 +910,7 @@
     var rafaga = 0, rafagaT = 0;
     var efMax = { tiempo:0, burbuja:0, rayo:0, curaLenta:0, repel:0, orbes:0, senuelo:0, venenoJ:0, fuegoJ:0 };
     var peligros, peligroT, puasL, senuelo, orbesAng, venenoJ, fuegoJ, dotT;      // terreno peligroso y objetos nuevos
+    var minas, estacas, sapo, sapoT;                                               // minas del minador, estacas de jefe, estado de sapo
     var fuegos, campos, columnas, emp, empV, hielo, hieloInm, hieloRec, hx, hy, oleadaTot, ebalas, barrido, tickT = 0, tictac = false, ultimoConteo = -1, auras, auraT, contagioT, ultimoBarrido, limpiarMin, arma, lasers, armaOpc, armaT, armaPend, jefe, jefePend, zonas, anillosJ, rayosJ, cuchillas, ultimoJefe;
     var P, enemigos, balas, parts, objetos, rayos, numeros, estrellas, nivel, xp, kills, tiempo, hp, inv, acum, spawnT, pausado, eligiendo,
         fin, raf, ultimo, m, pendientes, ultimaMejora, oleadaT, oleadaAvisada, pulsoT, pulsos, efectos, rayoT, efectosTxt, slotCerco;
@@ -903,6 +926,7 @@
       oleadaT = OLEADA_PRIMERA; oleadaAvisada = false; rayoT = 0; efectosTxt = ''; slotCerco = 0;
       efectos = { tiempo:0, burbuja:0, rayo:0, curaLenta:0, repel:0, orbes:0, senuelo:0 };
       peligros = []; peligroT = 40; puasL = []; senuelo = null; orbesAng = 0; venenoJ = 0; fuegoJ = 0; dotT = 0;
+      minas = []; estacas = []; sapo = 0; sapoT = 0;
       P = { x: W / 2, y: H / 2, vx:0, vy:0 };
       tx = P.x; ty = P.y;
       enemigos = []; balas = []; parts = []; objetos = []; rayos = []; numeros = []; ebalas = []; barrido = null;
@@ -926,7 +950,7 @@
       el('xp').textContent = xp + '/' + req; el('xpbarra').style.width = Math.min(100, xp / req * 100) + '%';
       el('cad').textContent = s.cad.toFixed(1); el('dano').textContent = s.dano.toFixed(1);
       el('balas').textContent = s.balas; el('lineas').textContent = s.lineas;
-      el('perf').textContent = s.perf; el('tam').textContent = s.tam.toFixed(1);
+      el('perf').textContent = s.perf; el('tam').textContent = s.tam;
       el('arma').textContent = ARMAS[arma].nombre;
       var icm = raiz.querySelector('.jg-ico.mini'); if (icm) icm.setAttribute('data-id', 'arma_' + arma);
       el('f_pulso').hidden = !s.pulsoOn; el('f_veneno').hidden = !s.venenoOn; el('f_fuego').hidden = !s.fuegoOn;
@@ -949,8 +973,11 @@
     raiz.addEventListener('pointermove', mover);
     raiz.addEventListener('pointerdown', function(e){
       if (e.target.closest && e.target.closest('.jg-btn, .jg-modal')) return;
+      if (e.button === 2 || e.button === 1) return;
       mover(e);
     });
+    raiz.addEventListener('contextmenu', function(e){ e.preventDefault(); });               // sin menu contextual: entorpece
+    raiz.addEventListener('auxclick', function(e){ e.preventDefault(); });
     function tecla(e){
       if (e.key === 'Escape'){ e.preventDefault(); if (!fin && !eligiendo) alternarPausa(); }
       else if (eligiendo && /^[1-3]$/.test(e.key)){
@@ -1046,7 +1073,7 @@
       caja.innerHTML = '<div class="jg-h">OPTIONS</div><p>Sound volume</p>' +
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
-        '<p style="font-size:.7rem;color:#8da398">Custom sheet: 64×64 cells, animated parts in their own cells. The green frame in each cell marks how far the sprite shows in game (guide lines sit outside it and never appear). Download, edit, load back. Your sheet only lasts for this browser session; everyone else sees the official art.</p>' +
+        '<p>Sprite sheet</p>' +
         '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="descargarGuia">DOWNLOAD GUIDE</button><button class="jg-btn" data-a="usarDefecto">USE DEFAULT</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
@@ -1238,7 +1265,14 @@
       { id:'bombardero',desde:9,  p:0.04 },     // se acerca, enciende la mecha y explota
       { id:'escudero',  desde:10, p:0.04 },     // escudo al frente: las balas de frente casi no le hacen nada
       { id:'sembrador', desde:13, p:0.025 },    // grande y lento, suelta mini bloques cada pocos segundos
-      { id:'rebotador', desde:8,  p:0.035 }     // rebota por toda la pantalla como el logo de un DVD y deja fuego un instante
+      { id:'rebotador', desde:20, p:0.04 },     // rebota por toda la pantalla como el logo de un DVD y deja fuego un instante
+      /* tramo 10-20 */
+      { id:'abanico',   desde:14, p:0.05 },     // dispara abanicos de 5 balas (como la S de Contra)
+      { id:'francotirador', desde:18, p:0.04 }, // se queda lejos, apunta con una linea y dispara una bala muy rapida
+      /* tramo 20+ */
+      { id:'brujo',     desde:22, p:0.04 },     // lanza un hechizo circular: si te toca te vuelve SAPO (saltas erratico)
+      { id:'bumerante', desde:24, p:0.045 },    // lanza un bumeran que va y vuelve
+      { id:'minador',   desde:27, p:0.04 }      // deja minas que explotan si te acercas
     ];
     function especieAleatoria(){
       var r = Math.random(), acc = 0;
@@ -1251,7 +1285,7 @@
       return null;
     }
     function crearEnemigo(x, y, forzar){
-      var d = dificultad(nivel, tiempo), r = Math.random(), tam = 9, vida = d.vida, vel = d.vel, tipo = 0, golpe = d.golpe;
+      var d = dificultad(nivel, tiempo, ajusteBuild(nivel, stats(m), arma)), r = Math.random(), tam = 9, vida = d.vida, vel = d.vel, tipo = 0, golpe = d.golpe;
       var sp = forzar || especieAleatoria(), col = null, extra = {};
       switch (sp){
         case 'embestida': tam = 10; vida = d.vida * 1.1; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#ff9a3d';
@@ -1266,6 +1300,11 @@
         case 'escudero':  tam = 12; vida = d.vida * 2.2; vel = d.vel * 0.55; golpe = d.golpe * 1.1; col = '#9fd0ff'; break;
         case 'sembrador': tam = 14; vida = d.vida * 4; vel = d.vel * 0.3; col = '#c8ff6a'; extra = { ft:2 }; break;
         case 'rebotador': tam = 11; vida = d.vida * 1.4; vel = d.vel * 1.3; col = '#ff8a3d'; extra = { rt:0, dentro:false }; break;
+        case 'abanico':   tam = 11; vida = d.vida * 1.5; vel = d.vel * 0.65; col = '#ff7fb6'; extra = { ft:1.4 + Math.random() }; break;
+        case 'francotirador': tam = 10; vida = d.vida * 1.2; vel = d.vel * 0.6; col = '#b8ffe0'; extra = { ft:1.5 + Math.random(), apunta:0 }; break;
+        case 'brujo':     tam = 11; vida = d.vida * 1.6; vel = d.vel * 0.55; col = '#b06cff'; extra = { ft:2 + Math.random() * 2 }; break;
+        case 'bumerante': tam = 11; vida = d.vida * 1.5; vel = d.vel * 0.7; col = '#ffc46b'; extra = { ft:1 + Math.random(), bumVivo:false }; break;
+        case 'minador':   tam = 12; vida = d.vida * 2; vel = d.vel * 0.5; col = '#9aa7b5'; extra = { ft:1.5, ang:Math.random() * 6.28 }; break;
         case 'orbital':   tam = 5;  vida = d.vida * 0.35; vel = d.vel * 1.1; col = '#ff8ae0'; extra = { rad:38 + Math.random() * 14 }; break;
         case 'muro':      tam = 9;  vida = d.vida * 0.8; vel = 0; col = '#ff7a7a'; break;
         default:
@@ -1294,8 +1333,8 @@
     function contar(sp){ var n = 0; enemigos.forEach(function(e){ if (e.sp === sp) n++; }); return n; }
     function explotarBombardero(e){
       var i = enemigos.indexOf(e); if (i >= 0) enemigos.splice(i, 1);
-      anillo(e.x, e.y, 28, 50, 0.35, '#ff8a3d'); anillo(e.x, e.y, 16, 28, 0.3, '#fff3c4'); sfx.zona();
-      if (Math.hypot(e.x - P.x, e.y - P.y) < 26) herir(e.golpe * 1.2);
+      anillo(e.x, e.y, 40, 90, 0.45, '#ff8a3d'); anillo(e.x, e.y, 24, 50, 0.4, '#fff3c4'); sfx.bomba();
+      if (Math.hypot(e.x - P.x, e.y - P.y) < 42) herir(e.golpe * 1.2);                      // explosion grande (antes 26)
     }
     function aparecerBorde(){
       var lado = (Math.random() * 4) | 0, x, y, mg = 10;
@@ -1379,7 +1418,7 @@
       sfx.eshot();
     }
     /* ---------- JEFES ---------- */
-    function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; fuegos = []; campos = []; columnas = []; peligros = []; }
+    function limpiarPeligros(){ ebalas = []; zonas = []; anillosJ = []; rayosJ = []; cuchillas = []; fuegos = []; campos = []; columnas = []; peligros = []; minas = []; estacas = []; }
     function jBala(x, y, ang, v, e, r, c){ ebalas.push({ x:x, y:y, vx:Math.cos(ang) * v, vy:Math.sin(ang) * v, d:e.golpe * 0.7, t:7, r:r || 1.6, c:c || '#ff9a9a' }); }
     function jAnillo(x, y, v, gapA, gapL, e){ anillosJ.push({ x:x, y:y, r:6, v:v, gapA:gapA, gapL:gapL, d:e.golpe * 0.8, hit:false }); sfx.zona(); }
     /* Anillo con salida garantizada: el hueco se centra hacia el jugador (+/- hasta 0.8 rad al azar), asi
@@ -1434,6 +1473,51 @@
       if (e.aux === 0){ e.aux = 1; crearCampos('empuje', 2 + fase, 27, 0.9, 2.4); e.et = 3.8; }
       e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
     }
+    /* OLA: filas de particulas que cruzan desde un lado; el hueco de cada fila se mueve como una onda, asi el camino libre serpentea. */
+    function atOla(e, dt, fase){
+      if (e.aux === 0){ e.aux = 1; e.et = 3.0 + 0.5 * fase; e.tt = 0; e.n = 0; e.lado = (Math.random() * 4) | 0; e.f0 = Math.random() * 6.28; sfx.alarma(); }
+      e.et -= dt; e.tt -= dt;
+      if (e.tt <= 0){
+        e.tt = 0.3; e.n++;
+        var horiz = e.lado === 0 || e.lado === 2, largo = horiz ? W : H, cuantos = Math.floor(largo / 7), hueco = 7 - (fase >= 2 ? 1 : 0);
+        var centro = Math.floor((0.5 + 0.34 * Math.sin(e.f0 + e.n * 0.55)) * cuantos), v = 40 + 4 * fase;
+        for (var i = 0; i < cuantos; i++){
+          if (Math.abs(i - centro) <= hueco / 2) continue;
+          var pos = (i + 0.5) * largo / cuantos;
+          if (e.lado === 0) jBala(pos, -3, 1.5708, v, e, 1.4, '#8fe9ff'); else if (e.lado === 2) jBala(pos, H + 3, -1.5708, v, e, 1.4, '#8fe9ff');
+          else if (e.lado === 1) jBala(W + 3, pos, 3.1416, v, e, 1.4, '#8fe9ff'); else jBala(-3, pos, 0, v, e, 1.4, '#8fe9ff');
+        }
+      }
+      if (e.et <= 0){ e.est = 'base'; e.et = 1.6; e.aux = 0; }
+    }
+    /* ESTACA: lanza un proyectil que se clava donde estabas; cada 1.3 s suelta balas de EMPUJE (no dañan, te lanzan). */
+    function atEstaca(e, dt, fase){
+      if (e.aux === 0){
+        e.aux = 1; e.et = 1.2;
+        var nE = 1 + (fase >= 1 ? 1 : 0);
+        for (var i = 0; i < nE; i++){
+          var txE = P.x + (Math.random() - 0.5) * 60 * i, tyE = P.y + (Math.random() - 0.5) * 60 * i, dE = Math.hypot(txE - e.x, tyE - e.y) || 1, tv = 0.9;
+          ebalas.push({ x:e.x, y:e.y, vx:(txE - e.x) / tv, vy:(tyE - e.y) / tv, d:0, t:tv, r:2, estaca:true, dur:7 + 2 * fase });
+        }
+        sfx.carga();
+      }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
+    }
+    /* LAVA: manchas de lava por casi todo el escenario, dejando libres una franja horizontal y una vertical (caminos). */
+    function atLava(e, dt, fase){
+      if (e.aux === 0){
+        e.aux = 1; e.et = 2.0;
+        var paso = 34, fx = 0.2 + Math.random() * 0.6, fy = 0.2 + Math.random() * 0.6, ancho = 30 - 3 * fase, n = 0;
+        for (var gx = paso / 2; gx < W; gx += paso) for (var gy = paso / 2; gy < H; gy += paso){
+          if (Math.abs(gx - W * fx) < ancho || Math.abs(gy - H * fy) < ancho) continue;                 // los caminos quedan libres
+          if (Math.hypot(gx - P.x, gy - P.y) < 26) continue;                                           // nunca encima de ti
+          if (n++ >= 26) break;
+          peligros.push({ tipo:'lava', x:gx + (Math.random() - 0.5) * 8, y:gy + (Math.random() - 0.5) * 8, r:13, t0:1.4, t:5 + 1.5 * fase, max:5 + 1.5 * fase, ang:0, k:0 });
+        }
+        sfx.alarma(); mostrarAviso('<b>LAVA</b> · find the paths', true, 1500);
+      }
+      e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.8; e.aux = 0; }
+    }
     function atHielo(e, dt, fase){
       if (e.aux === 0){ e.aux = 1; crearCampos('hielo', 1 + (fase >= 1 ? 1 : 0) + (fase >= 2 ? 1 : 0), 25, 1.1, 3.0); e.et = 4.2; }
       e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.5; e.aux = 0; }
@@ -1464,9 +1548,9 @@
         case 'triturador':
           if (e.est === 'base'){
             e.x += ux * e.v * vf * dt; e.y += uy * e.v * vf * dt; e.et -= dt;
-            if (e.et <= 0) elegirAtaque(e, ['salto', 'carga', 'temblor']);
+            if (e.et <= 0) elegirAtaque(e, ['salto', 'carga', 'temblor', 'estaca']);
           } else if (e.est === 'salto'){                      // marca el lugar, se eleva y cae con una onda expansiva
-            if (e.aux === 0){ e.tx = P.x; e.ty = P.y; jZona(e.tx, e.ty, 30, 1.0, e); e.et = 1.0; e.aux = 1; sfx.carga(); }
+            if (e.aux === 0){ e.tx = P.x; e.ty = P.y; jZona(e.tx, e.ty, 46, 1.0, e); e.et = 1.0; e.aux = 1; sfx.carga(); }
             e.et -= dt;
             if (e.et <= 0){
               e.x = e.tx; e.y = e.ty; sfx.bomba();
@@ -1474,10 +1558,11 @@
               anillo(e.x, e.y, 36, 60, 0.4, '#ff9a3d'); e.est = 'base'; e.et = 1.8; e.aux = 0;
             }
           } else if (e.est === 'carga'){ jCarga(e, dt, ux, uy, 2 + fase, 'base'); }
+          else if (e.est === 'estaca'){ atEstaca(e, dt, fase); }
           else if (e.est === 'temblor'){                      // meteoros avisados cerca de ti
             if (e.aux === 0){
               var nz = 7 + 2 * fase;
-              for (i = 0; i < nz; i++){ a = Math.random() * 6.2832; jZona(P.x + Math.cos(a) * Math.random() * 80, P.y + Math.sin(a) * Math.random() * 80, 15, 0.9 + i * 0.12, e); }
+              for (i = 0; i < nz; i++){ a = Math.random() * 6.2832; jZona(P.x + Math.cos(a) * Math.random() * 90, P.y + Math.sin(a) * Math.random() * 90, 24, 0.9 + i * 0.12, e); }
               e.aux = 1; e.et = 2.6;
             }
             e.et -= dt; if (e.et <= 0){ e.est = 'base'; e.et = 1.6; e.aux = 0; }
@@ -1489,8 +1574,9 @@
             var dir = dist < 62 ? -1 : (dist > 95 ? 1 : 0);
             e.x += ux * e.v * dir * dt + -uy * e.v * 0.6 * dt; e.y += uy * e.v * dir * dt + ux * e.v * 0.6 * dt;
             e.x = Math.max(14, Math.min(W - 14, e.x)); e.y = Math.max(14, Math.min(H - 14, e.y));
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['haces', 'espiral', 'parpadeo']);
-          } else if (e.est === 'haces'){                      // 3 rayos giratorios con aviso previo
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['haces', 'espiral', 'parpadeo', 'ola']);
+          } else if (e.est === 'ola'){ atOla(e, dt, fase); }
+          else if (e.est === 'haces'){                      // 3 rayos giratorios con aviso previo
             if (e.aux === 0){
               var base0 = Math.atan2(uy, ux), sg = Math.random() < 0.5 ? 1 : -1, nr = 3 + (fase >= 2 ? 1 : 0);
               for (i = 0; i < nr; i++) jRayo(e.x, e.y, base0 + i * 6.2832 / nr, sg * (0.7 + 0.15 * fase), 1.0, 2.4, e);
@@ -1521,8 +1607,9 @@
         case 'colmena':
           if (e.est === 'base'){
             e.x += (Math.sin(tiempo * 0.5) * 70 + W / 2 - e.x) * Math.min(1, dt * 0.8);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['crias', 'esporas', 'hielo']);
-          } else if (e.est === 'crias'){
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['crias', 'esporas', 'hielo', 'lava']);
+          } else if (e.est === 'lava'){ atLava(e, dt, fase); }
+          else if (e.est === 'crias'){
             if (contar('orbital') < 8){ for (i = 0; i < 4; i++){ var cr = crearEnemigo(e.x + Math.cos(i * 1.57) * 20, e.y + Math.sin(i * 1.57) * 20, 'orbital'); cr.minionJefe = true; } sfx.divide(); }
             e.est = 'base'; e.et = 2.6;
           } else if (e.est === 'esporas'){                    // lluvia de balas desde arriba, con un carril libre junto a ti
@@ -1540,8 +1627,9 @@
         case 'rey':
           if (e.est === 'base'){
             e.x += (P.x - e.x) * Math.min(1, dt * 0.9); e.y += (H * 0.2 - e.y) * Math.min(1, dt * 1.2);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['muros', 'corona', 'columnas']);
-          } else if (e.est === 'muros'){                      // hileras de balas que cruzan con un hueco
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['muros', 'corona', 'columnas', 'ola']);
+          } else if (e.est === 'ola'){ atOla(e, dt, fase); }
+          else if (e.est === 'muros'){                      // hileras de balas que cruzan con un hueco
             if (e.aux === 0){ e.aux = 1; e.et = 0; e.n = 0; }
             e.et -= dt;
             if (e.et <= 0 && e.n < 2 + fase){
@@ -1571,8 +1659,10 @@
         case 'tempestad':
           if (e.est === 'base'){
             e.x += (W / 2 + Math.sin(tiempo * 0.45) * W * 0.3 - e.x) * Math.min(1, dt * 0.8); e.y += (H * 0.17 - e.y) * Math.min(1, dt * 1.2);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'empuje', 'hielo']);
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['columnas', 'rebotadores', 'empuje', 'hielo', 'ola', 'lava']);
           } else if (e.est === 'columnas'){ atColumnas(e, dt, fase); }
+          else if (e.est === 'ola'){ atOla(e, dt, fase); }
+          else if (e.est === 'lava'){ atLava(e, dt, fase); }
           else if (e.est === 'empuje'){ atEmpuje(e, dt, fase); }
           else if (e.est === 'hielo'){ atHielo(e, dt, fase); }
           else if (e.est === 'rebotadores'){                  // invoca bloques que rebotan dejando fuego (tope de minions)
@@ -1584,8 +1674,10 @@
         case 'vacio':
           if (e.est === 'base'){
             e.x += (W / 2 + Math.cos(tiempo * 0.4) * 60 - e.x) * Math.min(1, dt); e.y += (H * 0.45 + Math.sin(tiempo * 0.5) * 30 - e.y) * Math.min(1, dt);
-            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['cuchillas', 'empuje', 'ondas']);
-          } else if (e.est === 'cuchillas'){
+            e.et -= dt; if (e.et <= 0) elegirAtaque(e, ['cuchillas', 'empuje', 'ondas', 'estaca', 'lava']);
+          } else if (e.est === 'estaca'){ atEstaca(e, dt, fase); }
+          else if (e.est === 'lava'){ atLava(e, dt, fase); }
+          else if (e.est === 'cuchillas'){
             if (e.aux === 0){
               var nc = 4 + 2 * (fase >= 1 ? 1 : 0);
               for (i = 0; i < nc; i++) cuchillas.push({ e:e, ang:i * 6.2832 / nc, t:0 });
@@ -1608,7 +1700,7 @@
       var ids = Object.keys(JEFES), id;
       do { id = ids[(Math.random() * ids.length) | 0]; } while (id === ultimoJefe && ids.length > 1);
       ultimoJefe = id;
-      var def = JEFES[id], d = dificultad(nivel), vidaJ = d.vida * 150;                       // los jefes escalan con la misma curva, y mas
+      var def = JEFES[id], d = dificultad(nivel, tiempo, Math.pow(ajusteBuild(nivel, stats(m), arma), 1.3)), vidaJ = d.vida * (150 + 4 * nivel);   // los jefes escalan con la curva, con el nivel y con tu build
       jefe = { x:W / 2, y:-30, s:def.s, hp:vidaJ, max:vidaJ, v:d.vel * 0.8, golpe:d.golpe * 1.4, flash:0, tipo:3, ph:0, sp:'jefe', jf:id,
                kx:0, ky:0, beh:'directo', col:def.col, slot:0, rad:30, nombre:def.nombre, est:'entra', et:2.0, fase:0, aux:0, n:0 };
       enemigos.push(jefe);
@@ -1677,6 +1769,52 @@
             e.x += ux * e.v * dt; e.y += uy * e.v * dt;
             if (dist < 38){ e.enc = true; e.mecha = 0.9; sfx.carga(); }
           } else { e.mecha -= dt; if (e.mecha <= 0) e.explota = true; }
+          return;
+        case 'abanico': {                                         // mantiene distancia y dispara abanicos de 5
+          var dirA = dist < 60 ? -1 : (dist > 90 ? 1 : 0);
+          e.x += ux * e.v * dirA * dt; e.y += uy * e.v * dirA * dt;
+          e.ft -= dt;
+          if (e.ft <= 0 && dist < 180){
+            e.ft = 2.6; var baseA = Math.atan2(uy, ux);
+            for (var fa = -2; fa <= 2; fa++) ebalas.push({ x:e.x, y:e.y, vx:Math.cos(baseA + fa * 0.26) * 46, vy:Math.sin(baseA + fa * 0.26) * 46, d:e.golpe * 0.5, t:5, r:1.5, c:'#ffb3d1' });
+            sfx.eshot();
+          }
+          return;
+        }
+        case 'francotirador': {                                   // se queda lejos; apunta 0.8 s con una linea y dispara una bala rapidisima
+          var dirF = dist < 110 ? -1 : (dist > 150 ? 1 : 0);
+          if (e.apunta <= 0){ e.x += ux * e.v * dirF * dt; e.y += uy * e.v * dirF * dt; }
+          e.x = Math.max(4, Math.min(W - 4, e.x)); e.y = Math.max(4, Math.min(H - 4, e.y));
+          e.ft -= dt;
+          if (e.apunta > 0){
+            e.apunta -= dt;
+            if (e.apunta <= 0){ var anF = e.angF; ebalas.push({ x:e.x, y:e.y, vx:Math.cos(anF) * 150, vy:Math.sin(anF) * 150, d:e.golpe * 0.9, t:4, r:1.4, c:'#d8fff0' }); sfx.eshot(); e.ft = 3; }
+          } else if (e.ft <= 0 && enPantalla(e)){ e.apunta = 0.8; e.angF = Math.atan2(uy, ux); jAviso(e.x, e.y, e.angF, 0.8); }
+          return;
+        }
+        case 'brujo': {                                           // flota a distancia y lanza un hechizo lento: te vuelve sapo
+          var dirB = dist < 70 ? -1 : (dist > 100 ? 1 : 0);
+          e.x += ux * e.v * dirB * dt + -uy * e.v * 0.5 * dt; e.y += uy * e.v * dirB * dt + ux * e.v * 0.5 * dt;
+          e.x = Math.max(6, Math.min(W - 6, e.x)); e.y = Math.max(6, Math.min(H - 6, e.y));
+          e.ft -= dt;
+          if (e.ft <= 0 && dist < 160){ e.ft = 4; ebalas.push({ x:e.x, y:e.y, vx:ux * 34, vy:uy * 34, d:0, t:6, r:3, c:'#d9a6ff', sapo:true }); sfx.carga(); }
+          return;
+        }
+        case 'bumerante': {                                       // se acerca a 80 y lanza un bumeran que vuelve a el
+          var dirM = dist > 80 ? 1 : (dist < 55 ? -1 : 0);
+          e.x += ux * e.v * dirM * dt; e.y += uy * e.v * dirM * dt;
+          e.ft -= dt;
+          if (e.ft <= 0 && !e.bumVivo && dist < 150){
+            e.ft = 2.8; e.bumVivo = true;
+            ebalas.push({ x:e.x, y:e.y, vx:ux * 70, vy:uy * 70, d:e.golpe * 0.7, t:9, r:2.2, c:'#ffd27d', bum:true, due:e, rec:0, alc:95, ret:false }); sfx.eshot();
+          }
+          return;
+        }
+        case 'minador':                                           // deambula y deja minas (maximo 8 suyas)
+          e.ft -= dt; e.ang += Math.sin(tiempo * 0.9 + e.ph) * 1.2 * dt;
+          e.x += Math.cos(e.ang) * e.v * dt; e.y += Math.sin(e.ang) * e.v * dt;
+          if (e.x < 8 || e.x > W - 8) e.ang = Math.PI - e.ang; if (e.y < 8 || e.y > H - 8) e.ang = -e.ang;
+          if (e.ft <= 0 && enPantalla(e)){ e.ft = 2.5; if (minas.filter(function(mn){ return mn.due === e; }).length < 8) minas.push({ x:e.x, y:e.y, t:14, arm:0.8, d:e.golpe * 1.2, due:e }); }
           return;
         case 'sembrador':                                         // persigue lento y va soltando minis (maximo 10)
           e.ft -= dt;
@@ -1779,7 +1917,7 @@
     }
     function balaBase(x, y, an, s, extra){
       var vm = (extra && extra.vm) || 1, v = s.vel * vm;
-      var b = { x:x, y:y, vx:Math.cos(an) * v, vy:Math.sin(an) * v, d:s.dano, r:s.tam / 2 + 1.2, t:Math.max(1, Math.round(s.tam)),
+      var b = { x:x, y:y, vx:Math.cos(an) * v, vy:Math.sin(an) * v, d:s.dano, r:s.tamPx / 2 + 1.2, t:s.tamPx,
                 p:s.perf, golpes:[], vida:2.2 };
       for (var k in extra) b[k] = extra[k];
       balas.push(b);
@@ -1810,11 +1948,11 @@
       var objs = enemigos.slice().filter(function(e){ return !(e.sp === 'fantasma' && e.fase) && enPantalla(e); });
       if (!objs.length) return;
       objs.sort(function(a, b){ return Math.hypot(a.x - P.x, a.y - P.y) - Math.hypot(b.x - P.x, b.y - P.y); });
-      var nb = Math.min(6, s.balas);
+      var nb = s.balas;
       for (var bi = 0; bi < nb; bi++){
         var t = objs[bi % objs.length], an = Math.atan2(t.y - P.y, t.x - P.x), ux = Math.cos(an), uy = Math.sin(an);
         for (var li = 0; li < s.lineas; li++){
-          var off = (li - (s.lineas - 1) / 2) * 3.4, sx = P.x - uy * off, sy = P.y + ux * off, ancho = s.tam * 0.5 + 0.8, tocados = [];
+          var off = (li - (s.lineas - 1) / 2) * 3.4, sx = P.x - uy * off, sy = P.y + ux * off, ancho = s.tamPx * 0.5 + 0.8, tocados = [];
           enemigos.forEach(function(e){
             if ((e.sp === 'fantasma' && e.fase) || !enPantalla(e)) return;
             var rx = e.x - sx, ry = e.y - sy, proy = rx * ux + ry * uy;
@@ -1850,12 +1988,12 @@
           balaBase(P.x, P.y, base, s, { d:s.dano * 5 * s.balas * s.lineas * (crit ? 2.5 : 1), crit:crit, vm:1.7, r:s.tam / 2 + 2.4, t:Math.max(2, Math.round(s.tam) + 2), p:s.perf + 3, vida:3, grande:true });
           break;
         case 'bumeran':                                     // va y vuelve; golpea en la ida y en la vuelta
-          n = Math.min(8, s.balas * s.lineas); sfx.disparo();
+          n = Math.min(16, s.balas * s.lineas); sfx.disparo();
           for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (i - (n - 1) / 2) * 0.35, s, { bum:true, alc:(60 + s.vel * 0.12 + i * 6) * s.bumAlc, d:s.dano * 1.2, vm:0.85, vida:8, p:s.perf + 4 });
           break;
         case 'granadas':                                    // explotan al impactar: area, 3x dano
-          n = Math.min(8, s.balas * s.lineas); sfx.disparo();
-          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (Math.random() - 0.5) * 0.3 + (i - (n - 1) / 2) * 0.12, s, { gran:true, rad:(16 + s.tam * 3) * s.granR, vm:0.65, vida:1.3, d:0, p:0, t:Math.max(2, Math.round(s.tam)) });
+          n = Math.min(16, s.balas * s.lineas); sfx.disparo();
+          for (i = 0; i < n; i++) balaBase(P.x, P.y, base + (Math.random() - 0.5) * 0.3 + (i - (n - 1) / 2) * 0.12, s, { gran:true, rad:(16 + s.tamPx * 3) * s.granR, vm:0.65, vida:1.3, d:0, p:0, t:s.tamPx + 1 });
           break;
       }
     }
@@ -1927,7 +2065,7 @@
     function matar(e){
       var idx = enemigos.indexOf(e); if (idx < 0) return;
       enemigos.splice(idx, 1);
-      kills++; xp++; sfx.matar();
+      kills++; xp += e.jug ? 3 : (e.sp === 'masa' ? 4 : (e.tipo === 1 ? 2 : 1)); sfx.matar();   // los grandes dan mas experiencia
       for (var i = 0; i < 10; i++){
         var an = Math.random() * 6.2832, v = 20 + Math.random() * 50;
         parts.push({ x:e.x, y:e.y, vx:Math.cos(an) * v, vy:Math.sin(an) * v, t:0.35 + Math.random() * 0.2, c:ROJO });
@@ -1949,7 +2087,10 @@
       var lejos = Math.hypot(e.x - P.x, e.y - P.y) > 28;
       if (lejos && Math.random() < stats(m).suerte){
         var activo = {}; for (var ka in efectos) activo[ka] = efectos[ka] > 0;
-        activo.puas = puasL.length > 0;
+        activo.puas = puasL.length > 0; activo.rayo = efectos.rayo >= 10;                   // los truenos se acumulan (hasta 10)
+        var sVida = stats(m).vida, visiblesN = enemigos.filter(enPantalla).length;
+        activo.cura = activo.cura || hp >= sVida * 0.95; activo.curaLenta = activo.curaLenta || hp >= sVida * 0.95;   // con la vida llena no caen curas
+        activo.barrido = activo.barrido || visiblesN < 12;                                    // el barrido solo con la pantalla llena
         var posibles = OBJETOS.filter(function(o){
           var enSuelo = objetos.filter(function(q){ return q.tipo === o.id; }).length;
           if (enSuelo >= (o.id === 'barrido' ? 1 : 2)) return false;                      // tope de 2 iguales a la vez en el suelo
@@ -1957,18 +2098,45 @@
           if (o.id === 'barrido' && tiempo - ultimoBarrido <= 150) return false;          // el barrido: 1 cada 2.5 min como maximo
           return true;
         });
-        if (!posibles.length) posibles = [];
         if (posibles.length){
           var tot = posibles.reduce(function(a, o){ return a + o.peso; }, 0), r = Math.random() * tot, tipo = posibles[0].id;
           for (var q3 = 0; q3 < posibles.length; q3++){ r -= posibles[q3].peso; if (r <= 0){ tipo = posibles[q3].id; break; } }
-          // Los items no nacen fuera ni pegados al borde, y quedan mas tiempo para poder volver por ellos.
-          objetos.push({ x:Math.max(12, Math.min(W - 12, e.x)), y:Math.max(12, Math.min(H - 12, e.y)), t:18, tipo:tipo });
+          var pos = lugarItem(e.x, e.y);
+          if (pos) objetos.push({ x:pos[0], y:pos[1], t:18, tipo:tipo });
         }
       }
       hud();
       if (!eligiendo && xp >= requiere(nivel)) subirNivel();
     }
 
+    /* Zonas del HUD en unidades del mundo (se refrescan cada segundo): ningun item nace detras de ellas. */
+    var hudZonas = [], hudT = -1e9;
+    function zonasHud(){
+      if (tiempo - hudT < 1) return hudZonas;
+      hudT = tiempo; hudZonas = [];
+      ['.jg-izq', '.jg-der', '.jg-pie', '.jg-jefe', '.jg-conteo'].forEach(function(sel){
+        var n = raiz.querySelector(sel); if (!n || n.hidden) return;
+        var r = n.getBoundingClientRect(); if (r.width < 2 || r.height < 2) return;
+        hudZonas.push([r.left / S - 6, r.top / S - 6, r.right / S + 6, r.bottom / S + 6]);
+      });
+      return hudZonas;
+    }
+    function lugarLibre(x, y){
+      var z = zonasHud();
+      for (var i = 0; i < z.length; i++) if (x >= z[i][0] && x <= z[i][2] && y >= z[i][1] && y <= z[i][3]) return false;
+      for (var j = 0; j < objetos.length; j++) if (Math.hypot(objetos[j].x - x, objetos[j].y - y) < 13) return false;   // nunca encima de otro item
+      return x >= 12 && x <= W - 12 && y >= 12 && y <= H - 12;
+    }
+    /* Busca el lugar libre mas cercano a (x,y) en anillos crecientes; null si no hay. */
+    function lugarItem(x, y){
+      x = Math.max(12, Math.min(W - 12, x)); y = Math.max(12, Math.min(H - 12, y));
+      if (lugarLibre(x, y)) return [x, y];
+      for (var r = 14; r <= 120; r += 14) for (var k = 0; k < 12; k++){
+        var a = k / 12 * 6.2832 + r * 0.3, qx = x + Math.cos(a) * r, qy = y + Math.sin(a) * r;
+        if (lugarLibre(qx, qy)) return [qx, qy];
+      }
+      return null;
+    }
     /* ---------- objetos ---------- */
     function recoger(o, s){
       switch (o.tipo){
@@ -1980,7 +2148,7 @@
         }
         case 'repel':   sfx.burbuja(); efectos.repel += s.dur; mostrarAviso('<b>REPEL</b> · enemies cannot reach you · +' + s.dur.toFixed(1) + 's'); anillo(P.x, P.y, 30, 70, .4, '#7dffc9'); break;
         case 'orbes':   sfx.rayoOn(); efectos.orbes += s.dur * 1.4; mostrarAviso('<b>ORBS</b> · +' + (s.dur * 1.4).toFixed(1) + 's'); break;
-        case 'senuelo': sfx.nucleo(); efectos.senuelo += s.dur; senuelo = { x:o.x, y:o.y, vx:0, vy:0 }; mostrarAviso('<b>DECOY</b> · enemies chase the fake Z'); anillo(o.x, o.y, 16, 36, .4, '#ffd27d'); break;
+        case 'senuelo': sfx.nucleo(); efectos.senuelo += s.dur * 1.8; senuelo = { x:o.x, y:o.y, vx:0, vy:0 }; mostrarAviso('<b>DECOY</b> · enemies chase the fake Z'); anillo(o.x, o.y, 16, 36, .4, '#ffd27d'); break;
         case 'puas': {                                                      // 6 parches de puas al azar en la pantalla, 12 s
           sfx.granada(); mostrarAviso('<b>SPIKES</b> · half your damage to enemies that step on them');
           for (var pu = 0; pu < 6; pu++) puasL.push({ x:12 + Math.random() * (W - 24), y:12 + Math.random() * (H - 24), r:7 + Math.random() * 3, t:12 + s.dur, k:Math.random() * 0.4 });
@@ -2005,7 +2173,7 @@
         // Recoger otro igual SUMA su duracion a la que ya tenias (no la reinicia)
         case 'tiempo':  sfx.tiempo(); ebalas = []; efectos.tiempo += s.dur * 0.8; mostrarAviso('<b>TIME STOP</b> · +' + (s.dur * 0.8).toFixed(1) + 's'); break;
         case 'burbuja': sfx.burbuja(); efectos.burbuja += s.dur; mostrarAviso('<b>SHIELD</b> · +' + s.dur.toFixed(1) + 's'); break;
-        case 'rayo':    sfx.rayoOn(); efectos.rayo += s.dur; rayoT = 0; mostrarAviso('<b>STORM</b> · +' + s.dur.toFixed(1) + 's'); break;
+        case 'rayo': { var cargas = Math.round(5 * (1 + 0.2 * m.duracion)); sfx.rayoOn(); efectos.rayo = Math.min(15, efectos.rayo + cargas); rayoT = 0; mostrarAviso('<b>STORM</b> · +' + cargas + ' strikes'); break; }
         case 'barrido': ultimoBarrido = tiempo; sfx.barrido();
                         enemigos.forEach(function(q2){ if (!enPantalla(q2)) q2.bar = true; });   // lo que esta fuera de pantalla no se barre
                         barrido = { eje:(Math.random() < 0.5 ? 'x' : 'y'), pos:-4, vel:0 };
@@ -2020,7 +2188,7 @@
       tiempo += dt;
       if (inv > 0) inv -= dt;
       if (s.reg > 0 && hp < s.vida){ hp = Math.min(s.vida, hp + s.reg * dt); }
-      ['tiempo', 'burbuja', 'rayo', 'curaLenta', 'repel', 'orbes', 'senuelo'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });
+      ['tiempo', 'burbuja', 'curaLenta', 'repel', 'orbes', 'senuelo'].forEach(function(k){ if (efectos[k] > 0) efectos[k] -= dt; });   // el rayo se gasta por uso
       if (efectos.senuelo <= 0) senuelo = null;
       if (efectos.curaLenta > 0 && hp < s.vida) hp = Math.min(s.vida, hp + 8 * dt);
       // tiempo detenido: sonido general bajo + tic-tac + conteo en pantalla hasta que se acabe
@@ -2045,8 +2213,8 @@
         if (hieloRec > 0) hieloRec -= dt;
         // el empuje tiene INERCIA: te lanza con velocidad y sigues deslizandote un buen trecho despues de salir del campo
         emp.x += empV.x * dt; emp.y += empV.y * dt;
-        var fr = Math.exp(-dt * 2.6); empV.x *= fr; empV.y *= fr;
-        var decE = Math.exp(-dt * (hieloRec > 0 ? 5 : 0.7)); emp.x *= decE; emp.y *= decE;
+        var fr = Math.exp(-dt * 4.5); empV.x *= fr; empV.y *= fr;
+        var decE = Math.exp(-dt * (hieloRec > 0 ? 6 : 4)); emp.x *= decE; emp.y *= decE;       // vuelve RAPIDO al cursor
         var em0 = Math.hypot(emp.x, emp.y); if (em0 > 260){ emp.x *= 260 / em0; emp.y *= 260 / em0; }
       }
       P.x = Math.max(4, Math.min(W - 4, tx + emp.x)); P.y = Math.max(4, Math.min(H - 4, ty + emp.y));
@@ -2196,9 +2364,52 @@
       // disparos enemigos (torretas y jefes)
       for (var eb = ebalas.length - 1; eb >= 0; eb--){
         var q2 = ebalas[eb];
-        if (!congelado){ q2.x += q2.vx * dt; q2.y += q2.vy * dt; q2.t -= dt; }
-        if (q2.t <= 0 || q2.x < -8 || q2.y < -8 || q2.x > W + 8 || q2.y > H + 8){ ebalas.splice(eb, 1); continue; }
-        if (jugadorTocadoPor(q2.x, q2.y, (q2.r || 1.5) * 0.7)){ ebalas.splice(eb, 1); herir(q2.d); if (fin) return; }
+        if (!congelado){
+          if (q2.bum){                                                             // bumeran enemigo: va, y vuelve a quien lo lanzo
+            var sq = Math.hypot(q2.vx, q2.vy);
+            if (!q2.ret){ q2.rec += sq * dt; if (q2.rec > q2.alc) q2.ret = true; }
+            else {
+              var dq = q2.due && enemigos.indexOf(q2.due) >= 0 ? q2.due : null;
+              if (dq){ var bqx = dq.x - q2.x, bqy = dq.y - q2.y, bqd = Math.hypot(bqx, bqy) || 1; q2.vx = bqx / bqd * sq; q2.vy = bqy / bqd * sq; if (bqd < 5){ dq.bumVivo = false; ebalas.splice(eb, 1); continue; } }
+            }
+          }
+          if (q2.estaca){                                                          // estaca: al llegar a su sitio se clava
+            q2.t -= dt; q2.x += q2.vx * dt; q2.y += q2.vy * dt;
+            if (q2.t <= 0){ estacas.push({ x:Math.max(10, Math.min(W - 10, q2.x)), y:Math.max(10, Math.min(H - 10, q2.y)), t:q2.dur, k:0.6 }); sfx.zona(); ebalas.splice(eb, 1); }
+            continue;
+          }
+          q2.x += q2.vx * dt; q2.y += q2.vy * dt; q2.t -= dt;
+        }
+        if (q2.t <= 0 || q2.x < -8 || q2.y < -8 || q2.x > W + 8 || q2.y > H + 8){ if (q2.due) q2.due.bumVivo = false; ebalas.splice(eb, 1); continue; }
+        if (jugadorTocadoPor(q2.x, q2.y, (q2.r || 1.5) * 0.7)){
+          if (q2.sapo){ ebalas.splice(eb, 1); if (efectos.burbuja <= 0){ sapo = 4; sapoT = 0; sfx.divide(); mostrarAviso('<b>FROG!</b> · you hop around', true, 1600); anillo(P.x, P.y, 16, 30, .4, '#b06cff'); } continue; }
+          if (q2.emp){                                                             // bala de empuje: no quita vida, te lanza con fuerza
+            ebalas.splice(eb, 1); var ea = Math.atan2(q2.vy, q2.vx); empV.x += Math.cos(ea) * 900; empV.y += Math.sin(ea) * 900; sfx.carga(); continue;
+          }
+          if (q2.bum && q2.golpeo) continue;
+          if (q2.bum) q2.golpeo = true; else ebalas.splice(eb, 1);
+          herir(q2.d); if (fin) return;
+        }
+      }
+      // minas: parpadean armadas; si te acercas explotan con una onda grande
+      for (var mi = minas.length - 1; mi >= 0; mi--){
+        var mn = minas[mi]; mn.t -= dt; if (mn.arm > 0) mn.arm -= dt;
+        if (mn.t <= 0){ minas.splice(mi, 1); continue; }
+        if (mn.arm <= 0 && !congelado && Math.hypot(mn.x - P.x, mn.y - P.y) < 9){
+          minas.splice(mi, 1); anillo(mn.x, mn.y, 40, 70, 0.4, '#ffb347'); anillo(mn.x, mn.y, 20, 40, 0.35, '#fff3c4'); sfx.bomba();
+          if (Math.hypot(mn.x - P.x, mn.y - P.y) < 30) herir(mn.d); if (fin) return;
+        }
+      }
+      // estacas de jefe: clavadas, cada 1.3 s sueltan 8 balas de EMPUJE en todas direcciones
+      for (var si = estacas.length - 1; si >= 0; si--){
+        var es = estacas[si]; es.t -= dt; if (!congelado) es.k -= dt;
+        if (es.t <= 0){ estacas.splice(si, 1); continue; }
+        if (es.k <= 0){ es.k = 1.3; for (var sk = 0; sk < 8; sk++){ var sa2 = sk * 0.7854 + es.t; ebalas.push({ x:es.x, y:es.y, vx:Math.cos(sa2) * 58, vy:Math.sin(sa2) * 58, d:0, t:3, r:2, c:'#9fe9ff', emp:true }); } sfx.eshot(); }
+      }
+      // SAPO: durante unos segundos saltas erratico: cada 0.3 s un brinco en una direccion al azar
+      if (sapo > 0){
+        sapo -= dt; sapoT -= dt;
+        if (sapoT <= 0){ sapoT = 0.3; var sa3 = Math.random() * 6.2832; empV.x += Math.cos(sa3) * 520; empV.y += Math.sin(sa3) * 520; parts.push({ x:P.x, y:P.y + 3, vx:0, vy:12, t:0.3, c:'#b06cff' }); }
       }
       if (!congelado){
         // zonas de meteoro: avisan con un circulo y explotan despues
@@ -2332,7 +2543,7 @@
         if (rayoT <= 0 && visibles.length){
           rayoT = 0.32;
           var v = visibles[(Math.random() * visibles.length) | 0];
-          golpear(v, s.dano * 2.4 + nivel * 0.6, s);                    // antes 3x dano + nivel: quitaba demasiado
+          golpear(v, s.dano * 2.4 + nivel * 0.6, s); efectos.rayo--;      // cada trueno gasta una carga
           rayos.push({ x:v.x, y:v.y, t:0.16 }); sfx.zap();
         }
       }
@@ -2426,7 +2637,7 @@
         if (efectos[k3] > efMax[k3]) efMax[k3] = efectos[k3];
         var pct = Math.round(efectos[k3] / efMax[k3] * 10) * 10;                     // pasos de 10% para no reescribir cada cuadro
         tx2 += '<div class="jg-ef"><i style="background:' + d3[2] + '"></i><span>' + d3[1] + '</span>' +
-               '<b>' + Math.ceil(efectos[k3]) + 's</b><em><u style="width:' + pct + '%;background:' + d3[2] + '"></u></em></div>';
+               '<b>' + (k3 === 'rayo' ? '×' + Math.ceil(efectos[k3]) : Math.ceil(efectos[k3]) + 's') + '</b><em><u style="width:' + pct + '%;background:' + d3[2] + '"></u></em></div>';
       });
       if (tx2 !== efectosTxt){ efectosTxt = tx2; el('efectos').innerHTML = tx2; }
     }
@@ -2569,7 +2780,7 @@
     function golpea(e, x, y, rad){
       var id = idMasa(e), m = mascaraDe(id), h = HOJA[id], k = e.s / (h.s0 || e.s), w = m.win;
       var dx = x - e.x, dy = y - e.y;
-      rad = (rad || 0) + (e.jug ? 2 : 0);                                      // el blindaje del juggernaut suma un borde
+      rad = rad || 0;
       var lim = m.rad * k + rad + 1;
       if (dx * dx + dy * dy > lim * lim) return false;
       if (e.sp === 'espinoso'){ var a0 = -(tiempo * 3 + e.ph), c0 = Math.cos(a0), s0 = Math.sin(a0), rx = dx * c0 - dy * s0, ry = dx * s0 + dy * c0; dx = rx; dy = ry; }
@@ -2663,10 +2874,6 @@
           for (i = 0; i < 6; i++){ a = i / 6 * 6.2832 + t * 0.3; pieza('colCelda', cx + Math.cos(a) * 8, cy + Math.sin(a) * 8, k, 0, tinte, alfa); }
           break;
       }
-      if (e.jug){                                                          // juggernaut: blindaje + barrita de vida
-        pieza(idBlindaje(e), cx, cy, 1, 0, tinte || e.col, e.sp === 'fantasma' && e.fase ? 0.3 : 1);
-        dibujarBarraBlindaje(e);
-      }
       return true;
     }
 
@@ -2708,6 +2915,11 @@
       cuerpo('espinoso', 'espinoso', '#ffd94d'); cuerpo('saltarin', 'saltarin', '#ffb34d'); cuerpo('bombardero', 'bombardero', '#ff6a3d');
       cuerpo('torreta', 'torreta', '#ff5b5b'); cuerpo('escudero', 'escudero', '#9fd0ff'); cuerpo('masa', 'masa', '#ff3b6b');
       cuerpo('rebotador', 'rebotador', '#ff8a3d');
+      cuerpo('abanico', 'abanico', '#ff7fb6'); cuerpo('francotirador', 'francotirador', '#b8ffe0'); cuerpo('brujo', 'brujo', '#b06cff');
+      cuerpo('bumerante', 'bumerante', '#ffc46b'); cuerpo('minador', 'minador', '#9aa7b5');
+      celda('mina', function(x, y){ px(x - 2, y - 1, 5, 3, '#9aa7b5'); px(x - 1, y - 2, 3, 5, '#9aa7b5'); });
+      celda('pua', function(x, y){ for (var i = -6; i <= 6; i += 3) for (var j = -6; j <= 6; j += 3){ if (i * i + j * j > 42 || ((i + j) / 3) % 2) continue; px(x + i, y + j, 1, 1, '#d8d8d8'); px(x + i + 1, y + j + 1, 1, 1, '#d8d8d8'); px(x + i - 1, y + j + 1, 1, 1, '#d8d8d8'); px(x + i + 1, y + j - 1, 1, 1, '#d8d8d8'); px(x + i - 1, y + j - 1, 1, 1, '#d8d8d8'); } });
+      celda('orbe', function(x, y){ px(x - 1, y - 1, 3, 3, '#8fe9ff'); px(x, y, 1, 1, '#ffffff'); });
       // capas (cada parte animada, sola, apuntando a la derecha; pivote = centro de la celda)
       [0, 1].forEach(function(fq){
         celda('patas', function(x, y, h){ var s = h.s0, x0 = x - s / 2, y0 = y - s / 2, c = '#ffb34d', largo = fq ? 3 : 1;
@@ -2882,8 +3094,7 @@
     function dibujarEnemigo(e, congelado){
       if (sheetPersonalizado && dibujarEnemigoHoja(e, congelado)) return;     // con hoja: cuerpo + capas separadas
       if (e.sp === 'jefe'){ dibujarJefe(e, congelado); return; }
-      if (e.jug) dibujarJugEscalado(e, congelado); else dibujarBase(e, congelado);
-      if (e.jug) dibujarBlindaje(e, congelado);
+      if (e.jug) dibujarJugEscalado(e, congelado); else dibujarBase(e, congelado);     // el juggernaut: SOLO el sprite al doble
     }
     function dibujarBase(e, congelado){
       var s = Math.round(e.s), cx = Math.round(e.x), cy = Math.round(e.y), x0 = Math.round(e.x - s / 2), y0 = Math.round(e.y - s / 2);
@@ -2923,6 +3134,11 @@
       px(x0, y0, g, s, col); px(x0 + s - g, y0, g, s, col);
       if (e.sp === 'divisor'){ px(cx, y0, 1, s, col); px(x0, cy, s, 1, col); }          // cruz: se va a partir
       if (e.sp === 'rebotador') lineaPx(x0 + 2, y0 + s - 3, x0 + s - 3, y0 + 2, col);    // brillo diagonal, como el logo de un DVD
+      if (e.sp === 'abanico'){ for (var ab2 = -1; ab2 <= 1; ab2++) lineaPx(cx, cy, cx + Math.cos(ab2 * 0.5) * (s / 2 - 1), cy + Math.sin(ab2 * 0.5) * (s / 2 - 1), col); }   // abanico de 3 lineas
+      if (e.sp === 'francotirador'){ px(cx - 3, cy, 7, 1, col); px(cx, cy - 3, 1, 7, col); px(cx - 1, cy - 1, 3, 3, '#05080f'); px(cx, cy, 1, 1, col); }        // mira
+      if (e.sp === 'brujo'){ lineaPx(x0 + 1, y0 - 1, cx, y0 - 6, col); lineaPx(x0 + s - 2, y0 - 1, cx, y0 - 6, col); px(cx - 2, cy, 1, 1, col); px(cx + 2, cy, 1, 1, col); }   // sombrero
+      if (e.sp === 'bumerante'){ lineaPx(cx - 3, cy + 2, cx, cy - 2, col); lineaPx(cx, cy - 2, cx + 3, cy + 2, col); }                                           // bumeran dentro
+      if (e.sp === 'minador'){ px(cx - 1, cy - 1, 3, 3, col); px(x0 + 2, y0 + 2, 1, 1, col); px(x0 + s - 3, y0 + 2, 1, 1, col); px(x0 + 2, y0 + s - 3, 1, 1, col); px(x0 + s - 3, y0 + s - 3, 1, 1, col); }
       if (e.baseOnly) return;
       if (e.cuerpo){                                          // solo lo estatico; el resto son capas de la hoja
         if (e.sp === 'sembrador'){ px(x0 + 3, y0 + 3, 2, 2, col); px(x0 + s - 5, y0 + 3, 2, 2, col); px(x0 + 3, y0 + s - 5, 2, 2, col); px(x0 + s - 5, y0 + s - 5, 2, 2, col); }
@@ -3025,6 +3241,7 @@
         if (!pieza('copoHielo', P.x, P.y - 9, 1, 0, null, 0.9)) px(Math.round(P.x), Math.round(P.y) - 10, 1, 3, '#fff');
       }
       if (venenoJ > 0 && Math.floor(tiempo * 10) % 3 === 0) px(P.x - 4, P.y - 4, 9, 9, 'rgba(140,255,90,.18)');
+      if (sapo > 0){ px(P.x - 5, P.y - 5, 11, 11, 'rgba(176,108,255,.22)'); px(P.x - 3, P.y - 7, 2, 2, '#b06cff'); px(P.x + 2, P.y - 7, 2, 2, '#b06cff'); }
       if (fuegoJ > 0){ var fc = Math.floor(tiempo * 12) % 2; px(P.x - 2, P.y - 6, 1, 2, fc ? '#ffd94d' : '#ff7a3d'); px(P.x + 2, P.y - 7, 1, 3, fc ? '#ff7a3d' : '#ffd94d'); }
       if (parpadeo) return;
       if (pieza('jugador', P.x, P.y, 1)) return;
@@ -3078,6 +3295,7 @@
       });
       puasL.forEach(function(pq){                                                            // puas: X de 1 px en el suelo
         if (pq.t < 2 && Math.floor(pq.t * 8) % 2) return;
+        if (pieza('pua', pq.x, pq.y, 1, 0, null, Math.floor(tiempo * 4 + pq.k * 10) % 2 ? 1 : 0.7)) return;
         var c = Math.floor(tiempo * 4 + pq.k * 10) % 2 ? '#d8d8d8' : '#9a9a9a', r0 = Math.round(pq.r);
         for (var i = -r0; i <= r0; i += 3){ for (var j = -r0; j <= r0; j += 3){ if (i * i + j * j > r0 * r0) continue; if (((i + j) / 3) % 2) continue; px(pq.x + i, pq.y + j, 1, 1, c); px(pq.x + i + 1, pq.y + j + 1, 1, 1, c); px(pq.x + i - 1, pq.y + j + 1, 1, 1, c); px(pq.x + i + 1, pq.y + j - 1, 1, 1, c); px(pq.x + i - 1, pq.y + j - 1, 1, 1, c); } }
       });
@@ -3161,12 +3379,25 @@
           px(x - 2, y0, 5, largo, fl ? '#ffffff' : '#fff6bd'); px(x - 1, y0, 3, largo, '#ffffff');
         });
       });
+      minas.forEach(function(mn){                                        // minas: disco gris con luz que parpadea mas rapido al final
+        if (!pieza('mina', mn.x, mn.y, 1)){ px(mn.x - 2, mn.y - 1, 5, 3, '#9aa7b5'); px(mn.x - 1, mn.y - 2, 3, 5, '#9aa7b5'); }
+        if (mn.arm <= 0 && Math.floor(tiempo * (mn.t < 3 ? 14 : 5)) % 2) px(mn.x, mn.y - 1, 1, 1, '#ff4d4d');
+      });
+      estacas.forEach(function(es){                                      // estaca clavada: poste con pulso
+        px(es.x - 1, es.y - 7, 3, 9, '#9fe9ff'); px(es.x, es.y - 9, 1, 2, '#ffffff');
+        var pr = 1 - es.k / 1.3, nn3 = Math.ceil(pr * 12 * 6.2832 / 3);
+        for (var ki3 = 0; ki3 < nn3; ki3++){ var ka3 = ki3 / nn3 * 6.2832; px(es.x + Math.cos(ka3) * pr * 12, es.y + Math.sin(ka3) * pr * 12, 1, 1, 'rgba(159,233,255,' + (1 - pr).toFixed(2) + ')'); }
+      });
       cuchillas.forEach(function(c){                                     // cuchillas orbitales
         if (c.x === undefined) return;
         px(c.x - 1, c.y, 3, 1, '#d9c2ff'); px(c.x, c.y - 1, 1, 3, '#d9c2ff'); px(c.x, c.y, 1, 1, '#fff');
       });
       ebalas.forEach(function(b){                                        // orbe enemigo: anillo distinto + nucleo rojo
         var rr = Math.max(2, Math.round((b.r || 1.5) * 1.6)), bx = Math.round(b.x), by = Math.round(b.y);
+        if (b.sapo){ var ns = 12; for (var qs = 0; qs < ns; qs++){ var as2 = qs / ns * 6.2832 + tiempo * 3; px(bx + Math.cos(as2) * 3, by + Math.sin(as2) * 3, 1, 1, qs % 2 ? '#d9a6ff' : '#b06cff'); } px(bx - 1, by - 1, 2, 2, '#f0d8ff'); return; }
+        if (b.emp){ px(bx - 1, by - 1, 3, 3, '#9fe9ff'); px(bx - 1 - b.vx * 0.03, by - 1 - b.vy * 0.03, 3, 3, 'rgba(159,233,255,.35)'); return; }
+        if (b.bum){ var ab = tiempo * 14; px(bx + Math.cos(ab) * 2, by + Math.sin(ab) * 2, 2, 2, '#ffd27d'); px(bx - Math.cos(ab) * 2, by - Math.sin(ab) * 2, 2, 2, '#ffd27d'); px(bx, by, 1, 1, '#fff'); return; }
+        if (b.estaca){ px(bx - 1, by - 4, 3, 8, '#9fe9ff'); return; }
         px(bx - rr / 2 - b.vx * 0.025, by - rr / 2 - b.vy * 0.025, rr, rr, 'rgba(255,65,80,.22)');
         px(bx - 1, by - rr / 2, 2, 1, '#ffe5e8'); px(bx - 1, by + rr / 2 - 1, 2, 1, '#ffe5e8');
         px(bx - rr / 2, by - 1, 1, 2, '#ffe5e8'); px(bx + rr / 2 - 1, by - 1, 1, 2, '#ffe5e8');
@@ -3201,8 +3432,11 @@
       });
       if (senuelo){                                                                          // Z falsa: parpadea en ambar
         var sx0 = Math.round(senuelo.x - 3), sy0 = Math.round(senuelo.y - 3);
-        if (!(efectos.senuelo < 1.5 && Math.floor(efectos.senuelo * 8) % 2))
-          for (var sy = 0; sy < 7; sy++) for (var sx = 0; sx < 7; sx++) if (Z_PIX[sy][sx] === 'X') px(sx0 + sx, sy0 + sy, 1, 1, Math.floor(tiempo * 6) % 2 ? '#ffd27d' : '#ffb347');
+        if (!(efectos.senuelo < 1.5 && Math.floor(efectos.senuelo * 8) % 2)){
+          var cS = Math.floor(tiempo * 6) % 2 ? '#ffd27d' : '#ffb347';
+          if (!pieza('jugador', senuelo.x, senuelo.y, 1, 0, cS))                                 // mismo sprite que el jugador, en ambar
+            for (var sy = 0; sy < 7; sy++) for (var sx = 0; sx < 7; sx++) if (Z_PIX[sy][sx] === 'X') px(sx0 + sx, sy0 + sy, 1, 1, cS);
+        }
       }
       if (efectos.repel > 0 && !fin){                                                        // anillo de repel con flechas hacia afuera
         var nr = 40;
@@ -3211,7 +3445,7 @@
       }
       if (efectos.orbes > 0 && !fin) for (var oq = 0; oq < 3; oq++){                         // orbes
         var oa2 = orbesAng + oq * 2.0944, ox2 = P.x + Math.cos(oa2) * 16, oy2 = P.y + Math.sin(oa2) * 16;
-        px(ox2 - 1, oy2 - 1, 3, 3, '#8fe9ff'); px(ox2, oy2, 1, 1, '#ffffff');
+        if (!pieza('orbe', ox2, oy2, 1)){ px(ox2 - 1, oy2 - 1, 3, 3, '#8fe9ff'); px(ox2, oy2, 1, 1, '#ffffff'); }
         px(ox2 - Math.cos(oa2 + 1.3) * 2 - 0.5, oy2 - Math.sin(oa2 + 1.3) * 2 - 0.5, 1, 1, 'rgba(143,233,255,.5)');
       }
       parts.forEach(function(p){ px(p.x, p.y, 1, 1, p.c); });
