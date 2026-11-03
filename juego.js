@@ -548,6 +548,8 @@
   '.jg-lista{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;margin:12px 0 0;font-size:.74rem;color:#9bb0a5;text-align:left}' +
   '.jg-lista b{color:#fff;float:right}' +
   '.jg-modal-acciones{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}' +
+  '.jg-modal-acciones.vertical{flex-direction:column;align-items:stretch;max-width:260px;margin-left:auto;margin-right:auto}' +
+  '.jg-modal-acciones.vertical .jg-btn{width:100%}' +
   '.jg-modal-acciones .jg-btn{width:auto;height:auto;padding:10px 22px;border-radius:999px;font-size:.85rem;letter-spacing:.06em}' +
   '.jg-rank{display:flex;flex-direction:column;gap:3px;margin:12px 0 0;min-width:min(78vw,300px)}' +
   '.jg-fr{display:grid;grid-template-columns:44px 20px 1fr auto;gap:8px;align-items:center;padding:6px 12px;border-radius:14px;' +
@@ -1074,7 +1076,7 @@
         '<input class="jg-rango" type="range" min="0" max="100" value="' + Math.round(VOL * 100) + '">' +
         '<p><b data-n="volnum">' + Math.round(VOL * 100) + '%</b></p>' +
         '<p>Sprite sheet</p>' +
-        '<div class="jg-modal-acciones"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="descargarGuia">DOWNLOAD GUIDE</button><button class="jg-btn" data-a="usarDefecto">USE DEFAULT</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
+        '<div class="jg-modal-acciones vertical"><button class="jg-btn" data-a="sprites">LOAD SHEET</button><button class="jg-btn" data-a="descargarSheet">DOWNLOAD SHEET</button><button class="jg-btn" data-a="descargarGuia">DOWNLOAD GUIDE</button><button class="jg-btn" data-a="usarDefecto">USE DEFAULT</button><button class="jg-btn" data-a="catalogo">CATALOG</button><button class="jg-btn" data-a="volverpausa">BACK</button></div>';
       modal.hidden = false;
     }
     var sheetPersonalizado = null;
