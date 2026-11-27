@@ -21,6 +21,10 @@ img/*.flv
 # automatica los manda a Releases y los borra. Nunca van al repo.
 subir/
 
+# Archivos internos del publicador (nunca van al repo)
+.publicador.lock
+.publicador.log
+
 # Archivos sueltos de Windows
 Thumbs.db
 desktop.ini

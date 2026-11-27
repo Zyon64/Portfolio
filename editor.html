@@ -1403,9 +1403,10 @@ window.VIDRIO = {
 
     var etiqueta;
     if (!est.actual)                     etiqueta = 'Esperando al publicador';
+    else if (est.fase === 'error')       etiqueta = 'Error con ' + est.actual + ' (revisá el publicador)';
     else if (est.fase === 'optimizando') etiqueta = 'Optimizando ' + est.actual;
     else                                 etiqueta = 'Subiendo ' + est.actual;
-    if (est.actual && medible) etiqueta += ' — ' + Math.round(est.pct) + '%';
+    if (est.actual && medible && est.fase !== 'error') etiqueta += ' — ' + Math.round(est.pct) + '%';
 
     $('estado-txt').textContent = etiqueta + ' · ' + (hechos + 1) + ' de ' + totalTanda;
 
