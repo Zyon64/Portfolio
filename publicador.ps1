@@ -271,6 +271,7 @@ function Optimizar($ruta, $nombre, $i, $total) {
         '-c:a','aac','-b:a','96k',
         "`"$parcial`""
     )
+    $null = $p.Handle
 
     while (-not $p.HasExited) {
         Start-Sleep -Milliseconds 700
@@ -284,6 +285,7 @@ function Optimizar($ruta, $nombre, $i, $total) {
             } catch {}
         }
     }
+    $p.WaitForExit()
     Remove-Item -LiteralPath $prog -Force -ErrorAction SilentlyContinue
 
     if ($p.ExitCode -eq 0 -and (Test-Path -LiteralPath $parcial) -and ((Get-Item -LiteralPath $parcial).Length -gt 0)) {
@@ -328,17 +330,24 @@ function Subir($ruta, $nombre, $i, $total, $token, $relId) {
     if ($CURL) {
         $medidor    = Join-Path $BANDEJA '_curl.txt'
         $salidaCurl = Join-Path $BANDEJA '_curl_out.txt'
-        Remove-Item -LiteralPath $medidor, $salidaCurl -Force -ErrorAction SilentlyContinue
+        $cfgCurl    = Join-Path $BANDEJA '_curl_cfg.txt'
+        Remove-Item -LiteralPath $medidor, $salidaCurl, $cfgCurl -Force -ErrorAction SilentlyContinue
+
+        $cfgContenido = @(
+            "header = `"Authorization: Bearer $token`""
+            "header = `"Accept: application/vnd.github+json`""
+            "header = `"Content-Type: application/octet-stream`""
+        ) -join "`n"
+        [IO.File]::WriteAllText($cfgCurl, $cfgContenido)
 
         $c = Start-Process -FilePath $CURL -PassThru -NoNewWindow `
              -RedirectStandardError $medidor -RedirectStandardOutput $salidaCurl -ArgumentList @(
                 '--progress-bar', '--fail', '-X', 'POST',
-                '-H', "Authorization: Bearer $token",
-                '-H', 'Accept: application/vnd.github+json',
-                '-H', 'Content-Type: application/octet-stream',
-                '--data-binary', "@$ruta",
-                $url
+                '-K', "`"$cfgCurl`"",
+                '--data-binary', "`"@$ruta`"",
+                "`"$url`""
              )
+        $null = $c.Handle
 
         while (-not $c.HasExited) {
             Start-Sleep -Milliseconds 600
@@ -353,10 +362,11 @@ function Subir($ruta, $nombre, $i, $total, $token, $relId) {
                 }
             } catch {}
         }
+        $c.WaitForExit()
 
         $detalle = ''
         try { $detalle = (Get-Content -LiteralPath $salidaCurl -Raw -ErrorAction SilentlyContinue) } catch {}
-        Remove-Item -LiteralPath $medidor, $salidaCurl -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $medidor, $salidaCurl, $cfgCurl -Force -ErrorAction SilentlyContinue
 
         if ($c.ExitCode -eq 0) {
             Estado $nombre 'subiendo' 100 $i $total
