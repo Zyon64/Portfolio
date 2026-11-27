@@ -1,1 +1,3 @@
-CreateObject("WScript.Shell").Run """C:\Users\MXD\Documents\Portfolio\PUBLICADOR.bat""", 0, False
+Set fso = CreateObject("Scripting.FileSystemObject")
+dir = fso.GetParentFolderName(WScript.ScriptFullName)
+CreateObject("WScript.Shell").Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & dir & "\publicador.ps1""", 0, False

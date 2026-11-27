@@ -1358,6 +1358,15 @@ window.VIDRIO = {
     } catch(e){ return ''; }
   }
 
+  /* Si _publicar.flag sigue ahí tras >10s, el publicador no está corriendo */
+  async function publicadorDormido(){
+    try{
+      var dir = await dirHandle.getDirectoryHandle('subir', { create:false });
+      var f   = await (await dir.getFileHandle('_publicar.flag')).getFile();
+      return (Date.now() - f.lastModified) > 10000;
+    } catch(e){ return false; }
+  }
+
   async function vigilarSubidas(){
     var est = await pendientes();
     if (!est) return;
@@ -1371,8 +1380,10 @@ window.VIDRIO = {
         $('estado').classList.remove('hidden');
         $('estado-fill').style.width = '100%';
         $('estado-fill').classList.add('indeterminado');
-        $('estado-txt').textContent =
-          'Subido. Esperando a que GitHub Pages actualice la página (suele tardar 1–5 min)...';
+        var dormido = await publicadorDormido();
+        $('estado-txt').textContent = dormido
+          ? 'El publicador no está abierto. Abrí PUBLICADOR.bat (o activá la publicación automática) para subir los cambios.'
+          : 'Subido. Esperando a que GitHub Pages actualice la página (suele tardar 1–5 min)...';
         if (!vigia) vigia = setInterval(vigilarSubidas, 2000);
         return;
       }
